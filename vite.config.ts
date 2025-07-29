@@ -8,13 +8,18 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
+VitePWA({
       registerType: 'autoUpdate',
       manifest: {
         name: 'DOST Okuma Asistanı',
+        short_name: 'DOST',
+        description: 'Okuma Asistanı Uygulaması',
+        theme_color: '#512DA8',
+        background_color: '#f8f8ff',
+        display: 'standalone',
         icons: [
           {
-            src: '/icons/icon-192.png',
+            src: '/favicon.png',
             sizes: '192x192',
             type: 'image/png'
           }

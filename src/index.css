@@ -18,12 +18,11 @@ body {
 }
 
 .space-background {
-  position: absolute;      /* Sayfada kaydırılmayacak, sabit arka plan */
-  width: 100%;         /* Viewport genişliği */
-  min-height: 100%;        /* Viewport yüksekliği */
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
   background-image: url('./assets/background.svg');
-  background-size: cover;       /* Tam kaplama */
-  background-position: center;  /* Ortala */
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
-  z-index: -1;
 }
