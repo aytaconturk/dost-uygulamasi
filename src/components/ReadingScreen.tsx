@@ -58,7 +58,7 @@ export default function ReadingScreen({ stories }: Props) {
         }
     ];
 
-    const story = stories.find((s) => s.id === Number(id));
+    const story:any = stories.find((s) => s.id === Number(id));
 
     useEffect(() => {
         if (stepStarted && audioRef.current) {
