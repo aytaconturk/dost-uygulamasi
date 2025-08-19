@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import StoryList from './components/StoryList';
 import StoryIntro from './components/StoryIntro';
 import ReadingScreen from './components/ReadingScreen';
+import Level1Steps from './components/Level1Steps';
 import Header from './components/Header';
 import './index.css';
 
@@ -30,6 +31,7 @@ export default function App() {
                     <Routes>
                         <Route path="/" element={<StoryList stories={stories} />} />
                         <Route path="/story/:id" element={<StoryIntro stories={stories} />} />
+                        <Route path="/story/1/read" element={<Level1Steps />} />
                         <Route path="/story/:id/read" element={<ReadingScreen stories={stories} />} />
                     </Routes>
                 </div>

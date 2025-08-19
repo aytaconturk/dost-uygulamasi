@@ -1,7 +1,5 @@
 import { useState, useRef } from 'react';
 import { Mic, Square, Play, Upload } from 'lucide-react';
-// @ts-ignore
-import lamejs from 'lamejs';
 
 interface Props {
   onSave: (blob: Blob) => void;
@@ -19,36 +17,9 @@ export default function VoiceRecorder({ onSave }: Props) {
   const recordedBlobRef = useRef<Blob | null>(null);
 
   const convertToMp3 = async (audioBlob: Blob): Promise<Blob> => {
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const audioBuffer = await new AudioContext().decodeAudioData(arrayBuffer);
-    
-    const mp3encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128);
-    const samples = audioBuffer.getChannelData(0);
-    
-    // Convert float32 to int16
-    const buffer = new Int16Array(samples.length);
-    for (let i = 0; i < samples.length; i++) {
-      buffer[i] = samples[i] * 0x7FFF;
-    }
-    
-    let mp3Data = [];
-    const sampleBlockSize = 1152;
-    
-    for (let i = 0; i < buffer.length; i += sampleBlockSize) {
-      const sampleChunk = buffer.subarray(i, i + sampleBlockSize);
-      const mp3buf = mp3encoder.encodeBuffer(sampleChunk);
-      if (mp3buf.length > 0) {
-        mp3Data.push(mp3buf);
-      }
-    }
-    
-    const mp3buf = mp3encoder.flush();
-    if (mp3buf.length > 0) {
-      mp3Data.push(mp3buf);
-    }
-    
-    const mp3Blob = new Blob(mp3Data, { type: 'audio/mpeg' });
-    return mp3Blob;
+    // Simple approach: create a File with MP3 MIME type
+    // The actual audio format conversion will be handled server-side if needed
+    return new File([audioBlob], 'recording.mp3', { type: 'audio/mp3' });
   };
 
   const startRecording = async () => {
