@@ -4,6 +4,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 
 export default function Level1Steps() {
+    const allowFreeNav = true;
     const navigate = useNavigate();
     const audioRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -92,7 +93,7 @@ export default function Level1Steps() {
             title: "2. Adım: Metnin başlığını inceleme ve tahminde bulunma",
             text: "Şimdi bu seviyenin ikinci basamağında metnin başlığ��nı inceleyeceğiz ve başlıktan yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.",
             audio: "/src/assets/audios/level1/seviye-1-adim-2-fable.mp3",
-            prompt: "Başlık 'Büyük İşler Küçük Dostlar' diyor. Bu başlıktan yola çıkarak hikayenin ne hakkında olabileceğini düşünüyor musun? Fikirlerini paylaş!",
+            prompt: "Başlık 'Büyük İşler K��çük Dostlar' diyor. Bu başlıktan yola çıkarak hikayenin ne hakkında olabileceğini düşünüyor musun? Fikirlerini paylaş!",
             type: "title_prediction"
         },
         {
@@ -115,7 +116,7 @@ export default function Level1Steps() {
         id: 1,
         title: 'Büyük İşler Küçük Dostlar',
         description: 'Karıncalar hakkında',
-        image: 'https://dost.muhbirai.com/src/assets/images/story1.png'
+        image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png'
     };
 
     // Initial step trigger - parallel execution
@@ -1026,39 +1027,37 @@ export default function Level1Steps() {
                 </div>
             )}
 
-            {/* Completed Steps Checklist - Same as ReadingScreen */}
-            {completedSteps.some(completed => completed) && (
-                <div className="bg-green-50 border-b border-green-200 py-3 px-6">
-                    <div className="max-w-4xl mx-auto">
-                        <h3 className="text-sm font-semibold text-green-800 mb-2">Tamamlanan Adımlar:</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {steps.map((step, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                        completedSteps[index]
-                                            ? 'bg-green-500 border-green-500 text-white'
-                                            : index === currentStep
-                                            ? 'border-purple-500 bg-purple-100'
-                                            : 'border-gray-300'
-                                    }`}>
-                                        {completedSteps[index] && '✓'}
-                                        {index === currentStep && !completedSteps[index] && '●'}
-                                    </div>
-                                    <span className={`text-sm ${
-                                        completedSteps[index]
-                                            ? 'text-green-700 line-through'
-                                            : index === currentStep
-                                            ? 'text-purple-700 font-medium'
-                                            : 'text-gray-500'
-                                    }`}>
-                                        {step.title}
-                                    </span>
+            {/* Completed Steps Checklist - Always visible */}
+            <div className="bg-green-50 border-b border-green-200 py-3 px-6">
+                <div className="max-w-4xl mx-auto">
+                    <h3 className="text-sm font-semibold text-green-800 mb-2">Adım Durumu:</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {steps.map((step, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                    completedSteps[index]
+                                        ? 'bg-green-500 border-green-500 text-white'
+                                        : index === currentStep
+                                        ? 'border-purple-500 bg-purple-100'
+                                        : 'border-gray-300'
+                                }`}>
+                                    {completedSteps[index] && '✓'}
+                                    {index === currentStep && !completedSteps[index] && '●'}
                                 </div>
-                            ))}
-                        </div>
+                                <span className={`text-sm ${
+                                    completedSteps[index]
+                                        ? 'text-green-700 line-through'
+                                        : index === currentStep
+                                        ? 'text-purple-700 font-medium'
+                                        : 'text-gray-500'
+                                }`}>
+                                    {step.title}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Step Start Screen */}
             {!stepStarted && (
@@ -1087,7 +1086,7 @@ export default function Level1Steps() {
                     <button
                         onClick={handlePrevStep}
                         className="absolute left-[-48px] top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors"
-                        disabled={currentStep === 0 && stepStarted}
+                        disabled={!allowFreeNav && (currentStep === 0 && stepStarted)}
                     >
                         ←
                     </button>
@@ -1263,7 +1262,7 @@ export default function Level1Steps() {
                     <button
                         onClick={handleNextStep}
                         className="absolute right-[-48px] top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors disabled:opacity-50"
-                        disabled={!stepCompleted && stepStarted}
+                        disabled={!allowFreeNav && (!stepCompleted && stepStarted)}
                     >
                         {currentStep === steps.length - 1 ? '🏠' : '→'}
                     </button>

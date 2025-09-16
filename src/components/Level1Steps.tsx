@@ -16,6 +16,7 @@ interface Props {
 }
 
 export default function Level1Steps({ stories }: Props) {
+    const allowFreeNav = true;
     const navigate = useNavigate();
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [stepStarted, setStepStarted] = useState(false);
@@ -63,9 +64,9 @@ export default function Level1Steps({ stories }: Props) {
 
     const story = {
         id: 1,
-        title: 'Büyük İşler Küçük Dostlar',
+        title: 'Oturum 1: Kırıntıların Kahramanları',
         description: 'Karıncalar hakkında',
-        image: 'https://dost.muhbirai.com/src/assets/images/story1.png'
+        image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png'
     };
 
     // Initial audio playback for step introduction
@@ -76,9 +77,11 @@ export default function Level1Steps({ stories }: Props) {
             audioRef.current.play().then(() => {
                 audioRef.current!.addEventListener('ended', () => {
                     setMascotState('listening');
-                    // After audio ends, trigger image analysis for step 1
+                    // After audio ends, trigger analyses for specific steps
                     if (currentStep === 0) {
                         handleImageAnalysis();
+                    } else if (currentStep === 2) {
+                        handleStep3Analysis();
                     }
                 }, { once: true });
             }).catch(err => console.error('Ses çalma hatası:', err));
@@ -122,6 +125,32 @@ export default function Level1Steps({ stories }: Props) {
             
             // Convert fallback text to speech
             speakText(fallbackText);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    // Step 3 analysis
+    const handleStep3Analysis = async () => {
+        setIsAnalyzing(true);
+        try {
+            const firstSentences = [
+                'Karıncalar çok çalışkan hayvanlardır.',
+                'Kocaman bir başı, uzun bir gövdesi vardır.',
+                'Genellikle şekerli yiyecekler yer.'
+            ];
+            const response = await axios.post(
+                'https://arge.aquateknoloji.com/webhook-test/dost/level1/step3',
+                { title: story.title, firstSentences, step: 3 },
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+            const text = response.data.message || response.data.text || response.data.response || 'Bu cümlelerden yola çıkarak metnin karıncaların özellikleri ve yaşamları hakkında bilgi verdiğini söyleyebiliriz.';
+            setImageAnalysisText(text);
+            speakText(text);
+        } catch (e) {
+            const fallback = 'Bu cümleler bize metnin karıncaların çalışma şekli, yapısı ve beslenmesi hakkında bilgi vereceğini düşündürüyor.';
+            setImageAnalysisText(fallback);
+            speakText(fallback);
         } finally {
             setIsAnalyzing(false);
         }
@@ -172,8 +201,16 @@ export default function Level1Steps({ stories }: Props) {
             formData.append("ses", file);
             formData.append("kullanici_id", "12345");
             formData.append("hikaye_adi", story.title);
-            formData.append("adim", "1");
-            formData.append("adim_tipi", "gorsel_tahmini");
+            const stepNumber = currentStep + 1;
+            formData.append("adim", String(stepNumber));
+            const stepType = currentStep === 0
+                ? 'gorsel_tahmini'
+                : currentStep === 1
+                ? 'okuma'
+                : currentStep === 2
+                ? 'cumle_tahmini'
+                : 'kelime';
+            formData.append("adim_tipi", stepType);
 
             console.log('📤 Çocuk sesi API endpoint:', 'https://arge.aquateknoloji.com/webhook-test/dost/level1/children-voice');
             
@@ -272,39 +309,37 @@ export default function Level1Steps({ stories }: Props) {
                 </h1>
             </div>
 
-            {/* Completed Steps Checklist */}
-            {completedSteps.some(completed => completed) && (
-                <div className="bg-green-50 border-b border-green-200 py-3 px-6">
-                    <div className="max-w-4xl mx-auto">
-                        <h3 className="text-sm font-semibold text-green-800 mb-2">Tamamlanan Adımlar:</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {steps.map((step, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                        completedSteps[index]
-                                            ? 'bg-green-500 border-green-500 text-white'
-                                            : index === currentStep
-                                            ? 'border-purple-500 bg-purple-100'
-                                            : 'border-gray-300'
-                                    }`}>
-                                        {completedSteps[index] && '✓'}
-                                        {index === currentStep && !completedSteps[index] && '●'}
-                                    </div>
-                                    <span className={`text-sm ${
-                                        completedSteps[index]
-                                            ? 'text-green-700 line-through'
-                                            : index === currentStep
-                                            ? 'text-purple-700 font-medium'
-                                            : 'text-gray-500'
-                                    }`}>
-                                        {step.title}
-                                    </span>
+            {/* Completed Steps Checklist (always visible) */}
+            <div className="bg-green-50 border-b border-green-200 py-3 px-6">
+                <div className="max-w-4xl mx-auto">
+                    <h3 className="text-sm font-semibold text-green-800 mb-2">Adım Durumu:</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {steps.map((step, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                    completedSteps[index]
+                                        ? 'bg-green-500 border-green-500 text-white'
+                                        : index === currentStep
+                                        ? 'border-purple-500 bg-purple-100'
+                                        : 'border-gray-300'
+                                }`}>
+                                    {completedSteps[index] && '✓'}
+                                    {index === currentStep && !completedSteps[index] && '●'}
                                 </div>
-                            ))}
-                        </div>
+                                <span className={`text-sm ${
+                                    completedSteps[index]
+                                        ? 'text-green-700 line-through'
+                                        : index === currentStep
+                                        ? 'text-purple-700 font-medium'
+                                        : 'text-gray-500'
+                                }`}>
+                                    {step.title}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Step Start Screen */}
             {!stepStarted && (
@@ -336,7 +371,7 @@ export default function Level1Steps({ stories }: Props) {
                     <button
                         onClick={handlePrevStep}
                         className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded-full p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors"
-                        disabled={currentStep === 0 && stepStarted}
+                        disabled={!allowFreeNav && (currentStep === 0 && stepStarted)}
                     >
                         ←
                     </button>
@@ -344,7 +379,7 @@ export default function Level1Steps({ stories }: Props) {
                     <button
                         onClick={handleNextStep}
                         className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded-full p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors disabled:opacity-50"
-                        disabled={!stepCompleted && stepStarted}
+                        disabled={!allowFreeNav && (!stepCompleted && stepStarted)}
                     >
                         {currentStep === steps.length - 1 ? '🏠' : '→'}
                     </button>
@@ -420,26 +455,77 @@ export default function Level1Steps({ stories }: Props) {
                             </div>
                         )}
 
-                        {/* Other Steps - Placeholder for now */}
-                        {currentStep > 0 && (
+                        {/* Step 3: Cümlelerden tahmin - sözleşmeye uygun */}
+                        {stepStarted && currentStep === 2 && (
+                            <div className="flex flex-col lg:flex-row gap-8">
+                                {/* Görsel ve Başlık */}
+                                <div className="lg:w-1/3 w-full">
+                                    <img src={story.image} alt={story.title} className="w-full rounded-xl shadow-lg" />
+                                    <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{story.title}</h2>
+                                </div>
+
+                                {/* Metin alanı (vurgularla) */}
+                                <div className="lg:w-2/3 w-full bg-white rounded-xl shadow p-4 leading-relaxed text-gray-800">
+                                    <p>“Karınca gibi çalışkan” ne demek? Sen hiç karınca yuvası gördün mü? Karıncaların yaşamı nasıldır? Haydi, bu soruların cevaplarını birlikte öğrenelim!</p>
+                                    <p className="mt-3">
+                                        Karıncaların yaşayışlarıyla başlayalım. <strong>Karıncalar çok çalışkan hayvanlardır.</strong> Onlar oldukça hızlı hareket eder. <strong>Küçük gruplar hâlinde yuvalarda yaşar.</strong> Minik dostlarımız bir ekip olarak çalışır, işbirliğine önem verir. Karıncaları her yerde görebilirsin. Mutfakta, ağaç köklerinde, taşların ve toprağın altında... Buralara yuva yaparlar.
+                                    </p>
+                                    <p className="mt-3">
+                                        Şimdi bir karıncanın şekli nasıldır, bunu öğrenelim? <strong>Kocaman bir başı, uzun bir gövdesi vardır.</strong> Karıncalar genellikle siyah, kahverengi ya da kırmızı renktedir. Ayakları altı tanedir. <strong>İki tane anteni vardır.</strong> Bazı karıncalar kanatlıdır.
+                                    </p>
+                                    <p className="mt-3">
+                                        Peki, sence karıncalar nasıl beslenir? Eğer cevabın şeker ise doğru! <strong>Genellikle şekerli yiyecekler yer.</strong> Yere düşmüş tüm kırıntılara bayılır. Aynı zamanda bitkileri de yer. <strong>Kocaman bir ekmek parçasını bir sürü küçük karıncanın taşıdığını görebilirsin. Küçüktürler ama yaptıkları işler çok büyüktür.</strong>
+                                    </p>
+                                    <p className="mt-3">
+                                        Peki, onlar nasıl çoğalır? Şimdi bunun cevabına bakalım. <strong>Karıncalar, yumurtlayarak çoğalır.</strong> <strong>Kraliçe karınca yılda 50 milyon yumurta yapabilir.</strong> Bu bir kova kumdan bile daha fazladır. İnanılmaz değil mi?
+                                    </p>
+                                    <p className="mt-3">
+                                        Karıncaların çevreye olan etkilerini hiç düşündün mü? Küçük karıncalar, doğaya büyük faydalar sağlar. <strong>Onlar toprakları havalandırır.</strong> Ağaçlara zarar veren böcekleri yer. <strong>Tıpkı bir postacı gibi bitkilerin tohumunu dağıtır.</strong> Bu canlılar, bazen zararlı da olabilir. Bazen insanları ısırır. Bu durum kaşıntı yapabilir. Bazen de tifüs ve verem gibi hastalıkları yayabilir. Küçük dostlarımızı artık çok iyi biliyorsun. Onlara bugün bir küp şeker ısmarlamaya ne dersin?
+                                    </p>
+
+                                    {/* Analiz çıktısı */}
+                                    {isAnalyzing && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                            <p className="text-blue-700 font-medium">DOST cümlelerden tahmin yapıyor...</p>
+                                        </div>
+                                    )}
+                                    {imageAnalysisText && (
+                                        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                            <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Tahmini:</h3>
+                                            <p className="text-blue-700">{imageAnalysisText}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Görev ve mikrofon */}
+                                    {imageAnalysisText && !childrenVoiceResponse && (
+                                        <div className="mt-6 p-4 bg-orange-50 rounded-lg border-l-4 border-orange-400">
+                                            <p className="text-orange-800 font-medium">Görev:</p>
+                                            <p className="text-orange-700">Diğer paragrafların ilk cümlelerini sen oku ve hikayenin nasıl devam edebileceğini tahmin et.</p>
+                                            <div className="mt-4 text-center">
+                                                <VoiceRecorder onSave={handleVoiceSubmit} />
+                                                {isProcessingVoice && (
+                                                    <p className="mt-2 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {childrenVoiceResponse && (
+                                        <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                                            <h3 className="font-bold text-green-800 mb-2">🗣️ DOST'un Yorumu:</h3>
+                                            <p className="text-green-700 text-lg">{childrenVoiceResponse}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Placeholder for other steps not yet implemented */}
+                        {currentStep > 0 && currentStep !== 2 && (
                             <div className="text-center py-12">
-                                <h2 className="text-2xl font-bold text-purple-800 mb-4">
-                                    {steps[currentStep].title}
-                                </h2>
-                                <p className="text-lg text-gray-600 mb-6">
-                                    Bu adım henüz geliştirilmekte...
-                                </p>
-                                <button
-                                    onClick={() => {
-                                        setStepCompleted(true);
-                                        const newCompletedSteps = [...completedSteps];
-                                        newCompletedSteps[currentStep] = true;
-                                        setCompletedSteps(newCompletedSteps);
-                                    }}
-                                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
-                                >
-                                    Bu Adımı Tamamla
-                                </button>
+                                <h2 className="text-2xl font-bold text-purple-800 mb-4">{steps[currentStep].title}</h2>
+                                <p className="text-lg text-gray-600 mb-6">Bu adım henüz geliştirilmekte...</p>
+                                <button onClick={() => { setStepCompleted(true); const newCompletedSteps = [...completedSteps]; newCompletedSteps[currentStep] = true; setCompletedSteps(newCompletedSteps); }} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Bu Adımı Tamamla</button>
                             </div>
                         )}
                     </div>

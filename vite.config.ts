@@ -28,6 +28,7 @@ VitePWA({
     })
   ],
   server: {
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

@@ -2,12 +2,13 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import StoryList from './components/StoryList';
 import StoryIntro from './components/StoryIntro';
 import ReadingScreen from './components/ReadingScreen';
-import Level1Steps from './components/Level1Steps';
 import Header from './components/Header';
 import './index.css';
+import Level1Steps from './components/Level1Steps';
+import LevelRouter from './levels/LevelRouter';
 
 const stories = [
-    { id: 1, title: 'Büyük İşler Küçük Dostlar', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
+    { id: 1, title: 'Oturum 1: Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
     { id: 2, title: 'Çöl Gemisi', description: 'Develer hakkında', image: '/src/assets/images/story2.png', level: 2 },
     { id: 3, title: 'Fındık Canavarları', description: 'Sincaplar hakkında', image: '/src/assets/images/story3.png', level: 3 },
     { id: 4, title: 'Orman Macerası', description: 'Ayılar hakkında', image: '/src/assets/images/story4.png', level: 4, locked: true },
@@ -32,6 +33,8 @@ export default function App() {
                         <Route path="/" element={<StoryList stories={stories} />} />
                         <Route path="/story/:id" element={<StoryIntro stories={stories} />} />
                         <Route path="/story/1/read" element={<Level1Steps />} />
+                        <Route path="/level:level/step:step" element={<LevelRouter />} />
+                        <Route path="/level/:level/step/:step" element={<LevelRouter />} />
                         <Route path="/story/:id/read" element={<ReadingScreen stories={stories} />} />
                     </Routes>
                 </div>
