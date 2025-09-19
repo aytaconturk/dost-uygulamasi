@@ -31,6 +31,17 @@ export default function Step1() {
         }, { once: true });
       }).catch(() => setMascotState('idle'));
     }
+    return () => {
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        } catch {}
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [started]);
 
   const speakText = (text: string) => {

@@ -38,6 +38,17 @@ export default function Step2() {
         })
         .catch(() => setMascotState('idle'));
     }
+    return () => {
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        } catch {}
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [started]);
 
   const speakText = (text: string) => {
@@ -87,7 +98,7 @@ export default function Step2() {
         data.titleExplanation ||
         data.text ||
         data.message ||
-        'Başlık "Büyük İşler Küçük Dostlar" karıncaların iş birliğini vurguluyor. Başlıktan yola çıkarak metnin iş birliği, azim ve yardımlaşma temasını işleyeceğini tahmin edebiliriz.';
+        'Başlık "Büyük İşler Küçük Dostlar" karıncaların iş birliğini vurguluyor. Başlıktan yola çıkarak metnin iş birliği, azim ve yardımlaşma temasını işleyece��ini tahmin edebiliriz.';
       setAnalysisText(text);
       speakText(text);
     } catch (e) {
@@ -155,7 +166,7 @@ export default function Step2() {
               2. Adım: Metnin başlığını inceleme ve tahminde bulunma
             </h2>
             <p className="text-gray-700">
-              Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.
+              Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeri��ine yönelik tahminde bulunacağız.
             </p>
             {marked && (
               <div className="absolute -top-3 -right-3 bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold">

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Play, Upload } from 'lucide-react';
 
 interface Props {
@@ -82,6 +82,22 @@ export default function VoiceRecorder({ onSave }: Props) {
       setIsPlaying(false);
     }
   };
+
+  useEffect(() => {
+    const handleStopAll = () => {
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        } catch {}
+      }
+      setIsPlaying(false);
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, handleStopAll);
+    return () => {
+      window.removeEventListener('STOP_ALL_AUDIO' as any, handleStopAll);
+    };
+  }, []);
 
   const handleSendRecording = async () => {
     if (!recordedBlobRef.current) return;

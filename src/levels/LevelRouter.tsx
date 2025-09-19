@@ -21,7 +21,32 @@ export default function LevelRouter() {
   const step = Number(stepStr);
 
   const totalSteps = LEVEL_STEPS_COUNT[level] || 1;
-  const goToStep = (s: number) => navigate(`/level/${level}/step/${s}`);
+
+  const stopAllAudio = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        // Notify components that manage in-memory Audio() instances
+        window.dispatchEvent(new Event('STOP_ALL_AUDIO'));
+        // Stop any speech synthesis
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        // Pause and reset any <audio> elements in the DOM
+        const audios = Array.from(document.querySelectorAll('audio')) as HTMLAudioElement[];
+        audios.forEach((a) => {
+          try {
+            a.pause();
+            a.currentTime = 0;
+          } catch {}
+        });
+      }
+    } catch {}
+  };
+
+  const goToStep = (s: number) => {
+    stopAllAudio();
+    navigate(`/level/${level}/step/${s}`);
+  };
   const onPrev = () => {
     if (step > 1) goToStep(step - 1);
   };
