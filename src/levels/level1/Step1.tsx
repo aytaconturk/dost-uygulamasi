@@ -61,9 +61,16 @@ export default function Step1() {
   const handleImageAnalysis = async () => {
     setIsAnalyzing(true);
     try {
+      const u = (await import('../../lib/user')).getUser();
       const { data } = await axios.post(
         `${getApiBase()}/dost/level1`,
-        { imageUrl: story.image },
+        {
+          imageUrl: story.image,
+          stepNum: 1,
+          storyTitle: story.title,
+          userId: u?.userId || '',
+          userName: u ? `${u.firstName} ${u.lastName}`.trim() : ''
+        },
         { headers: { 'Content-Type': 'application/json' } }
       );
       const analysisText = data.message || data.text || data.response || 'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak b��yük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';

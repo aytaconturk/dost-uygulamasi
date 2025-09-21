@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { getApiBase } from '../lib/api';
+import { getUser } from '../lib/user';
 
 export default function Level1Steps() {
     const allowFreeNav = true;
@@ -198,14 +199,19 @@ export default function Level1Steps() {
                 : `${getApiBase()}/dost/level1/step${stepNum}`;
 
             console.log('📤 API endpoint:', endpoint);
-            console.log('📤 Gönderilen data:', { imageUrl: story.image, step: stepNum });
+            const u = getUser();
+            const payload = {
+                imageUrl: story.image,
+                stepNum,
+                storyTitle: story.title,
+                userId: u?.userId || '',
+                userName: u ? `${u.firstName} ${u.lastName}`.trim() : ''
+            };
+            console.log('📤 Gönderilen data:', payload);
 
             const response = await axios.post(
                 endpoint,
-                {
-                    imageUrl: story.image,
-                    step: stepNum
-                },
+                payload,
                 {
                     headers: {
                         'Content-Type': 'application/json'

@@ -98,10 +98,17 @@ export default function Level1Steps({ stories }: Props) {
             console.log('📤 API endpoint:', `${getApiBase()}/dost/level1`);
             console.log('📤 Gönderilen data:', { imageUrl: story.image });
             
+            const { getUser } = await import('../lib/user');
+            const u = getUser();
+            const stepNum = currentStep + 1;
             const response = await axios.post(
                 `${getApiBase()}/dost/level1`,
                 {
-                    imageUrl: story.image
+                    imageUrl: story.image,
+                    stepNum,
+                    storyTitle: story.title,
+                    userId: u?.userId || '',
+                    userName: u ? `${u.firstName} ${u.lastName}`.trim() : ''
                 },
                 {
                     headers: {

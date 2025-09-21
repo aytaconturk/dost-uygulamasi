@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import SidebarSettings from './SidebarSettings';
+import UserSidebar from './UserSidebar';
 import { stopAllMedia } from '../lib/media';
 
 interface Story {
@@ -17,6 +18,7 @@ export default function Header({ stories }: { stories: Story[] }) {
 
 
     const [open, setOpen] = useState(false);
+    const [userOpen, setUserOpen] = useState(false);
     const navigate = useNavigate();
     const goHome = () => { stopAllMedia(); navigate('/'); };
     return (
@@ -35,12 +37,13 @@ export default function Header({ stories }: { stories: Story[] }) {
 
 
             <div>
-                <button className="w-10 h-10 rounded-full bg-white text-green-600 font-bold flex items-center justify-center">
+                <button className="w-10 h-10 rounded-full bg-white text-green-600 font-bold flex items-center justify-center cursor-pointer" onClick={() => setUserOpen(true)}>
                     👤
                 </button>
             </div>
         </header>
         <SidebarSettings open={open} onClose={() => setOpen(false)} />
+        <UserSidebar open={userOpen} onClose={() => setUserOpen(false)} />
         </>
     );
 }
