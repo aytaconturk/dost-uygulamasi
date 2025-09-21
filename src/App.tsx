@@ -6,6 +6,8 @@ import Header from './components/Header';
 import './index.css';
 import Level1Steps from './components/Level1Steps';
 import LevelRouter from './levels/LevelRouter';
+import { useEffect } from 'react';
+import { applyTypography } from './lib/settings';
 
 const stories = [
     { id: 1, title: 'Oturum 1: Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
@@ -21,6 +23,7 @@ const stories = [
 ];
 
 export default function App() {
+    useEffect(() => { applyTypography(); }, []);
     return (
         <Router>
             <div className="space-background min-h-screen bg-cover bg-center relative">

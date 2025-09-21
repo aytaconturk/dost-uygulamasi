@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getApiBase, getApiEnv, setApiEnv, type ApiEnv } from '../lib/api';
+import TypographySettings from './SidebarSettingsTypography';
 
 interface Props {
   open: boolean;
@@ -40,6 +41,10 @@ export default function SidebarSettings({ open, onClose }: Props) {
                 Aktif temel adres: <span className="font-semibold text-[#512DA8]">{getApiBase()}</span>
               </div>
             </div>
+
+            <hr className="my-4" />
+
+            <TypographySettings />
           </aside>
         </div>
       )}
