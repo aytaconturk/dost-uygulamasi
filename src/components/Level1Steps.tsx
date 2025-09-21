@@ -99,8 +99,11 @@ export default function Level1Steps({ stories }: Props) {
             console.log('📤 Gönderilen data:', { imageUrl: story.image });
             
             const { getUser } = await import('../lib/user');
+            const { getFirstThreeParagraphFirstSentences, getFullText } = await import('../data/stories');
             const u = getUser();
             const stepNum = currentStep + 1;
+            const ilkUcParagraf = getFirstThreeParagraphFirstSentences(story.id);
+            const metin = getFullText(story.id);
             const response = await axios.post(
                 `${getApiBase()}/dost/level1`,
                 {
@@ -108,7 +111,9 @@ export default function Level1Steps({ stories }: Props) {
                     stepNum,
                     storyTitle: story.title,
                     userId: u?.userId || '',
-                    userName: u ? `${u.firstName} ${u.lastName}`.trim() : ''
+                    userName: u ? `${u.firstName} ${u.lastName}`.trim() : '',
+                    ilkUcParagraf,
+                    metin
                 },
                 {
                     headers: {

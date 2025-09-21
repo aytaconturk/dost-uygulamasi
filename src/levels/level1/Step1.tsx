@@ -62,6 +62,9 @@ export default function Step1() {
     setIsAnalyzing(true);
     try {
       const u = (await import('../../lib/user')).getUser();
+      const { getFirstThreeParagraphFirstSentences, getFullText } = await import('../../data/stories');
+      const ilkUcParagraf = getFirstThreeParagraphFirstSentences(story.id);
+      const metin = getFullText(story.id);
       const { data } = await axios.post(
         `${getApiBase()}/dost/level1`,
         {
@@ -69,7 +72,9 @@ export default function Step1() {
           stepNum: 1,
           storyTitle: story.title,
           userId: u?.userId || '',
-          userName: u ? `${u.firstName} ${u.lastName}`.trim() : ''
+          userName: u ? `${u.firstName} ${u.lastName}`.trim() : '',
+          ilkUcParagraf,
+          metin
         },
         { headers: { 'Content-Type': 'application/json' } }
       );

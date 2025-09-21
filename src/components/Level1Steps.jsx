@@ -4,6 +4,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { getApiBase } from '../lib/api';
 import { getUser } from '../lib/user';
+import { getFirstThreeParagraphFirstSentences, getFullText } from '../data/stories';
 
 export default function Level1Steps() {
     const allowFreeNav = true;
@@ -200,12 +201,17 @@ export default function Level1Steps() {
 
             console.log('📤 API endpoint:', endpoint);
             const u = getUser();
-            const payload = {
+            const payload = stepNum === 1 ? {
                 imageUrl: story.image,
                 stepNum,
                 storyTitle: story.title,
                 userId: u?.userId || '',
-                userName: u ? `${u.firstName} ${u.lastName}`.trim() : ''
+                userName: u ? `${u.firstName} ${u.lastName}`.trim() : '',
+                ilkUcParagraf: getFirstThreeParagraphFirstSentences(story.id),
+                metin: getFullText(story.id)
+            } : {
+                imageUrl: story.image,
+                step: stepNum
             };
             console.log('📤 Gönderilen data:', payload);
 
