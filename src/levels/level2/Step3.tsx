@@ -1,0 +1,15 @@
+import React from 'react';
+
+export default function Step3() {
+  return (
+    <div className="flex flex-col md:flex-row items-start justify-center gap-6 px-4 md:px-12 relative mt-0">
+      <div className="flex-shrink-0 mt-4">
+        <img src="/src/assets/images/story2.png" alt="Çöl Gemisi" className="rounded-lg shadow-lg w-64 md:w-80" />
+      </div>
+      <div className="text-lg text-gray-800 leading-relaxed max-w-xl">
+        <h2 className="text-2xl font-bold text-purple-800 mb-4">3. Adım: Anlama Çalışması</h2>
+        <p className="mt-2 text-gray-800">Metinle ilgili soruları cevapla, ana fikri ve önemli detayları belirle.</p>
+      </div>
+    </div>
+  );
+}

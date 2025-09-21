@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from "react";
+import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 export default function StoryList({ stories }) {
     const scrollRef = useRef(null);
@@ -48,7 +48,7 @@ export default function StoryList({ stories }) {
                                 <h3 className="font-bold text-md">{story.title}</h3>
                                 <p className="text-sm">{story.description}</p>
                             </div>
-                        </div>) : (<Link key={story.id} to={`/story/${story.id}`} className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md hover:scale-105 transition-transform">
+                        </div>) : (<Link key={story.id} to={story.level === 1 ? `/story/${story.id}` : `/level/${story.level}/step/1`} className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md hover:scale-105 transition-transform">
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">
                                 <img src={story.image} alt={story.title} className="w-full h-full object-cover"/>
                                 <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">

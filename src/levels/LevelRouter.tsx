@@ -5,9 +5,15 @@ import Step1 from './level1/Step1';
 import Step2 from './level1/Step2';
 import Step3 from './level1/Step3';
 import Step4 from './level1/Step4';
+import L2Step1 from './level2/Step1';
+import L2Step2 from './level2/Step2';
+import L2Step3 from './level2/Step3';
+import L2Step4 from './level2/Step4';
+import { stopAllMedia } from '../lib/media';
 
 const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 4,
+  2: 4,
 };
 
 export default function LevelRouter() {
@@ -22,29 +28,8 @@ export default function LevelRouter() {
 
   const totalSteps = LEVEL_STEPS_COUNT[level] || 1;
 
-  const stopAllAudio = () => {
-    try {
-      if (typeof window !== 'undefined') {
-        // Notify components that manage in-memory Audio() instances
-        window.dispatchEvent(new Event('STOP_ALL_AUDIO'));
-        // Stop any speech synthesis
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
-        // Pause and reset any <audio> elements in the DOM
-        const audios = Array.from(document.querySelectorAll('audio')) as HTMLAudioElement[];
-        audios.forEach((a) => {
-          try {
-            a.pause();
-            a.currentTime = 0;
-          } catch {}
-        });
-      }
-    } catch {}
-  };
-
   const goToStep = (s: number) => {
-    stopAllAudio();
+    stopAllMedia();
     navigate(`/level/${level}/step/${s}`);
   };
   const onPrev = () => {
@@ -60,6 +45,11 @@ export default function LevelRouter() {
     else if (step === 2) content = <Step2 />;
     else if (step === 3) content = <Step3 />;
     else if (step === 4) content = <Step4 />;
+  } else if (level === 2) {
+    if (step === 1) content = <L2Step1 />;
+    else if (step === 2) content = <L2Step2 />;
+    else if (step === 3) content = <L2Step3 />;
+    else if (step === 4) content = <L2Step4 />;
   }
 
   if (!content) {

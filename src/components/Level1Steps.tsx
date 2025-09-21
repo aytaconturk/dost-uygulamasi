@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import { getApiBase } from '../lib/api';
 import { motion } from 'framer-motion';
 import VoiceRecorder from './VoiceRecorder';
 
@@ -94,11 +95,11 @@ export default function Level1Steps({ stories }: Props) {
         setIsAnalyzing(true);
         
         try {
-            console.log('📤 API endpoint:', 'https://arge.aquateknoloji.com/webhook-test/dost/level1');
+            console.log('📤 API endpoint:', `${getApiBase()}/dost/level1`);
             console.log('📤 Gönderilen data:', { imageUrl: story.image });
             
             const response = await axios.post(
-                'https://arge.aquateknoloji.com/webhook-test/dost/level1',
+                `${getApiBase()}/dost/level1`,
                 {
                     imageUrl: story.image
                 },
@@ -140,7 +141,7 @@ export default function Level1Steps({ stories }: Props) {
                 'Genellikle şekerli yiyecekler yer.'
             ];
             const response = await axios.post(
-                'https://arge.aquateknoloji.com/webhook-test/dost/level1/step3',
+                `${getApiBase()}/dost/level1/step3`,
                 { title: story.title, firstSentences, step: 3 },
                 { headers: { 'Content-Type': 'application/json' } }
             );
@@ -212,10 +213,10 @@ export default function Level1Steps({ stories }: Props) {
                 : 'kelime';
             formData.append("adim_tipi", stepType);
 
-            console.log('📤 Çocuk sesi API endpoint:', 'https://arge.aquateknoloji.com/webhook-test/dost/level1/children-voice');
+            console.log('📤 Çocuk sesi API endpoint:', `${getApiBase()}/dost/level1/children-voice`);
             
             const response = await axios.post(
-                'https://arge.aquateknoloji.com/webhook-test/dost/level1/children-voice',
+                `${getApiBase()}/dost/level1/children-voice`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
@@ -370,7 +371,7 @@ export default function Level1Steps({ stories }: Props) {
                     {/* Navigation Buttons */}
                     <button
                         onClick={handlePrevStep}
-                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded-full p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors"
+                        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105"
                         disabled={!allowFreeNav && (currentStep === 0 && stepStarted)}
                     >
                         ←
@@ -378,7 +379,7 @@ export default function Level1Steps({ stories }: Props) {
 
                     <button
                         onClick={handleNextStep}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded-full p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors disabled:opacity-50"
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105 disabled:opacity-50"
                         disabled={!allowFreeNav && (!stepCompleted && stepStarted)}
                     >
                         {currentStep === steps.length - 1 ? '🏠' : '→'}
@@ -575,16 +576,6 @@ export default function Level1Steps({ stories }: Props) {
 
             {/* Footer - Navigation Buttons */}
             <div className="flex items-center justify-center gap-6 px-6 py-6 bg-gray-50">
-                {stepCompleted && currentStep < steps.length - 1 && (
-                    <button
-                        onClick={handleNextStep}
-                        className="flex flex-col items-center bg-green-500 hover:bg-green-600 text-white rounded-2xl px-8 py-4 shadow-lg transform hover:scale-105 transition-all duration-200 active:scale-95"
-                    >
-                        <div className="text-4xl mb-2">➡️</div>
-                        <div className="text-lg font-bold">SONRAKİ ADIM</div>
-                    </button>
-                )}
-
                 {stepCompleted && currentStep === steps.length - 1 && (
                     <button
                         onClick={() => navigate('/')}

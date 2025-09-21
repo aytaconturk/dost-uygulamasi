@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { getApiBase } from '../../lib/api';
 import { motion } from 'framer-motion';
 import VoiceRecorder from '../../components/VoiceRecorder';
 
@@ -61,7 +62,7 @@ export default function Step1() {
     setIsAnalyzing(true);
     try {
       const { data } = await axios.post(
-        'https://arge.aquateknoloji.com/webhook-test/dost/level1',
+        `${getApiBase()}/dost/level1`,
         { imageUrl: story.image },
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -89,7 +90,7 @@ export default function Step1() {
       formData.append('adim_tipi', 'gorsel_tahmini');
 
       const { data } = await axios.post(
-        'https://arge.aquateknoloji.com/webhook-test/dost/level1/children-voice',
+        `${getApiBase()}/dost/level1/children-voice`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );

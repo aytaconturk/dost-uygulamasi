@@ -25,12 +25,12 @@ export default function StoryIntro({ stories }: Props) {
       <div>
         <h2 className="text-3xl font-bold mb-4">{story.title}</h2>
         <div className="flex flex-wrap gap-2 text-sm mb-4">
-          <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full">Seviye 1</span>
+          <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full">Seviye { (story as any).level ?? 1 }</span>
           <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full">Düzeyli Okuma</span>
         </div>
         <p className="text-sm text-gray-600 mb-4">Yazar: DOST AI • Yayın: Yapay Zeka Kitaplığı</p>
         <button
-          onClick={() => navigate(`/story/${story.id}/read`)}
+          onClick={() => (story as any).level === 1 ? navigate(`/story/${story.id}/read`) : navigate(`/level/${(story as any).level}/step/1`)}
           className="bg-green-500 cursor-pointer text-white py-2 px-6 rounded-full shadow hover:bg-green-600"
         >
           Başla

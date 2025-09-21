@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import { getApiBase } from '../lib/api';
 
 export default function Level1Steps() {
     const allowFreeNav = true;
@@ -193,8 +194,8 @@ export default function Level1Steps() {
         try {
             // Determine endpoint based on step
             const endpoint = stepNum === 1
-                ? 'https://arge.aquateknoloji.com/webhook/dost/level1'
-                : `https://arge.aquateknoloji.com/webhook/dost/level1/step${stepNum}`;
+                ? `${getApiBase()}/dost/level1`
+                : `${getApiBase()}/dost/level1/step${stepNum}`;
 
             console.log('📤 API endpoint:', endpoint);
             console.log('📤 Gönderilen data:', { imageUrl: story.image, step: stepNum });
@@ -468,7 +469,7 @@ export default function Level1Steps() {
             };
 
             audio.oncanplay = () => {
-                console.log('🎵 Audio oynatılabilir durumda');
+                console.log('�� Audio oynatılabilir durumda');
             };
 
             audio.onended = () => {
@@ -877,7 +878,7 @@ export default function Level1Steps() {
         formData.append('adim', String(stepNum));
         formData.append('adim_tipi', stepNum === 1 ? 'gorsel_tahmini' : `step${stepNum}_cevap`);
 
-        let voiceEndpoint = 'https://arge.aquateknoloji.com/webhook/dost/level1/children-voice';
+        let voiceEndpoint = `${getApiBase()}/dost/level1/children-voice`;
 
         // Add resumeUrl if available
         if (resumeUrl) {

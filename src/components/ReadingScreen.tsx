@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import { getApiBase } from '../lib/api';
 import { motion } from 'framer-motion';
 
 interface Story {
@@ -105,7 +106,7 @@ export default function ReadingScreen({ stories }: Props) {
             formData.append("adim_tipi", steps[currentStep].type);
 
             axios.post(
-                "https://arge.aquateknoloji.com/webhook/faaba651-a1ad-4f6c-9062-0ebc7ca93bcb",
+                `${getApiBase()}/faaba651-a1ad-4f6c-9062-0ebc7ca93bcb`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             ).then(res => {
@@ -191,7 +192,7 @@ export default function ReadingScreen({ stories }: Props) {
             {completedSteps.some(completed => completed) && (
                 <div className="bg-green-50 border-b border-green-200 py-3 px-6">
                     <div className="max-w-4xl mx-auto">
-                        <h3 className="text-sm font-semibold text-green-800 mb-2">Tamamlanan Adımlar:</h3>
+                        <h3 className="text-sm font-semibold text-green-800 mb-2">Tamamlanan Ad��mlar:</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {steps.map((step, index) => (
                                 <div key={index} className="flex items-center gap-2">
@@ -247,7 +248,7 @@ export default function ReadingScreen({ stories }: Props) {
                     {/* Prev Button */}
                     <button
                         onClick={handlePrevStep}
-                        className="absolute left-[-48px] top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors"
+                        className="absolute left-[-48px] top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105"
                         disabled={currentStep === 0 && stepStarted}
                     >
                         ←
@@ -337,7 +338,7 @@ export default function ReadingScreen({ stories }: Props) {
                     {/* Next Button */}
                     <button
                         onClick={handleNextStep}
-                        className="absolute right-[-48px] top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors disabled:opacity-50"
+                        className="absolute right-[-48px] top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105 disabled:opacity-50"
                         disabled={!stepCompleted && stepStarted}
                     >
                         {currentStep === steps.length - 1 ? '🏠' : '→'}
@@ -347,18 +348,6 @@ export default function ReadingScreen({ stories }: Props) {
 
             {/* Footer - Child-Friendly Buttons */}
             <div className="flex items-center justify-center gap-6 px-6 py-6 bg-gray-50">
-                {/* Next Step Button */}
-                {stepCompleted && currentStep < steps.length - 1 && (
-                    <button
-                        onClick={handleNextStep}
-                        className="flex flex-col items-center bg-green-500 hover:bg-green-600 text-white rounded-2xl px-8 py-4 shadow-lg transform hover:scale-105 transition-all duration-200 active:scale-95"
-                    >
-                        <div className="text-4xl mb-2">➡️</div>
-                        <div className="text-lg font-bold">SONRAKİ ADIM</div>
-                    </button>
-                )}
-
-                {/* Complete Button */}
                 {stepCompleted && currentStep === steps.length - 1 && (
                     <button
                         onClick={() => navigate('/')}

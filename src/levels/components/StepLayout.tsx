@@ -33,7 +33,7 @@ export default function StepLayout({ currentStep, totalSteps, onPrev, onNext, ch
         <button
           onClick={onPrev}
           disabled={currentStep <= 1}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded-full p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors disabled:opacity-50"
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105 disabled:opacity-50"
         >
           ←
         </button>
@@ -45,7 +45,7 @@ export default function StepLayout({ currentStep, totalSteps, onPrev, onNext, ch
         <button
           onClick={onNext}
           disabled={currentStep >= totalSteps}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-200 text-green-800 rounded-full p-4 text-xl shadow-md z-10 hover:bg-green-300 transition-colors disabled:opacity-50"
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105 disabled:opacity-50"
         >
           {currentStep >= totalSteps ? '🏠' : '→'}
         </button>
@@ -53,15 +53,6 @@ export default function StepLayout({ currentStep, totalSteps, onPrev, onNext, ch
 
       {/* Footer Nav */}
       <div className="flex items-center justify-center gap-6 px-6 py-6 bg-gray-50">
-        {currentStep < totalSteps && (
-          <button
-            onClick={onNext}
-            className="flex flex-col items-center bg-green-500 hover:bg-green-600 text-white rounded-2xl px-8 py-4 shadow-lg transform hover:scale-105 transition-all duration-200 active:scale-95"
-          >
-            <div className="text-4xl mb-2">➡️</div>
-            <div className="text-lg font-bold">SONRAKİ ADIM</div>
-          </button>
-        )}
         {currentStep >= totalSteps && (
           <a
             href="/"

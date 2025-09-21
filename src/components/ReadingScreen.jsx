@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import { getApiBase } from '../lib/api';
 export default function ReadingScreen({ stories }) {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -49,7 +50,7 @@ export default function ReadingScreen({ stories }) {
         },
         {
             title: "3. Adım: Anlam çıkarma ve ana fikri bulma",
-            text: "Okuduğumuz hikayenin ana fikrini ve mesajını anlamaya çalışacağız. Hikayedeki önemli detayları belirleyeceğiz.",
+            text: "Okuduğumuz hikayenin ana fikrini ve mesajın�� anlamaya çalışacağız. Hikayedeki önemli detayları belirleyeceğiz.",
             audio: "/audio/sampleSes.mp3",
             prompt: "Hikayenin ana fikrini açıkla. Hikayede en önemli olay neydi? Ana karakterler kimlerdi?",
             type: "comprehension"
@@ -102,7 +103,7 @@ export default function ReadingScreen({ stories }) {
             formData.append("hikaye_adi", story?.title || "");
             formData.append("adim", `${currentStep + 1}`);
             formData.append("adim_tipi", steps[currentStep].type);
-            axios.post("https://arge.aquateknoloji.com/webhook/faaba651-a1ad-4f6c-9062-0ebc7ca93bcb", formData, { headers: { "Content-Type": "multipart/form-data" } }).then(res => {
+            axios.post(`${getApiBase()}/faaba651-a1ad-4f6c-9062-0ebc7ca93bcb`, formData, { headers: { "Content-Type": "multipart/form-data" } }).then(res => {
                 console.log("Yanıt:", res.data);
                 setStepCompleted(true);
                 const newCompletedSteps = [...completedSteps];

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import { getApiBase } from '../../lib/api';
 import VoiceRecorder from '../../components/VoiceRecorder';
 
 export default function Step2() {
@@ -89,7 +90,7 @@ export default function Step2() {
     setIsAnalyzing(true);
     try {
       const { data } = await axios.post(
-        'https://arge.aquateknoloji.com/webhook-test/dost/level1/step2',
+        `${getApiBase()}/dost/level1/step2`,
         { title: story.title, imageUrl: story.image, step: 2 },
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -98,7 +99,7 @@ export default function Step2() {
         data.titleExplanation ||
         data.text ||
         data.message ||
-        'Başlık "Büyük İşler Küçük Dostlar" karıncaların iş birliğini vurguluyor. Başlıktan yola çıkarak metnin iş birliği, azim ve yardımlaşma temasını işleyece��ini tahmin edebiliriz.';
+        'Başlık "Büyük İşler Küçük Dostlar" karıncaların iş birliğini vurguluyor. Başlıktan yola çıkarak metnin iş birliği, azim ve yardımlaşma temasını işleyeceğini tahmin edebiliriz.';
       setAnalysisText(text);
       speakText(text);
     } catch (e) {
@@ -123,7 +124,7 @@ export default function Step2() {
       formData.append('adim_tipi', 'baslik_tahmini');
 
       const { data } = await axios.post(
-        'https://arge.aquateknoloji.com/webhook-test/dost/level1/children-voice',
+        `${getApiBase()}/dost/level1/children-voice`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
@@ -166,7 +167,7 @@ export default function Step2() {
               2. Adım: Metnin başlığını inceleme ve tahminde bulunma
             </h2>
             <p className="text-gray-700">
-              Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeri��ine yönelik tahminde bulunacağız.
+              Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.
             </p>
             {marked && (
               <div className="absolute -top-3 -right-3 bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold">
