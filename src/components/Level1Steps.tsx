@@ -332,6 +332,9 @@ export default function Level1Steps({ stories }: Props) {
                             const canJump = getApiEnv() === 'test';
                             const go = () => {
                                 if (!canJump) return;
+                                if (audioRef.current) {
+                                    try { audioRef.current.pause(); audioRef.current.currentTime = 0; } catch {}
+                                }
                                 setCurrentStep(index);
                                 setStepStarted(false);
                                 setStepCompleted(false);
@@ -564,47 +567,6 @@ export default function Level1Steps({ stories }: Props) {
                     </div>
                 </motion.div>
             )}
-
-            {/* Interactive DOST Mascot */}
-            <div
-                className="fixed bottom-2 right-8 z-20 cursor-pointer transform hover:scale-105 transition-all duration-200"
-                onClick={handleReplay}
-            >
-                <div className="relative">
-                    <img
-                        src="/src/assets/images/maskot-boy.png"
-                        alt="DOST Maskot"
-                        className={`w-56 md:w-64 transition-all duration-300 ${
-                            mascotState === 'speaking' ? 'animate-bounce' : ''
-                        }`}
-                    />
-
-                    {/* Speaking Animation Overlay */}
-                    {mascotState === 'speaking' && (
-                        <div className="absolute top-4 right-4 animate-pulse">
-                            <div className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg">
-                                🗣️ DOST konuşuyor
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Listening Mode Overlay */}
-                    {mascotState === 'listening' && (
-                        <div className="absolute top-4 right-4">
-                            <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                                👂 DOST dinliyor
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Click hint when in listening mode */}
-                    {mascotState === 'listening' && (
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-black px-4 py-2 rounded-full text-sm font-bold animate-bounce shadow-lg">
-                            📱 Tekrar dinlemek için tıkla!
-                        </div>
-                    )}
-                </div>
-            </div>
 
             {/* Footer - Navigation Buttons */}
             <div className="flex items-center justify-center gap-6 px-6 py-6 bg-gray-50">

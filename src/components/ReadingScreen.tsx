@@ -359,62 +359,6 @@ export default function ReadingScreen({ stories }: Props) {
                 )}
             </div>
 
-            {/* Interactive DOST Maskot */}
-            <div
-                className="fixed bottom-2 right-8 z-20 cursor-pointer transform hover:scale-105 transition-all duration-200"
-                onClick={handleReplay}
-            >
-                <div className="relative">
-                    {/* Base Mascot Image */}
-                    <img
-                        src="/src/assets/images/maskot-boy.png"
-                        alt="DOST Maskot"
-                        className={`w-56 md:w-64 transition-all duration-300 ${
-                            mascotState === 'speaking' ? 'animate-bounce' : ''
-                        }`}
-                    />
-
-                    {/* Speaking Animation Overlay */}
-                    {mascotState === 'speaking' && (
-                        <div className="absolute top-4 right-4 animate-pulse">
-                            <div className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg">
-                                🗣️ DOST konuşuyor
-                            </div>
-                            {/* Speaking mouth animation */}
-                            <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
-                                <div className="w-6 h-4 bg-pink-400 rounded-full animate-ping"></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Listening Mode Overlay */}
-                    {mascotState === 'listening' && (
-                        <div className="absolute top-4 right-4">
-                            <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                                👂 DOST dinliyor
-                            </div>
-                            {/* Listening hand to ear gesture */}
-                            <div className="absolute top-16 right-8">
-                                <div className="text-4xl animate-bounce">🤚</div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Click hint when in listening mode */}
-                    {mascotState === 'listening' && (
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-black px-4 py-2 rounded-full text-sm font-bold animate-bounce shadow-lg">
-                            📱 Tekrar dinlemek için tıkla!
-                        </div>
-                    )}
-
-                    {/* Idle state hint */}
-                    {mascotState === 'idle' && stepStarted && (
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-blue-400 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                            👋 Ben DOST!
-                        </div>
-                    )}
-                </div>
-            </div>
         </div>
     );
 }

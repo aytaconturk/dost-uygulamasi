@@ -234,7 +234,7 @@ export default function Level1Steps() {
 
             console.log('📝 Title:', title);
             console.log('📝 ImageExplanation:', imageExplanation);
-            console.log('📝 Text:', text);
+            console.log('��� Text:', text);
             console.log('��� Message:', message);
             console.log('🎵 AudioBase64 available:', !!audioBase64);
             console.log('🔗 ResumeUrl:', resumeUrl);
@@ -1049,11 +1049,43 @@ export default function Level1Steps() {
                             const canJump = getApiEnv() === 'test';
                             const go = () => {
                                 if (!canJump) return;
+
+                                // Stop any playing audios
+                                if (currentAudioRef.current) {
+                                    try { currentAudioRef.current.pause(); currentAudioRef.current.currentTime = 0; } catch {}
+                                    currentAudioRef.current = null;
+                                }
+                                if (microphonePromptAudioRef.current) {
+                                    try { microphonePromptAudioRef.current.pause(); microphonePromptAudioRef.current.currentTime = 0; } catch {}
+                                    microphonePromptAudioRef.current = null;
+                                }
+
+                                // Clear typing intervals
+                                if (typingIntervalRef.current) {
+                                    clearInterval(typingIntervalRef.current);
+                                    typingIntervalRef.current = null;
+                                }
+
+                                // Reset step-specific states
                                 setCurrentStep(index);
                                 setStepStarted(false);
                                 setStepCompleted(false);
                                 setImageAnalysisText('');
                                 setChildrenVoiceResponse('');
+                                setResumeUrl('');
+                                setAudioPlaybackFinished(false);
+                                setTypewriterFinished(false);
+                                setDisplayedText('');
+                                setFullAnalysisText('');
+                                setIsTyping(false);
+                                setMicrophonePromptPlayed(false);
+                                setInitialAudioFinished(false);
+                                setApiResponseReady(false);
+                                setVoiceResponseText('');
+                                setIsVoiceTyping(false);
+                                setStoredAudioBase64('');
+                                setIsAnalyzing(false);
+                                setIsProcessingVoice(false);
                             };
                             return (
                               <div key={index} className={`flex items-center gap-2 ${canJump ? 'cursor-pointer' : ''}`} onClick={go}>
@@ -1326,46 +1358,6 @@ export default function Level1Steps() {
                 )}
             </div>
 
-            {/* Interactive DOST Maskot - ReadingScreen Style */}
-            <div
-                className="fixed bottom-2 right-8 z-20 cursor-pointer transform hover:scale-105 transition-all duration-200"
-                onClick={handleReplay}
-            >
-                <div className="relative">
-                    <img
-                        src="/src/assets/images/maskot-boy.png"
-                        alt="DOST Maskot"
-                        className={`w-56 md:w-64 transition-all duration-300 ${
-                            mascotState === 'speaking' ? 'animate-bounce' : ''
-                        }`}
-                    />
-
-                    {/* Speaking Animation Overlay */}
-                    {mascotState === 'speaking' && (
-                        <div className="absolute top-4 right-4 animate-pulse">
-                            <div className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg">
-                                🗣️ DOST konuşuyor
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Listening Mode Overlay */}
-                    {mascotState === 'listening' && (
-                        <div className="absolute top-4 right-4">
-                            <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                                👂 DOST dinliyor
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Click hint when in listening mode */}
-                    {mascotState === 'listening' && (
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-black px-4 py-2 rounded-full text-sm font-bold animate-bounce shadow-lg">
-                            📱 Tekrar dinlemek için tıkla!
-                        </div>
-                    )}
-                </div>
-            </div>
         </div>
     );
 }

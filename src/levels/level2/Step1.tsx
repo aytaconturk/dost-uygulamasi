@@ -225,24 +225,6 @@ export default function Step1() {
         </div>
       )}
 
-      {/* Mascot (only visible during instruction) */}
-      {!reading && !result && readyToStart && (
-        <div className="fixed bottom-2 right-8 z-20 cursor-pointer transform hover:scale-105 transition-all duration-200" onClick={() => speak('Hazırsan Başla butonuna bas, ben de seni izliyorum.')}> 
-          <div className="relative">
-            <img src="/src/assets/images/maskot-boy.png" alt="DOST Maskot" className={`w-56 md:w-64 transition-all duration-300 ${mascotState === 'speaking' ? 'animate-bounce' : ''}`} />
-            {mascotState === 'speaking' && (
-              <div className="absolute top-4 right-4 animate-pulse">
-                <div className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg">🗣️ DOST konuşuyor</div>
-              </div>
-            )}
-            {mascotState === 'listening' && (
-              <div className="absolute top-4 right-4">
-                <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">👂 DOST dinliyor</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

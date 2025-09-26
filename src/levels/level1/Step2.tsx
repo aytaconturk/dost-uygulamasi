@@ -238,38 +238,6 @@ export default function Step2() {
         </div>
       )}
 
-      <div
-        className="fixed bottom-2 right-8 z-20 cursor-pointer transform hover:scale-105 transition-all duration-200"
-        onClick={handleReplay}
-      >
-        <div className="relative">
-          <img
-            src="/src/assets/images/maskot-boy.png"
-            alt="DOST Maskot"
-            className={`w-56 md:w-64 transition-all duration-300 ${mascotState === 'speaking' ? 'animate-bounce' : ''}`}
-          />
-
-          {mascotState === 'speaking' && (
-            <div className="absolute top-4 right-4 animate-pulse">
-              <div className="bg-blue-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg">🗣️ DOST konuşuyor</div>
-            </div>
-          )}
-
-          {mascotState === 'listening' && (
-            <div className="absolute top-4 right-4">
-              <div className="bg-green-500 text-white px-3 py-2 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                👂 DOST dinliyor
-              </div>
-            </div>
-          )}
-
-          {mascotState === 'listening' && (
-            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-black px-4 py-2 rounded-full text-sm font-bold animate-bounce shadow-lg">
-              📱 Tekrar dinlemek için tıkla!
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Fredoka:wght@400;600;700&family=Nunito:wght@400;700&family=Quicksand:wght@400;700&display=swap');
+@import "tailwindcss";
 
 :root {
   --app-font: 'Fredoka', sans-serif;
