@@ -95,6 +95,9 @@ export default function Step2() {
         { title: story.title, imageUrl: story.image, step: 2 },
         { headers: { 'Content-Type': 'application/json' } }
       );
+
+      console.log("Step2.tsx ,",data );
+
       const text =
         data.imageExplanation ||
         data.titleExplanation ||

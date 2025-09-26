@@ -291,6 +291,10 @@ export default function Level1Steps({ stories }: Props) {
         }
     };
 
+    useEffect(() => {
+         console.log("useEffect Level1Steps.tsx  currentstep: ", currentStep);                    
+    }, [currentStep])
+
     return (
         <div className="min-h-screen bg-[#f9f9fb] flex flex-col relative top-[-24px]">
             <audio ref={audioRef} preload="auto" />
@@ -385,7 +389,11 @@ export default function Level1Steps({ stories }: Props) {
                                     const u = getUser();
                                     await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
                                 } catch (e) {}
+
+                                console.log("Level1Steps.tsx ,", currentStep);
                             }
+                            console.log("Level1Steps.jsx  current.tsx: ", currentStep);
+                            
                             setStepStarted(true);
                         }}
                         className="bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
