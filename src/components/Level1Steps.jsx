@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { getApiBase } from '../lib/api';
+import { getApiBase, getApiEnv } from '../lib/api';
 import { getUser } from '../lib/user';
 import { getFirstThreeParagraphFirstSentences, getFullText } from '../data/stories';
 
@@ -235,7 +235,7 @@ export default function Level1Steps() {
             console.log('📝 Title:', title);
             console.log('📝 ImageExplanation:', imageExplanation);
             console.log('📝 Text:', text);
-            console.log('📝 Message:', message);
+            console.log('��� Message:', message);
             console.log('🎵 AudioBase64 available:', !!audioBase64);
             console.log('🔗 ResumeUrl:', resumeUrl);
 
@@ -868,7 +868,7 @@ export default function Level1Steps() {
 
     // Ses dosyasını n8n'e gönder
     const handleVoiceSubmit = async (audioBlob) => {
-    console.log('🎤 Çocuk sesi kaydı API\'ye gönderiliyor...');
+    console.log('��� Çocuk sesi kaydı API\'ye gönderiliyor...');
     setIsProcessingVoice(true);
 
     try {
@@ -1045,8 +1045,18 @@ export default function Level1Steps() {
                 <div className="max-w-4xl mx-auto">
                     <h3 className="text-sm font-semibold text-green-800 mb-2">Adım Durumu:</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {steps.map((step, index) => (
-                            <div key={index} className="flex items-center gap-2">
+                        {steps.map((step, index) => {
+                            const canJump = getApiEnv() === 'test';
+                            const go = () => {
+                                if (!canJump) return;
+                                setCurrentStep(index);
+                                setStepStarted(false);
+                                setStepCompleted(false);
+                                setImageAnalysisText('');
+                                setChildrenVoiceResponse('');
+                            };
+                            return (
+                              <div key={index} className={`flex items-center gap-2 ${canJump ? 'cursor-pointer' : ''}`} onClick={go}>
                                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
                                     completedSteps[index]
                                         ? 'bg-green-500 border-green-500 text-white'
@@ -1066,8 +1076,9 @@ export default function Level1Steps() {
                                 }`}>
                                     {step.title}
                                 </span>
-                            </div>
-                        ))}
+                              </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -1079,7 +1090,15 @@ export default function Level1Steps() {
                         {steps[currentStep].title}
                     </h2>
                     <button
-                        onClick={() => setStepStarted(true)}
+                        onClick={async () => {
+                            if (currentStep === 1) {
+                                try {
+                                    const u = getUser();
+                                    await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
+                                } catch (e) {}
+                            }
+                            setStepStarted(true);
+                        }}
                         className="bg-purple-600 text-white px-6 py-3 rounded-full shadow hover:bg-purple-700 transition"
                     >
                         Başla

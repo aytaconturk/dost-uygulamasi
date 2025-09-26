@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { getApiBase } from '../../lib/api';
+import { getUser } from '../../lib/user';
 import VoiceRecorder from '../../components/VoiceRecorder';
 
 export default function Step2() {
@@ -160,7 +161,14 @@ export default function Step2() {
       {!started ? (
         <div className="flex-1 flex flex-col items-center justify-center">
           <div
-            onClick={() => { setMarked(true); setTimeout(() => setStarted(true), 300); }}
+            onClick={async () => {
+              setMarked(true);
+              try {
+                const u = getUser();
+                await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
+              } catch (e) {}
+              setTimeout(() => setStarted(true), 300);
+            }}
             className="cursor-pointer bg-white rounded-xl shadow-lg border border-purple-200 p-6 max-w-2xl text-center hover:shadow-xl transition relative"
           >
             <h2 className="text-2xl font-semibold text-purple-800 mb-2">
