@@ -34,6 +34,7 @@ export default function Level1Steps() {
     const [debugOpen, setDebugOpen] = useState(false);
     const [n8nStep1Resp, setN8nStep1Resp] = useState<any>(null);
     const [n8nStep2Resp, setN8nStep2Resp] = useState<any>(null);
+    const [n8nStep3Resp, setN8nStep3Resp] = useState<any>(null);
     const [n8nResumeResp, setN8nResumeResp] = useState<any>(null);
 
     const jsonDebug = (obj: any) => {
@@ -259,15 +260,46 @@ export default function Level1Steps() {
                 'Kocaman bir başı, uzun bir gövdesi vardır.',
                 'Genellikle şekerli yiyecekler yer.'
             ];
+            const u = getUser();
             const response = await axios.post(
                 `${getApiBase()}/dost/level1/step3`,
-                { title: story.title, firstSentences, step: 3 },
+                { 
+                    title: story.title, 
+                    firstSentences, 
+                    step: 3,
+                    userId: u?.userId || ''
+                },
                 { headers: { 'Content-Type': 'application/json' } }
             );
-            const text = response.data.message || response.data.text || response.data.response || 'Bu cümlelerden yola çıkarak metnin karıncaların özellikleri ve yaşamları hakkında bilgi verdiğini söyleyebiliriz.';
+            
+            console.log('🔄 Step3 Response:', response.data);
+            
+            // Debug için kaydet (test ortamında görüntülenecek)
+            if (getApiEnv() === 'test') {
+                setN8nStep3Resp(response.data);
+            }
+            
+            // n8n response yapısına göre metni al: { title, answer, audioBase64, resumeUrl }
+            const text = response.data.answer || response.data.message || response.data.text || response.data.response || 'Bu cümlelerden yola çıkarak metnin karıncaların özellikleri ve yaşamları hakkında bilgi verdiğini söyleyebiliriz.';
             setImageAnalysisText(text);
-            speakText(text);
+            
+            // n8n'den gelen resumeUrl'i kaydet
+            if (response.data?.resumeUrl) {
+                console.log('🔗 Step3 resumeUrl alındı:', response.data.resumeUrl);
+                setResumeUrl(response.data.resumeUrl);
+            }
+            
+            // n8n'den gelen audioBase64'ü çal veya TTS kullan
+            const audioBase64 = response.data?.audioBase64 as string | undefined;
+            if (audioBase64 && audioBase64.length > 100) {
+                console.log('🔊 Step3 n8n sesini çalıyor...');
+                await playAudioFromBase64(audioBase64);
+            } else {
+                console.log('🗣️ Step3 TTS kullanıyor...');
+                speakText(text);
+            }
         } catch (e) {
+            console.error('❌ Step3 API hatası:', e);
             const fallback = 'Bu cümleler bize metnin karıncaların çalışma şekli, yapısı ve beslenmesi hakkında bilgi vereceğini düşündürüyor.';
             setImageAnalysisText(fallback);
             speakText(fallback);
@@ -875,6 +907,12 @@ export default function Level1Steps() {
                                 <div className="text-xs font-semibold text-gray-600 mb-1">Step2 Yanıtı</div>
                                 <pre className="text-[10px] leading-snug bg-gray-50 border rounded p-2 overflow-auto">
 {jsonDebug(n8nStep2Resp)}
+                                </pre>
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-gray-600 mb-1">Step3 Yanıtı</div>
+                                <pre className="text-[10px] leading-snug bg-gray-50 border rounded p-2 overflow-auto">
+{jsonDebug(n8nStep3Resp)}
                                 </pre>
                             </div>
                             <div>
