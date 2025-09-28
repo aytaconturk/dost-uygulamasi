@@ -32,6 +32,8 @@ export default function Level1Steps({ stories }: Props) {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [childrenVoiceResponse, setChildrenVoiceResponse] = useState<string>('');
     const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+    const [resumeUrl, setResumeUrl] = useState<string>('');
+    const [storedAudioBase64, setStoredAudioBase64] = useState<string>('');
 
     const steps = [
         {
@@ -42,25 +44,25 @@ export default function Level1Steps({ stories }: Props) {
             type: "observation"
         },
         {
-            title: "2. Adım: Metni sesli okuma",
-            text: "Şimdi hikayeyi sesli bir şekilde okuyacağız. Kelimeleri doğru telaffuz etmeye ve anlamlı bir şekilde okumaya odaklanacağız.",
+            title: "2. Adım: Metnin başlığını inceleme ve tahminde bulunma",
+            text: "Şimdi metnin başlığını inceleyerek içeriğe yönelik tahminlerde bulunacağız.",
             audio: "/audio/story1.mp3",
-            prompt: "Hikayeyi sesli bir şekilde oku. Duraklamalara dikkat et ve net bir şekilde telaffuz et.",
-            type: "reading"
+            prompt: "Başlığa bakarak metnin ne hakkında olabileceğini tahmin et. Hangi ipuçlarını görüyorsun?",
+            type: "baslik_tahmini"
         },
         {
-            title: "3. Adım: Anlam çıkarma ve ana fikri bulma",
-            text: "Okuduğumuz hikayenin ana fikrini ve mesajını anlamaya çalışacağız. Hikayedeki önemli detayları belirleyeceğiz.",
+            title: "3. Adım: Metnin içindeki cümlelerden bazılarını okuma ve tahminde bulunma",
+            text: "Metinden seçilen bazı cümleleri okuyarak metnin konusu ve akışı hakkında tahminlerde bulunacağız.",
             audio: "/audio/sampleSes.mp3",
-            prompt: "Hikayenin ana fikrini açıkla. Hikayede en önemli olay neydi? Ana karakterler kimlerdi?",
-            type: "comprehension"
+            prompt: "Verilen cümleleri okuyup metnin konusu/akışı hakkında neler tahmin ediyorsun?",
+            type: "cumle_tahmini"
         },
         {
-            title: "4. Adım: Sözcük dağarcığını geliştirme",
-            text: "Hikayedeki yeni kelimeleri keşfedecek ve anlamlarını öğreneceğiz. Bu kelimeler vocabularımızı zenginleştirecek.",
+            title: "4. Adım: Okuma amacı belirleme",
+            text: "Metni okurken hangi amaçla okuyacağını belirleyeceksin; bu amaç okuma sürecini yönlendirecek.",
             audio: "/audio/sampleSes.mp3",
-            prompt: "Hikayede öğrendiğin yeni kelimeleri söyle. Bu kelimelerin anlamlarını açıkla.",
-            type: "vocabulary"
+            prompt: "Bu metni hangi amaçla okuyacaksın? Ne öğrenmek istiyorsun?",
+            type: "okuma_amaci"
         }
     ];
 
@@ -71,15 +73,16 @@ export default function Level1Steps({ stories }: Props) {
         image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png'
     };
 
-    // Initial audio playback for step introduction
+    // Intro playback for steps except step 2 (step 2 handled on Start click)
     useEffect(() => {
-        if (stepStarted && audioRef.current && !imageAnalysisText) {
+        if (!stepStarted || imageAnalysisText) return;
+        if (currentStep === 1) return;
+        if (audioRef.current) {
             audioRef.current.src = steps[currentStep].audio;
             setMascotState('speaking');
             audioRef.current.play().then(() => {
                 audioRef.current!.addEventListener('ended', () => {
                     setMascotState('listening');
-                    // After audio ends, trigger analyses for specific steps
                     if (currentStep === 0) {
                         handleImageAnalysis();
                     } else if (currentStep === 2) {
@@ -141,6 +144,21 @@ export default function Level1Steps({ stories }: Props) {
             speakText(fallbackText);
         } finally {
             setIsAnalyzing(false);
+        }
+    };
+
+    // Helper: play base64 audio in the shared audio element
+    const playAudioFromBase64 = async (base64: string) => {
+        if (!audioRef.current || !base64) return;
+        try {
+            const src = base64.trim().startsWith('data:') ? base64.trim() : `data:audio/mpeg;base64,${base64.trim()}`;
+            audioRef.current.src = src;
+            setMascotState('speaking');
+            await audioRef.current.play();
+            audioRef.current.addEventListener('ended', () => setMascotState('listening'), { once: true });
+        } catch (e) {
+            setMascotState('listening');
+            console.error('Base64 ses çalma hatası:', e);
         }
     };
 
@@ -208,7 +226,7 @@ export default function Level1Steps({ stories }: Props) {
     const handleVoiceSubmit = async (audioBlob: Blob) => {
         console.log('🎤 Çocuk sesi API\'ye gönderiliyor...');
         setIsProcessingVoice(true);
-        
+
         try {
             const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
             const formData = new FormData();
@@ -220,42 +238,43 @@ export default function Level1Steps({ stories }: Props) {
             const stepType = currentStep === 0
                 ? 'gorsel_tahmini'
                 : currentStep === 1
-                ? 'okuma'
+                ? 'baslik_tahmini'
                 : currentStep === 2
                 ? 'cumle_tahmini'
-                : 'kelime';
+                : 'okuma_amaci';
             formData.append("adim_tipi", stepType);
 
-            console.log('📤 Çocuk sesi API endpoint:', `${getApiBase()}/dost/level1/children-voice`);
-            
+            const endpoint = resumeUrl || `${getApiBase()}/dost/level1/children-voice`;
+            console.log('📤 Çocuk sesi API endpoint:', endpoint);
+
             const response = await axios.post(
-                `${getApiBase()}/dost/level1/children-voice`,
+                endpoint,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
 
             console.log('✅ Çocuk sesi API yanıtı:', response.data);
-            
+
             const responseText = response.data.message || response.data.text || response.data.response || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin. Onların çalışkanlığı hakkındaki düşüncelerin çok değerli.';
             setChildrenVoiceResponse(responseText);
-            
+
             // Speak the response
             speakText(responseText);
-            
+
             // Mark step as completed
             setStepCompleted(true);
             const newCompletedSteps = [...completedSteps];
             newCompletedSteps[currentStep] = true;
             setCompletedSteps(newCompletedSteps);
-            
+
         } catch (error) {
-            console.error('❌ Çocuk sesi API hatası:', error);
-            
+            console.error('�� Çocuk sesi API hatası:', error);
+
             // Fallback response
             const fallbackText = 'Çok güzel konuştun! Karıncaları iyi gözlemlediğin anlaşılıyor. (Çevrimdışı mod)';
             setChildrenVoiceResponse(fallbackText);
             speakText(fallbackText);
-            
+
             // Mark step as completed
             setStepCompleted(true);
             const newCompletedSteps = [...completedSteps];
@@ -384,17 +403,30 @@ export default function Level1Steps({ stories }: Props) {
                     </p>
                     <button
                         onClick={async () => {
+                            // Enter step view immediately
+                            setStepStarted(true);
+
                             if (currentStep === 1) {
                                 try {
+                                    setIsAnalyzing(true);
                                     const u = getUser();
-                                    await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
-                                } catch (e) {}
-
-                                console.log("Level1Steps.tsx ,", currentStep);
+                                    const res = await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
+                                    const audioBase64: string = res.data?.audioBase64 || '';
+                                    const nextResumeUrl: string = res.data?.resumeUrl || '';
+                                    // Store for later child voice submission
+                                    setResumeUrl(nextResumeUrl);
+                                    setStoredAudioBase64(audioBase64);
+                                    // Play DOST audio
+                                    await playAudioFromBase64(audioBase64);
+                                    // Mark analysis text so that task is shown
+                                    setImageAnalysisText(res.data?.message || 'DOST başlıktan tahminini paylaştı.');
+                                } catch (e) {
+                                    console.error('Step2 API hatası:', e);
+                                    setImageAnalysisText('DOST şu an yanıt veremedi. Tekrar dener misin?');
+                                } finally {
+                                    setIsAnalyzing(false);
+                                }
                             }
-                            console.log("Level1Steps.jsx  current.tsx: ", currentStep);
-                            
-                            setStepStarted(true);
                         }}
                         className="bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
                     >
@@ -409,7 +441,7 @@ export default function Level1Steps({ stories }: Props) {
                     initial={{ x: 300, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="flex-1 flex flex-col items-center justify-center relative mt-0"
+                    className="flex-1 flex flex-col items-center justify-center relative mt-0 px-12 md:px-20 lg:px-28"
                 >
                     {/* Navigation Buttons */}
                     <button
@@ -456,7 +488,7 @@ export default function Level1Steps({ stories }: Props) {
                                     {/* Image analysis result */}
                                     {imageAnalysisText && (
                                         <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                            <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Görsel Analizi:</h3>
+                                            <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Analizi:</h3>
                                             <p className="text-blue-700">{imageAnalysisText}</p>
                                         </div>
                                     )}
@@ -496,6 +528,56 @@ export default function Level1Steps({ stories }: Props) {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Step 2: Başlık analizi ve öğrenci etkileşimi */}
+                        {stepStarted && currentStep === 1 && (
+                            <div className="flex flex-col lg:flex-row gap-8">
+                                {/* Görsel ve Başlık */}
+                                <div className="lg:w-1/3 w-full">
+                                    <img src={story.image} alt={story.title} className="w-full rounded-xl shadow-lg" />
+                                    <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{story.title}</h2>
+                                </div>
+
+                                {/* Analiz ve Etkileşim */}
+                                <div className="lg:w-2/3 w-full">
+                                    {isAnalyzing && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                            <p className="text-blue-700 font-medium">DOST başlıktan tahmin yapıyor...</p>
+                                        </div>
+                                    )}
+                                    {imageAnalysisText && (
+                                        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                            <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Analizi:</h3>
+                                            <p className="text-blue-700">{imageAnalysisText}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Görev ve kayıt */}
+                                    {imageAnalysisText && !childrenVoiceResponse && (
+                                        <div className="mt-6">
+                                            <div className="bg-blue-50 rounded-lg border-l-4 border-blue-400 p-4 mb-6">
+                                                <p className="text-blue-800 font-medium">Görev:</p>
+                                                <p className="text-blue-700">{steps[currentStep].prompt}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
+                                                <VoiceRecorder onSave={handleVoiceSubmit} />
+                                                {isProcessingVoice && (
+                                                    <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {childrenVoiceResponse && (
+                                        <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                                            <h3 className="font-bold text-green-800 mb-2">🗣️ DOST'un Yorumu:</h3>
+                                            <p className="text-green-700 text-lg">{childrenVoiceResponse}</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -565,7 +647,7 @@ export default function Level1Steps({ stories }: Props) {
                         )}
 
                         {/* Placeholder for other steps not yet implemented */}
-                        {currentStep > 0 && currentStep !== 2 && (
+                        {currentStep >= 3 && (
                             <div className="text-center py-12">
                                 <h2 className="text-2xl font-bold text-purple-800 mb-4">{steps[currentStep].title}</h2>
                                 <p className="text-lg text-gray-600 mb-6">Bu adım henüz geliştirilmekte...</p>

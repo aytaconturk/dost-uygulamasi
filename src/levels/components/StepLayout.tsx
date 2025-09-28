@@ -38,7 +38,7 @@ export default function StepLayout({ currentStep, totalSteps, onPrev, onNext, ch
           ←
         </button>
 
-        <div className="w-full max-w-6xl mx-auto px-4 py-4">
+        <div className="w-full max-w-6xl mx-auto px-8 md:px-16 lg:px-24 py-4">
           {children}
         </div>
 

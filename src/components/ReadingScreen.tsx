@@ -37,25 +37,25 @@ export default function ReadingScreen({ stories }: Props) {
             type: "observation"
         },
         {
-            title: "2. Adım: Metni sesli okuma",
-            text: "Şimdi hikayeyi sesli bir şekilde okuyacağız. Kelimeleri doğru telaffuz etmeye ve anlamlı bir şekilde okumaya odaklanacağız.",
+            title: "2. Adım: Metnin başlığını inceleme ve tahminde bulunma",
+            text: "Şimdi metnin başlığını inceleyerek içeriğe yönelik tahminlerde bulunacağız.",
             audio: "/audio/story1.mp3",
-            prompt: "Hikayeyi sesli bir şekilde oku. Duraklamalara dikkat et ve net bir şekilde telaffuz et.",
-            type: "reading"
+            prompt: "Başlığa bakarak metnin ne hakkında olabileceğini tahmin et. Hangi ipuçlarını görüyorsun?",
+            type: "baslik_tahmini"
         },
         {
-            title: "3. Adım: Anlam çıkarma ve ana fikri bulma",
-            text: "Okuduğumuz hikayenin ana fikrini ve mesajını anlamaya çalışacağız. Hikayedeki önemli detayları belirleyeceğiz.",
+            title: "3. Adım: Metnin içindeki cümlelerden bazılarını okuma ve tahminde bulunma",
+            text: "Metinden seçilen bazı cümleleri okuyarak metnin konusu ve akışı hakkında tahminlerde bulunacağız.",
             audio: "/audio/sampleSes.mp3",
-            prompt: "Hikayenin ana fikrini açıkla. Hikayede en önemli olay neydi? Ana karakterler kimlerdi?",
-            type: "comprehension"
+            prompt: "Verilen cümleleri okuyup metnin konusu/akışı hakkında neler tahmin ediyorsun?",
+            type: "cumle_tahmini"
         },
         {
-            title: "4. Adım: Sözcük dağarcığını geliştirme",
-            text: "Hikayedeki yeni kelimeleri keşfedecek ve anlamlarını öğreneceğiz. Bu kelimeler vocabularımızı zenginleştirecek.",
+            title: "4. Adım: Okuma amacı belirleme",
+            text: "Metni okurken hangi amaçla okuyacağını belirleyeceksin; bu amaç okuma sürecini yönlendirecek.",
             audio: "/audio/sampleSes.mp3",
-            prompt: "Hikayede öğrendiğin yeni kelimeleri söyle. Bu kelimelerin anlamlarını açıkla.",
-            type: "vocabulary"
+            prompt: "Bu metni hangi amaçla okuyacaksın? Ne öğrenmek istiyorsun?",
+            type: "okuma_amaci"
         }
     ];
 
