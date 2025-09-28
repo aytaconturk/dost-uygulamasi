@@ -1,4 +1,4 @@
-import React from 'react';
+// React 19: no default import required
 import { useNavigate, useParams } from 'react-router-dom';
 import StepLayout from './components/StepLayout';
 import Step1 from './level1/Step1';

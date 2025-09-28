@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { applyTypography, setFontKey, setSizeStep, SIZE_STEPS_PX, type FontKey } from '../lib/settings';
 
 export default function TypographySettings() {
