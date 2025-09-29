@@ -30,7 +30,7 @@ export default function StoryIntro({ stories }: Props) {
         </div>
         <p className="text-sm text-gray-600 mb-4">Yazar: DOST AI • Yayın: Yapay Zeka Kitaplığı</p>
         <button
-          onClick={() => (story as any).level === 1 ? navigate(`/story/${story.id}/read`) : navigate(`/level/${(story as any).level}/step/1`)}
+          onClick={() => navigate(`/level/${(story as any).level || 1}/step/1`)}
           className="bg-green-500 cursor-pointer text-white py-2 px-6 rounded-full shadow hover:bg-green-600"
         >
           Başla

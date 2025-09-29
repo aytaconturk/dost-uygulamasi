@@ -4,7 +4,6 @@ import StoryIntro from './components/StoryIntro';
 import ReadingScreen from './components/ReadingScreen';
 import Header from './components/Header';
 import './index.css';
-import Level1Steps from './components/Level1Steps';
 import LevelRouter from './levels/LevelRouter';
 import { useEffect } from 'react';
 import { applyTypography } from './lib/settings';
@@ -35,7 +34,6 @@ export default function App() {
                     <Routes>
                         <Route path="/" element={<StoryList stories={stories} />} />
                         <Route path="/story/:id" element={<StoryIntro stories={stories} />} />
-                        <Route path="/story/1/read" element={<Level1Steps />} />
                         <Route path="/level:level/step:step" element={<LevelRouter />} />
                         <Route path="/level/:level/step/:step" element={<LevelRouter />} />
                         <Route path="/story/:id/read" element={<ReadingScreen stories={stories} />} />

@@ -14,7 +14,7 @@ export default function Step4() {
         <img src={story.image} alt={story.title} className="rounded-lg shadow-lg w-64 md:w-80" />
       </div>
       <div className="text-lg text-gray-800 leading-relaxed max-w-xl">
-        <h2 className="text-2xl font-bold text-purple-800 mb-4">4. Adım: Sözcük dağarcığını geliştirme</h2>
+        <h2 className="text-2xl font-bold text-purple-800 mb-4">4. Adım: Okuma amacı belirleme</h2>
         <p className="mt-2 text-gray-800">Hikayede öğrendiğin yeni kelimeleri söyle. Bu kelimelerin anlamlarını açıkla.</p>
       </div>
     </div>
