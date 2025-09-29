@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { ChildUser, generateUserId, getUser, setUser, upsertUser } from '../lib/user';
+import { useEffect, useState } from 'react';
+import type { ChildUser } from '../lib/user';
+import { generateUserId, getUser, setUser } from '../lib/user';
 
 interface Props {
   open: boolean;

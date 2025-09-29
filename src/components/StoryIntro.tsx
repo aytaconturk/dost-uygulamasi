@@ -1,4 +1,4 @@
-import React from 'react';
+// React 19: no default import required
 import { useNavigate, useParams } from 'react-router-dom';
 
 interface Story {

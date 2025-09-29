@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getApiBase, getApiEnv, setApiEnv, type ApiEnv } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
 

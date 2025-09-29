@@ -1,4 +1,4 @@
-import React from 'react';
+// React 19: no default import required
 
 interface Props {
   mode: 'idle' | 'talking';

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiBase, getApiEnv } from '../lib/api';
 import { getUser } from '../lib/user';
@@ -13,11 +13,7 @@ interface Story {
     image: string;
 }
 
-interface Props {
-    stories?: Story[];
-}
-
-export default function Level1Steps({ stories }: Props) {
+export default function Level1Steps() {
     const allowFreeNav = true;
     const navigate = useNavigate();
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -25,7 +21,7 @@ export default function Level1Steps({ stories }: Props) {
     const [currentStep, setCurrentStep] = useState(0);
     const [completedSteps, setCompletedSteps] = useState<boolean[]>(new Array(4).fill(false));
     const [stepCompleted, setStepCompleted] = useState(false);
-    const [mascotState, setMascotState] = useState<'idle' | 'speaking' | 'listening'>('idle');
+    const [, setMascotState] = useState<'idle' | 'speaking' | 'listening'>('idle');
     
     // API related states
     const [imageAnalysisText, setImageAnalysisText] = useState<string>('');
@@ -33,7 +29,37 @@ export default function Level1Steps({ stories }: Props) {
     const [childrenVoiceResponse, setChildrenVoiceResponse] = useState<string>('');
     const [isProcessingVoice, setIsProcessingVoice] = useState(false);
     const [resumeUrl, setResumeUrl] = useState<string>('');
-    const [storedAudioBase64, setStoredAudioBase64] = useState<string>('');
+    const [, setStoredAudioBase64] = useState<string>('');
+    // DEBUG (yalnız TEST ortamında kullanılacak)
+    const [debugOpen, setDebugOpen] = useState(false);
+    const [n8nStep1Resp, setN8nStep1Resp] = useState<any>(null);
+    const [n8nStep2Resp, setN8nStep2Resp] = useState<any>(null);
+    const [n8nStep3Resp, setN8nStep3Resp] = useState<any>(null);
+    const [n8nResumeResp, setN8nResumeResp] = useState<any>(null);
+
+    const jsonDebug = (obj: any) => {
+        try {
+            return JSON.stringify(
+                obj,
+                (k, v) => (typeof v === 'string' && v.length > 600 ? `${v.slice(0, 300)}…(${v.length} chars)` : v),
+                2
+            );
+        } catch {
+            return String(obj);
+        }
+    };
+
+    // Helper: convert Blob to base64 (without data: prefix)
+    const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const res = (reader.result as string) || '';
+            const base64 = res.split(',')[1] || res; // strip data: prefix if present
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 
     const steps = [
         {
@@ -66,7 +92,7 @@ export default function Level1Steps({ stories }: Props) {
         }
     ];
 
-    const story = {
+    const story: Story = {
         id: 1,
         title: 'Oturum 1: Kırıntıların Kahramanları',
         description: 'Karıncalar hakkında',
@@ -92,6 +118,17 @@ export default function Level1Steps({ stories }: Props) {
             }).catch(err => console.error('Ses çalma hatası:', err));
         }
     }, [stepStarted, currentStep]);
+
+    // Recorder veya başka kaynak ses çalarken sayfadaki tüm sesleri durdurmak için global listener
+    useEffect(() => {
+        const stopAll = () => {
+            if (audioRef.current) {
+                try { audioRef.current.pause(); } catch {}
+            }
+        };
+        window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+        return () => window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+    }, []);
 
     // Handle image analysis API call
     const handleImageAnalysis = async () => {
@@ -127,11 +164,29 @@ export default function Level1Steps({ stories }: Props) {
             );
 
             console.log('✅ Görsel analizi API yanıtı:', response.data);
-            const analysisText = response.data.message || response.data.text || response.data.response || 'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak büyük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
+            if (getApiEnv() === 'test') {
+                setN8nStep1Resp(response.data);
+            }
+            // n8n sözleşmesi: imageExplanation ve (varsa) audioBase64'i öncelikli kullan
+            const analysisText = response.data.imageExplanation
+                || response.data.message
+                || response.data.text
+                || response.data.response
+                || 'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak büyük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
             setImageAnalysisText(analysisText);
-            
-            // Convert text to speech and play it automatically
-            speakText(analysisText);
+            // Eğer yanıt resumeUrl de getiriyorsa kaydet
+            if (response.data?.resumeUrl) {
+                console.log('🔗 Step1 resumeUrl alındı:', response.data.resumeUrl);
+                setResumeUrl(response.data.resumeUrl);
+            }
+
+            const audioBase64FromN8n = response.data?.audioBase64 as string | undefined;
+            if (audioBase64FromN8n) {
+                await playAudioFromBase64(audioBase64FromN8n);
+            } else {
+                // Ses yoksa metni konuş
+                speakText(analysisText);
+            }
             
         } catch (error) {
             console.error('❌ Görsel analizi API hatası:', error);
@@ -149,16 +204,50 @@ export default function Level1Steps({ stories }: Props) {
 
     // Helper: play base64 audio in the shared audio element
     const playAudioFromBase64 = async (base64: string) => {
-        if (!audioRef.current || !base64) return;
+        if (!audioRef.current || !base64) {
+            console.error('🔇 playAudioFromBase64: audioRef veya base64 eksik');
+            return;
+        }
+        
+        console.log('🎵 playAudioFromBase64 başlıyor, base64 length:', base64.length);
+        
+        // Stop any current audio
         try {
-            const src = base64.trim().startsWith('data:') ? base64.trim() : `data:audio/mpeg;base64,${base64.trim()}`;
-            audioRef.current.src = src;
+            window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+        } catch {}
+        
+        const tryMime = async (mime: string) => {
+            const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
+            console.log('🎵 Denenen MIME:', mime, 'Src başlangıcı:', src.substring(0, 100));
+            audioRef.current!.src = src;
             setMascotState('speaking');
-            await audioRef.current.play();
-            audioRef.current.addEventListener('ended', () => setMascotState('listening'), { once: true });
-        } catch (e) {
-            setMascotState('listening');
-            console.error('Base64 ses çalma hatası:', e);
+            await audioRef.current!.play();
+            console.log('✅ Ses başarıyla çalmaya başladı');
+            audioRef.current!.addEventListener('ended', () => {
+                console.log('🎵 Ses çalma tamamlandı');
+                setMascotState('listening');
+            }, { once: true });
+        };
+        
+        try {
+            // 1) mp3 format
+            await tryMime('audio/mpeg');
+        } catch (e1) {
+            console.warn('🔇 MP3 çalma başarısız:', e1);
+            try {
+                // 2) webm/opus format  
+                await tryMime('audio/webm;codecs=opus');
+            } catch (e2) {
+                console.error('🔇 WebM çalma da başarısız:', e2);
+                try {
+                    // 3) wav format
+                    await tryMime('audio/wav');
+                } catch (e3) {
+                    console.error('🔇 WAV çalma da başarısız:', e3);
+                    setMascotState('listening');
+                    throw new Error('Hiçbir ses formatı çalınamadı');
+                }
+            }
         }
     };
 
@@ -171,15 +260,46 @@ export default function Level1Steps({ stories }: Props) {
                 'Kocaman bir başı, uzun bir gövdesi vardır.',
                 'Genellikle şekerli yiyecekler yer.'
             ];
+            const u = getUser();
             const response = await axios.post(
                 `${getApiBase()}/dost/level1/step3`,
-                { title: story.title, firstSentences, step: 3 },
+                { 
+                    title: story.title, 
+                    firstSentences, 
+                    step: 3,
+                    userId: u?.userId || ''
+                },
                 { headers: { 'Content-Type': 'application/json' } }
             );
-            const text = response.data.message || response.data.text || response.data.response || 'Bu cümlelerden yola çıkarak metnin karıncaların özellikleri ve yaşamları hakkında bilgi verdiğini söyleyebiliriz.';
+            
+            console.log('🔄 Step3 Response:', response.data);
+            
+            // Debug için kaydet (test ortamında görüntülenecek)
+            if (getApiEnv() === 'test') {
+                setN8nStep3Resp(response.data);
+            }
+            
+            // n8n response yapısına göre metni al: { title, answer, audioBase64, resumeUrl }
+            const text = response.data.answer || response.data.message || response.data.text || response.data.response || 'Bu cümlelerden yola çıkarak metnin karıncaların özellikleri ve yaşamları hakkında bilgi verdiğini söyleyebiliriz.';
             setImageAnalysisText(text);
-            speakText(text);
+            
+            // n8n'den gelen resumeUrl'i kaydet
+            if (response.data?.resumeUrl) {
+                console.log('🔗 Step3 resumeUrl alındı:', response.data.resumeUrl);
+                setResumeUrl(response.data.resumeUrl);
+            }
+            
+            // n8n'den gelen audioBase64'ü çal veya TTS kullan
+            const audioBase64 = response.data?.audioBase64 as string | undefined;
+            if (audioBase64 && audioBase64.length > 100) {
+                console.log('🔊 Step3 n8n sesini çalıyor...');
+                await playAudioFromBase64(audioBase64);
+            } else {
+                console.log('🗣️ Step3 TTS kullanıyor...');
+                speakText(text);
+            }
         } catch (e) {
+            console.error('❌ Step3 API hatası:', e);
             const fallback = 'Bu cümleler bize metnin karıncaların çalışma şekli, yapısı ve beslenmesi hakkında bilgi vereceğini düşündürüyor.';
             setImageAnalysisText(fallback);
             speakText(fallback);
@@ -210,17 +330,17 @@ export default function Level1Steps({ stories }: Props) {
         }
     };
 
-    const handleReplay = () => {
-        if (audioRef.current) {
-            setMascotState('speaking');
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().then(() => {
-                audioRef.current!.addEventListener('ended', () => {
-                    setMascotState('listening');
-                }, { once: true });
-            });
-        }
-    };
+    // const handleReplay = () => {
+    //     if (audioRef.current) {
+    //         setMascotState('speaking');
+    //         audioRef.current.currentTime = 0;
+    //         audioRef.current.play().then(() => {
+    //             audioRef.current!.addEventListener('ended', () => {
+    //                 setMascotState('listening');
+    //             }, { once: true });
+    //         });
+    //     }
+    // };
 
     // Handle voice recording submission to children voice API
     const handleVoiceSubmit = async (audioBlob: Blob) => {
@@ -228,38 +348,117 @@ export default function Level1Steps({ stories }: Props) {
         setIsProcessingVoice(true);
 
         try {
-            const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
-            const formData = new FormData();
-            formData.append("ses", file);
-            formData.append("kullanici_id", "12345");
-            formData.append("hikaye_adi", story.title);
+            const isTest = getApiEnv() === 'test';
             const stepNumber = currentStep + 1;
-            formData.append("adim", String(stepNumber));
-            const stepType = currentStep === 0
-                ? 'gorsel_tahmini'
-                : currentStep === 1
-                ? 'baslik_tahmini'
-                : currentStep === 2
-                ? 'cumle_tahmini'
-                : 'okuma_amaci';
-            formData.append("adim_tipi", stepType);
 
-            const endpoint = resumeUrl || `${getApiBase()}/dost/level1/children-voice`;
-            console.log('📤 Çocuk sesi API endpoint:', endpoint);
+            // If n8n Wait node provided a resume URL, resume with multipart (binary) exactly as Wait expects
+            if (resumeUrl) {
+                console.log('📤 n8n resume URL (multipart) çağrılıyor:', resumeUrl, ' | step:', stepNumber, ' | mime:', (audioBlob as any).type);
+                const mimeType = (audioBlob as any).type || 'audio/webm';
+                const fileName = mimeType.includes('mp3') ? 'cocuk_sesi.mp3' : 'cocuk_sesi.webm';
+                const file = new File([audioBlob], fileName, { type: mimeType });
+                const formData = new FormData();
+                // Match Wait node's Field Name for Binary Data
+                formData.append('ses', file);
+                // Optional: extra fields if you want in downstream
+                formData.append('step', String(stepNumber));
+                formData.append('level', '1');
+                formData.append('title', story.title);
 
-            const response = await axios.post(
-                endpoint,
-                formData,
-                { headers: { "Content-Type": "multipart/form-data" } }
-            );
+                const response = await axios.post(resumeUrl, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                
+                console.log('🔄 n8n Resume Response:', response.data);
+                
+                // Debug için her zaman kaydet (test ortamında görüntülenecek)
+                if (getApiEnv() === 'test') {
+                    setN8nResumeResp(response.data);
+                }
 
-            console.log('✅ Çocuk sesi API yanıtı:', response.data);
+                // Handle n8n response structure: { respodKidVoice: "text", audioBase64: "base64data" }
+                const audioBase64 = response.data?.audioBase64 as string | undefined;
+                const responseText = response.data?.respodKidVoice || response.data?.message || response.data?.text || response.data?.response || '';
+                
+                console.log('🎵 AudioBase64 found:', !!audioBase64);
+                console.log('📝 Response Text:', responseText?.substring(0, 100));
+                console.log('🔍 Full Response Keys:', Object.keys(response.data || {}));
+                if (audioBase64) {
+                    console.log('🎵 AudioBase64 length:', audioBase64.length, 'starts with:', audioBase64.substring(0, 50));
+                }
+                
+                if (audioBase64 && audioBase64.length > 100) {
+                    // n8n ses ürettiyse onu çal
+                    console.log('🔊 n8n sesini çalıyor...');
+                    try {
+                        await playAudioFromBase64(audioBase64);
+                        if (responseText) setChildrenVoiceResponse(responseText);
+                        else setChildrenVoiceResponse('DOST yanıtını ses olarak çaldı.');
+                    } catch (e) {
+                        console.error('🔇 n8n ses çalma hatası:', e);
+                        // Fallback to TTS if audio playback fails
+                        const finalText = responseText || 'Mükemmel! Ses kaydın çok net ve anlaşılır.';
+                        setChildrenVoiceResponse(finalText);
+                        speakText(finalText);
+                    }
+                } else {
+                    // Ses yoksa metni konuş
+                    console.log('🗣️ n8n sesinden TTS\'e geçiliyor... (audioBase64 length:', audioBase64?.length || 0, ')');
+                    const finalText = responseText || 'Mükemmel! Ses kaydın çok net ve anlaşılır.';
+                    setChildrenVoiceResponse(finalText);
+                    speakText(finalText);
+                }
+            } else {
+                // Test mode (mock) or production fallback endpoint: send multipart
+                const mimeType = (audioBlob as any).type || 'audio/webm';
+                const fileName = mimeType.includes('mp3') ? 'cocuk_sesi.mp3' : 'cocuk_sesi.webm';
+                const file = new File([audioBlob], fileName, { type: mimeType });
+                const formData = new FormData();
 
-            const responseText = response.data.message || response.data.text || response.data.response || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin. Onların çalışkanlığı hakkındaki düşüncelerin çok değerli.';
-            setChildrenVoiceResponse(responseText);
+                let endpoint = '';
+                if (isTest) {
+                    // Mock API expects 'audio' and simple fields
+                    formData.append('audio', file);
+                    formData.append('step', String(stepNumber));
+                    formData.append('level', '1');
+                    formData.append('storyTitle', story.title);
+                    endpoint = '/api/voice-analysis';
+                } else {
+                    // Preserve production backend contract
+                    const prodFile = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
+                    formData.append('ses', prodFile);
+                    formData.append('kullanici_id', '12345');
+                    formData.append('hikaye_adi', story.title);
+                    formData.append('adim', String(stepNumber));
+                    const stepType = currentStep === 0
+                        ? 'gorsel_tahmini'
+                        : currentStep === 1
+                        ? 'baslik_tahmini'
+                        : currentStep === 2
+                        ? 'cumle_tahmini'
+                        : 'okuma_amaci';
+                    formData.append('adim_tipi', stepType);
+                    endpoint = `${getApiBase()}/dost/level1/children-voice`;
+                }
 
-            // Speak the response
-            speakText(responseText);
+                console.log('📤 ResumeUrl yok, fallback endpoint kullanılacak:', endpoint, ' | step:', stepNumber, ' | test:', isTest, ' | mime:', (audioBlob as any).type);
+                const response = await axios.post(endpoint, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+
+                const audioBase64 = response.data?.audioBase64 as string | undefined;
+                const responseText = response.data?.message || response.data?.text || response.data?.response || '';
+                if (audioBase64) {
+                    await playAudioFromBase64(audioBase64);
+                    setChildrenVoiceResponse(responseText || 'DOST yanıtını ses olarak çaldı.');
+                } else {
+                    const finalText = responseText || 'Mükemmel! Ses kaydın çok net ve anlaşılır.';
+                    setChildrenVoiceResponse(finalText);
+                    speakText(finalText);
+                }
+            }
+
+            console.log('✅ Çocuk sesi API tamamlandı');
 
             // Mark step as completed
             setStepCompleted(true);
@@ -268,7 +467,7 @@ export default function Level1Steps({ stories }: Props) {
             setCompletedSteps(newCompletedSteps);
 
         } catch (error) {
-            console.error('�� Çocuk sesi API hatası:', error);
+            console.error('❌ Çocuk sesi API hatası:', error);
 
             // Fallback response
             const fallbackText = 'Çok güzel konuştun! Karıncaları iyi gözlemlediğin anlaşılıyor. (Çevrimdışı mod)';
@@ -413,13 +612,16 @@ export default function Level1Steps({ stories }: Props) {
                                     const res = await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
                                     const audioBase64: string = res.data?.audioBase64 || '';
                                     const nextResumeUrl: string = res.data?.resumeUrl || '';
+                                    if (getApiEnv() === 'test') {
+                                        setN8nStep2Resp(res.data);
+                                    }
                                     // Store for later child voice submission
                                     setResumeUrl(nextResumeUrl);
                                     setStoredAudioBase64(audioBase64);
                                     // Play DOST audio
                                     await playAudioFromBase64(audioBase64);
                                     // Mark analysis text so that task is shown
-                                    setImageAnalysisText(res.data?.message || 'DOST başlıktan tahminini paylaştı.');
+                                    setImageAnalysisText(res.data?.imageExplanation || res.data?.message || 'DOST başlıktan tahminini paylaştı.');
                                 } catch (e) {
                                     console.error('Step2 API hatası:', e);
                                     setImageAnalysisText('DOST şu an yanıt veremedi. Tekrar dener misin?');
@@ -509,7 +711,9 @@ export default function Level1Steps({ stories }: Props) {
                                                     <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">
                                                         Hadi sıra sende! Mikrofona konuş
                                                     </p>
-                                                    <VoiceRecorder onSave={handleVoiceSubmit} />
+                                                    <VoiceRecorder onSave={handleVoiceSubmit} onPlayStart={() => {
+                                                        try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
+                                                    }} />
                                                     {isProcessingVoice && (
                                                         <p className="mt-4 text-blue-600 font-medium">
                                                             DOST senin sözlerini değerlendiriyor...
@@ -563,7 +767,9 @@ export default function Level1Steps({ stories }: Props) {
                                             </div>
                                             <div className="text-center">
                                                 <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
-                                                <VoiceRecorder onSave={handleVoiceSubmit} />
+                                                <VoiceRecorder onSave={handleVoiceSubmit} onPlayStart={() => {
+                                                    try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
+                                                }} />
                                                 {isProcessingVoice && (
                                                     <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
                                                 )}
@@ -670,6 +876,55 @@ export default function Level1Steps({ stories }: Props) {
                     </button>
                 )}
             </div>
+
+            {/* DEBUG PANEL - sadece test ortamında */}
+            {getApiEnv() === 'test' && (
+                <div className="fixed bottom-4 right-4 w-[360px] max-h-[60vh] bg-white/95 border border-gray-300 rounded-lg shadow-xl overflow-hidden z-50">
+                    <div className="flex items-center justify-between px-3 py-2 bg-gray-100 border-b">
+                        <span className="text-sm font-semibold text-gray-700">n8n Debug</span>
+                        <button
+                            onClick={() => setDebugOpen(!debugOpen)}
+                            className="text-xs px-2 py-1 rounded border bg-white hover:bg-gray-50"
+                        >
+                            {debugOpen ? 'Kapat' : 'Aç'}
+                        </button>
+                    </div>
+                    {debugOpen && (
+                        <div className="p-3 space-y-3 overflow-auto" style={{ maxHeight: '50vh' }}>
+                            <div className="text-xs text-gray-700">
+                                <div className="font-semibold mb-1">Current resumeUrl</div>
+                                <div className="break-all select-all bg-gray-50 border rounded p-2">
+                                    {resumeUrl || '(boş)'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-gray-600 mb-1">Step1 Yanıtı</div>
+                                <pre className="text-[10px] leading-snug bg-gray-50 border rounded p-2 overflow-auto">
+{jsonDebug(n8nStep1Resp)}
+                                </pre>
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-gray-600 mb-1">Step2 Yanıtı</div>
+                                <pre className="text-[10px] leading-snug bg-gray-50 border rounded p-2 overflow-auto">
+{jsonDebug(n8nStep2Resp)}
+                                </pre>
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-gray-600 mb-1">Step3 Yanıtı</div>
+                                <pre className="text-[10px] leading-snug bg-gray-50 border rounded p-2 overflow-auto">
+{jsonDebug(n8nStep3Resp)}
+                                </pre>
+                            </div>
+                            <div>
+                                <div className="text-xs font-semibold text-gray-600 mb-1">Resume Yanıtı</div>
+                                <pre className="text-[10px] leading-snug bg-gray-50 border rounded p-2 overflow-auto">
+{jsonDebug(n8nResumeResp)}
+                                </pre>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { getApiBase } from '../../lib/api';
 import { motion } from 'framer-motion';
@@ -12,6 +12,7 @@ export default function Step1() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [childrenVoiceResponse, setChildrenVoiceResponse] = useState('');
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState('');
 
   const stepAudio = '/audio/1.seviye-1.adim.mp3';
   const story = {
@@ -45,6 +46,17 @@ export default function Step1() {
     };
   }, [started]);
 
+  // Global STOP_ALL_AUDIO geldiğinde sayfadaki ortak player’ı durdur
+  useEffect(() => {
+    const stopAll = () => {
+      if (audioRef.current) {
+        try { audioRef.current.pause(); } catch {}
+      }
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+    return () => window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+  }, []);
+
   const speakText = (text: string) => {
     if ('speechSynthesis' in window) {
       setMascotState('speaking');
@@ -55,6 +67,28 @@ export default function Step1() {
       utterance.onend = () => setMascotState('listening');
       utterance.onerror = () => setMascotState('listening');
       speechSynthesis.speak(utterance);
+    }
+  };
+
+  // Base64 sesi çal (ortak audioRef üstünden)
+  const playAudioFromBase64 = async (base64: string) => {
+    if (!audioRef.current || !base64) return;
+    const tryMime = async (mime: string) => {
+      const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
+      audioRef.current!.src = src;
+      setMascotState('speaking');
+      await audioRef.current!.play();
+      audioRef.current!.addEventListener('ended', () => setMascotState('listening'), { once: true });
+    };
+    try {
+      await tryMime('audio/mpeg');
+    } catch {
+      try {
+        await tryMime('audio/webm;codecs=opus');
+      } catch (e) {
+        setMascotState('listening');
+        console.error('Base64 ses çalma hatası:', e);
+      }
     }
   };
 
@@ -78,9 +112,21 @@ export default function Step1() {
         },
         { headers: { 'Content-Type': 'application/json' } }
       );
-      const analysisText = data.message || data.text || data.response || 'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak b��yük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
+      // n8n sözleşmesi: imageExplanation + (varsa) audioBase64 ve resumeUrl
+      const analysisText = data.imageExplanation
+        || data.message
+        || data.text
+        || data.response
+        || 'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak büyük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
       setImageAnalysisText(analysisText);
-      speakText(analysisText);
+      if (data?.resumeUrl) setResumeUrl(data.resumeUrl);
+
+      const audioBase64 = data?.audioBase64 as string | undefined;
+      if (audioBase64) {
+        await playAudioFromBase64(audioBase64);
+      } else {
+        speakText(analysisText);
+      }
     } catch (e) {
       const fallbackText = 'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak büyük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
       setImageAnalysisText(fallbackText);
@@ -93,25 +139,75 @@ export default function Step1() {
   const handleVoiceSubmit = async (audioBlob: Blob) => {
     setIsProcessingVoice(true);
     try {
-      const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
-      const formData = new FormData();
-      formData.append('ses', file);
-      formData.append('kullanici_id', '12345');
-      formData.append('hikaye_adi', story.title);
-      formData.append('adim', '1');
-      formData.append('adim_tipi', 'gorsel_tahmini');
+      if (resumeUrl) {
+        // n8n Wait resume: multipart ile binary 'ses' alanında gönder
+        const mime = (audioBlob as any).type || 'audio/webm';
+        const fileName = mime.includes('mp3') ? 'cocuk_sesi.mp3' : 'cocuk_sesi.webm';
+        const file = new File([audioBlob], fileName, { type: mime });
+        const formData = new FormData();
+        formData.append('ses', file);
+        formData.append('step', '1');
+        formData.append('level', '1');
+        formData.append('title', story.title);
 
-      const { data } = await axios.post(
-        `${getApiBase()}/dost/level1/children-voice`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+        const { data } = await axios.post(resumeUrl, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
-      const responseText = data.message || data.text || data.response || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin. Onların çalışkanlığı hakkındaki düşüncelerin çok değerli.';
-      setChildrenVoiceResponse(responseText);
-      speakText(responseText);
+        console.log('🔄 n8n Step1 Response:', data);
+
+        // Handle n8n response structure: { respodKidVoice: "text", audioBase64: "base64data" }
+        const audioBase64 = data?.audioBase64 as string | undefined;
+        const responseText = data?.respodKidVoice || data?.message || data?.text || data?.response || '';
+        
+        console.log('🎵 Step1 AudioBase64 found:', !!audioBase64, 'Text:', responseText?.substring(0, 100));
+        
+        if (audioBase64) {
+          console.log('🔊 Step1 n8n sesini çalıyor...');
+          try {
+            await playAudioFromBase64(audioBase64);
+            setChildrenVoiceResponse(responseText || 'DOST yanıtını ses olarak çaldı.');
+          } catch (e) {
+            console.error('🔇 Step1 n8n ses çalma hatası:', e);
+            const finalText = responseText || 'Yanıt hazır.';
+            setChildrenVoiceResponse(finalText);
+            speakText(finalText);
+          }
+        } else {
+          console.log('🗣️ Step1 n8n sesinden TTS\'e geçiliyor...');
+          const finalText = responseText || 'Yanıt hazır.';
+          setChildrenVoiceResponse(finalText);
+          speakText(finalText);
+        }
+      } else {
+        // Backend fallback sözleşmesi
+        const mime = (audioBlob as any).type || 'audio/webm';
+        const fileName = mime.includes('mp3') ? 'cocuk_sesi.mp3' : 'cocuk_sesi.webm';
+        const file = new File([audioBlob], fileName, { type: mime });
+        const formData = new FormData();
+        formData.append('ses', file);
+        formData.append('kullanici_id', '12345');
+        formData.append('hikaye_adi', story.title);
+        formData.append('adim', '1');
+        formData.append('adim_tipi', 'gorsel_tahmini');
+
+        const { data } = await axios.post(
+          `${getApiBase()}/dost/level1/children-voice`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
+
+        const audioBase64 = data?.audioBase64 as string | undefined;
+        const responseText = data?.message || data?.text || data?.response || '';
+        if (audioBase64) {
+          await playAudioFromBase64(audioBase64);
+          setChildrenVoiceResponse(responseText || 'DOST yanıtını ses olarak çaldı.');
+        } else {
+          const finalText = responseText || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin.';
+          setChildrenVoiceResponse(finalText);
+          speakText(finalText);
+        }
+      }
     } catch (e) {
-      const fallbackText = 'Çok güzel konuştun! Karıncaları iyi gözlemlediğin anlaşılıyor. (Çevrimdışı mod)';
+      const fallbackText = 'Teknik bir sorun oldu. Lütfen tekrar dener misin?';
       setChildrenVoiceResponse(fallbackText);
       speakText(fallbackText);
     } finally {
@@ -177,7 +273,9 @@ export default function Step1() {
                   {!childrenVoiceResponse && (
                     <div className="text-center">
                       <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
-                      <VoiceRecorder onSave={handleVoiceSubmit} />
+                      <VoiceRecorder onSave={handleVoiceSubmit} onPlayStart={() => {
+                        try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
+                      }} />
                       {isProcessingVoice && (
                         <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
                       )}
