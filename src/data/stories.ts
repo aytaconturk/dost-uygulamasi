@@ -113,11 +113,86 @@ const STORIES: Record<number, Paragraph[]> = {
       { text: ' Ancak çok tüketilirse baş ağrısı yapabilir.', bold: true }
     ]
   ]
+,
+  4: [
+    [
+      { text: 'Hey! Sana bir sorum var: Turizmin incisi olarak bilinen bölgemiz hangisidir? Tabii ki, Akdeniz Bölgesi. Haydi, birlikte Akdeniz\'i keşfedelim.' }
+    ],
+    [
+      { text: 'Akdeniz bölgesinin iklimi ile başlayalım. Bu bölgede ' },
+      { text: 'Akdeniz iklimi görülür.', bold: true },
+      { text: ' Bu iklimde yazları sıcak ve kuraktır. Kışları ise ılık ve yağışlıdır. Don olayları nadiren yaşanır. En fazla yağış kış mevsiminde düşer. Bazen ani ve aşırı yağmurlar da görülebilir. Bu ani ve aşırı yağmurlar, bir doğal afet olan sele sebep olabilir.' }
+    ],
+    [
+      { text: 'Peki, sence bu bölgenin bitki örtüsü nasıldır? ' },
+      { text: 'Akdeniz Bölgesi\'nin bitki örtüsü makidir.', bold: true },
+      { text: ' Makiler, kısa boylu ağaçlardır. Maki türleri arasında mersin, keçiboynuzu, defne vardır. Bu bölgede ' },
+      { text: 'bolca zeytin ve portakal ağaçları da bulunur.', bold: true }
+    ],
+    [
+      { text: 'Sırada bölgenin yeryüzü şekilleri var. ' },
+      { text: 'Akdeniz, dağlık ve engebelidir.', bold: true },
+      { text: ' Bu bölgede engebeli ve sulak araziler olduğu için dağınık yerleşim görülür. Bölgeyi dağlar ve yüksek platolar oluşturur. Ayrıca bu bölgede kırmızı renkli topraklar bulunur. Bu topraklar verimlidir. Akdeniz\'in sıcak ve tuzlu bir denizi vardır.' }
+    ],
+    [
+      { text: 'Akdeniz bölgesi gelirini tarım ve turizmden elde eder.', bold: true },
+      { text: ' Tarım iç bölgelerde yapılır. Zeytinlerden lezzetli zeytinyağı yapılır. Portakallar ve limonlar üretilir. Bu ürünlerden büyük gelir elde edilir. Diğer bir gelir kaynağı olan turizm bölgenin başlıca kaynağıdır. Deniz, güneş ve turkuaz kıyılar turistler için burayı cazip kılar. Ayrıca antik kentler ve güzel doğal güzellikleri tanıtmak için birçok insan burayı ziyaret eder.' }
+    ],
+    [
+      { text: 'Bölgenin nüfusu yaklaşık 11 milyona yakındır. ' },
+      { text: 'Bölgede yaşayan insanların çoğunluğu kentlerde yaşamaktadır.', bold: true },
+      { text: ' Sen de burada yaşamak ister miydin?' }
+    ]
+  ]
+,
+  5: [
+    [
+      { text: 'Çöl Gemisi deyince aklına ne geliyor? Şimdi birlikte bu sorunun cevabını öğreneceğiz. Hazır mısın?' }
+    ],
+    [
+      { text: 'Çöl gemilerinin ne olduğu ve nasıl yaşadığı ile başlayalım. ' },
+      { text: 'Çöl gemisi, develere verilen bir isimdir.', bold: true },
+      { text: ' Çünkü develer genellikle çöl ikliminde yaşar. Çöl zorlu bir iklimdir. Yani, ' },
+      { text: 'develer zorlu iklim koşullarında yaşayabilir.', bold: true },
+      { text: ' Develer, gezmeyi çok sever. Onlar sürü halinde gezer. Sürüde bir erkek, bir dişi ve yavru develer vardır. ' },
+      { text: 'Kendini tehlikede hisseden bir deve tükürebilir.', bold: true },
+      { text: ' Böylelikle kendisini korumaya çalışır.' }
+    ],
+    [
+      { text: 'Sırada develerle ilgili fiziksel özellikler var. ' },
+      { text: 'Develer, uzun boyludur. Hörgüçleri vardır.', bold: true },
+      { text: ' Bazı develer tek hörgüçlüdür. Bazı develer ise çift hörgüçlüdür.', bold: true },
+      { text: ' Hörgüçler adeta bir depo gibidir. Develer yiyeceklerini buraya saklar. Böylelikle bu hayvanlar uzun süre aç ve susuz kalabilir. ' },
+      { text: 'Develerin uzun kirpikleri vardır.', bold: true },
+      { text: ' Bu kirpikler, develerin gözlerini kum fırtınalarından korur.' }
+    ],
+    [
+      { text: 'Şimdi, sırada beslenmeleri var. ' },
+      { text: 'Develer, otçul hayvanlardır.', bold: true },
+      { text: ' Yaprakları, meyveleri, dikenli bitkileri yer. ' },
+      { text: 'Develer, az besinle yetinebilir. Günlerce yemek yemese de olur.', bold: true },
+      { text: ' Bu hayvanlar, tek bir seferde 80-90 litre su içer. Bu sayede günlerce susuz kalabilir.' }
+    ],
+    [
+      { text: 'Develer nasıl çoğalır? Bir fikrin var mı? ' },
+      { text: 'Develer doğurarak çoğalır.', bold: true },
+      { text: ' Yeni doğan deve hörgüçsüzdür. Büyüdükçe hörgüçleri belirginleşir.' }
+    ],
+    [
+      { text: 'Peki develerin çevreye olan etkileri nelerdir? ' },
+      { text: 'Develer insanların dostudur. İnsanların ulaşımını sağlar.', bold: true },
+      { text: ' Eşyalarını taşırlar. İnsanlar develerin yününden, sütünden, etinden faydalanabilir. ' },
+      { text: 'Ancak dikkat et! Bazı develer hastalık taşıyabilir.', bold: true },
+      { text: ' Bu insanlara bulaşabilir. İşte bu kadar! Haydi develerle ilgili öğrendiklerini arkadaşlarına da anlat!' }
+    ]
+  ]
 };
 
 const STORY_CATEGORIES: Record<number, StoryCategory> = {
   1: 'Hayvanlarla ilgili metinler',
   3: 'Bitkilerle ilgili metinler',
+  4: 'Coğrafi Bölgelerle İlgili ilgili metinler',
+  5: 'Hayvanlarla ilgili metinler',
 };
 
 export const getParagraphs = (storyId: number): Paragraph[] => STORIES[storyId] || [];
