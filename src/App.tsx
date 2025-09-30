@@ -13,7 +13,7 @@ const stories = [
     { id: 2, title: 'Çöl Gemisi', description: 'Develer hakkında', image: '/src/assets/images/story2.png', level: 2 },
     { id: 3, title: 'Fındık Canavarları', description: 'Sincaplar hakkında', image: '/src/assets/images/story3.png', level: 3 },
     { id: 4, title: 'Orman Macerası', description: 'Ayılar hakkında', image: '/src/assets/images/story4.png', level: 4, locked: true },
-    { id: 5, title: 'Gökyüzü Yolcuları', description: 'Kuşlar hakkında', image: '/src/assets/images/story5.png', level: 5, locked: true },
+    { id: 5, title: 'Gökyüzü Yolcuları', description: 'Kuşlar hakkında', image: '/src/assets/images/story5.png', level: 5 },
     { id: 6, title: 'Deniz Altı Krallığı', description: 'Balıklar hakkında', image: '/src/assets/images/story6.png', level: 6, locked: true },
     { id: 7, title: 'Kayıp Ayakkabı', description: 'Fareler hakkında', image: '/src/assets/images/story7.png', level: 7, locked: true },
     { id: 8, title: 'Karlı Dağlar', description: 'Tilki ve geyikler hakkında', image: '/src/assets/images/story8.png', level: 8, locked: true },

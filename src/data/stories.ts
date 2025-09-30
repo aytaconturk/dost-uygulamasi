@@ -5,7 +5,7 @@ export type StoryCategory =
   | 'Hayvanlarla ilgili metinler'
   | 'Bitkilerle ilgili metinler'
   | 'Elektronik araçlarla ilgili metinler'
-  | 'Coğrafi Bölgelerle İlgili ilgili metinler';
+  | 'Coğrafi B��lgelerle İlgili ilgili metinler';
 
 // Map storyId -> array of paragraphs
 const STORIES: Record<number, Paragraph[]> = {
@@ -65,11 +65,59 @@ const STORIES: Record<number, Paragraph[]> = {
       { text: 'tifüs ve verem gibi hastalıkları yayabilir.', bold: true },
       { text: ' Küçük dostlarımızı artık çok iyi biliyorsun. Onlara bugün bir küp şeker ısmarlamaya ne dersin?' }
     ]
+  ],
+  3: [
+    [
+      { text: 'Hey! Sana bir meyvenin ismini vermeden anlatayım, sen hangi meyve olduğunu tahmin et. Buruşuk, tatlı, kahverengi renkte bir meyvedir. Birçok çeşidi vardır. Özellikle Ramazan ayında tüketilir. Sence bu hangi meyvedir? ' },
+      { text: 'Cevabın hurmaysa doğru bildin!', bold: true },
+      { text: ' Haydi şimdi hurmaların yetiştiği hurma ağacını tanıyalım!' }
+    ],
+    [
+      { text: 'Hurmanın yaşam koşulları ile başlayalım. ' },
+      { text: 'Hurmalar, çok sıcak olan çöl ikliminde yetişir.', bold: true },
+      { text: ' Yani sıcağı çok sever. ' },
+      { text: 'Ülkemizde ise Akdeniz Bölgesi\'nde olur.', bold: true },
+      { text: ' ' },
+      { text: 'Hurma meyvesi ağaçta yetişir.', bold: true },
+      { text: ' ' },
+      { text: 'Hurma ağaçları çok uzundur.', bold: true },
+      { text: ' Ayrıca hurma ağaçları kuraklığa dayanıklıdır.', bold: true },
+      { text: ' Ancak meyvelerini verirken suya ihtiyaç duyar.', bold: true },
+      { text: ' Hurma meyvesi salkım şeklinde hurma ağacının dallarından sallanır.', bold: true }
+    ],
+    [
+      { text: 'Şimdi de hurma ağaçlarının görünümlerine bakalım. ' },
+      { text: 'Hurma ağacı; gövde, yaprak ve meyve olmak üzere üç kısımdan oluşur.', bold: true },
+      { text: ' Bu ağaç, palmiyeye benzer. ' },
+      { text: 'Özellikle uzun gövdesiyle dikkat çeker.', bold: true },
+      { text: ' En güzel yanları, meyveleridir tabii ki! ' },
+      { text: 'Bu meyveler, şekerlemeye benzer, çok da lezzetlidir.', bold: true },
+      { text: ' Meyvenin içinde çekirdek bulunur.', bold: true },
+      { text: ' Hurma ağaçlarının yaprakları uzun ve küçüktür.', bold: true },
+      { text: ' Bu yapraklardan da çay yapılır.' }
+    ],
+    [
+      { text: 'Hurma ağaçlarının nasıl çoğaldığını bilmek ister misin? ' },
+      { text: 'İstersen çekirdeğini ekerek çoğalmasını sağlarsın.', bold: true },
+      { text: ' İstersen hurma ağacının gövdesinden çıkan filizleri ekersin.', bold: true },
+      { text: ' ' },
+      { text: 'Bir hurma ağacı yaklaşık 70 yıl yaşar.', bold: true },
+      { text: ' Yeter ki hava soğuk olmasın!' }
+    ],
+    [
+      { text: 'Son olarak hurmanın çevreye etkisine bakalım. ' },
+      { text: 'Hurma ağacının yaprak ve gövdesiyle çeşitli eşyalar yapılır.', bold: true },
+      { text: ' Hurma meyvesi çok faydalıdır; en önemli yararlarından biri ', },
+      { text: 'kemikleri güçlendirmesidir.', bold: true },
+      { text: ' Hurma meyvesi ise, beynimizin ve kalbimizin sağlığı için çok faydalıdır.', bold: true },
+      { text: ' Ancak çok tüketilirse baş ağrısı yapabilir.', bold: true }
+    ]
   ]
 };
 
 const STORY_CATEGORIES: Record<number, StoryCategory> = {
   1: 'Hayvanlarla ilgili metinler',
+  3: 'Bitkilerle ilgili metinler',
 };
 
 export const getParagraphs = (storyId: number): Paragraph[] => STORIES[storyId] || [];
