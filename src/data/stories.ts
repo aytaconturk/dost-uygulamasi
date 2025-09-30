@@ -1,6 +1,12 @@
 export type TextSegment = { text: string; bold?: boolean };
 export type Paragraph = TextSegment[]; // supports bold spans
 
+export type StoryCategory =
+  | 'Hayvanlarla ilgili metinler'
+  | 'Bitkilerle ilgili metinler'
+  | 'Elektronik araçlarla ilgili metinler'
+  | 'Coğrafi Bölgelerle İlgili ilgili metinler';
+
 // Map storyId -> array of paragraphs
 const STORIES: Record<number, Paragraph[]> = {
   1: [
@@ -62,7 +68,12 @@ const STORIES: Record<number, Paragraph[]> = {
   ]
 };
 
+const STORY_CATEGORIES: Record<number, StoryCategory> = {
+  1: 'Hayvanlarla ilgili metinler',
+};
+
 export const getParagraphs = (storyId: number): Paragraph[] => STORIES[storyId] || [];
+export const getStoryCategory = (storyId: number): StoryCategory | null => STORY_CATEGORIES[storyId] || null;
 
 export const paragraphToPlain = (p: Paragraph) => p.map(s => s.text).join('');
 

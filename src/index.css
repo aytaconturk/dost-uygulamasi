@@ -391,3 +391,47 @@ body {
     font-size: 1.1rem;
   }
 }
+
+/* Confetti Animation */
+.confetti { position: absolute; inset: 0; overflow: hidden; }
+.confetti-piece { position: absolute; top: -10vh; width: 10px; height: 16px; border-radius: 2px; opacity: 0.95; animation-name: confetti-fall; animation-timing-function: linear; animation-iteration-count: infinite; }
+
+/* Durations */
+.confetti-dur-3 { animation-duration: 3.5s; }
+.confetti-dur-4 { animation-duration: 4.5s; }
+.confetti-dur-5 { animation-duration: 5.5s; }
+.confetti-dur-6 { animation-duration: 6.5s; }
+
+/* Delays */
+.confetti-delay-0 { animation-delay: 0s; }
+.confetti-delay-2 { animation-delay: .2s; }
+.confetti-delay-4 { animation-delay: .4s; }
+.confetti-delay-6 { animation-delay: .6s; }
+.confetti-delay-8 { animation-delay: .8s; }
+
+/* Horizontal positions */
+.confetti-l-0 { left: 0%; }
+.confetti-l-2 { left: 2%; }
+.confetti-l-5 { left: 5%; }
+.confetti-l-8 { left: 8%; }
+.confetti-l-10 { left: 10%; }
+.confetti-l-14 { left: 14%; }
+.confetti-l-20 { left: 20%; }
+.confetti-l-26 { left: 26%; }
+.confetti-l-32 { left: 32%; }
+.confetti-l-38 { left: 38%; }
+.confetti-l-44 { left: 44%; }
+.confetti-l-50 { left: 50%; }
+.confetti-l-56 { left: 56%; }
+.confetti-l-62 { left: 62%; }
+.confetti-l-68 { left: 68%; }
+.confetti-l-74 { left: 74%; }
+.confetti-l-80 { left: 80%; }
+.confetti-l-86 { left: 86%; }
+.confetti-l-92 { left: 92%; }
+.confetti-l-95 { left: 95%; }
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); }
+  100% { transform: translateY(110vh) rotate(720deg); }
+}

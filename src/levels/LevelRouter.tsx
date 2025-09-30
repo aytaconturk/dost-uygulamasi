@@ -6,6 +6,7 @@ import Step1 from './level1/Step1';
 import Step2 from './level1/Step2';
 import Step3 from './level1/Step3';
 import Step4 from './level1/Step4';
+import Step5 from './level1/Step5';
 import L2Step1 from './level2/Step1';
 import L2Step2 from './level2/Step2';
 import L2Step3 from './level2/Step3';
@@ -14,7 +15,7 @@ import { stopAllMedia } from '../lib/media';
 import { getApiEnv } from '../lib/api';
 
 const LEVEL_STEPS_COUNT: Record<number, number> = {
-  1: 4,
+  1: 5,
   2: 4,
 };
 
@@ -78,6 +79,7 @@ export default function LevelRouter() {
     else if (step === 2) content = <Step2 />;
     else if (step === 3) content = <Step3 />;
     else if (step === 4) content = <Step4 />;
+    else if (step === 5) content = <Step5 />;
   } else if (level === 2) {
     if (step === 1) content = <L2Step1 />;
     else if (step === 2) content = <L2Step2 />;
@@ -133,8 +135,10 @@ export default function LevelRouter() {
       totalSteps={totalSteps}
       onPrev={onPrev}
       onNext={onNext}
+      hideNext={level === 1 && (step === 4 || step === 5)}
+      hideFooter={level === 1 && (step === 4 || step === 5)}
     >
-      {renderLevel1Checklist()}
+      {step === 5 ? null : renderLevel1Checklist()}
       {content}
     </StepLayout>
   );

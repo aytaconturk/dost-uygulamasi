@@ -24,21 +24,42 @@ export default function Step2() {
   };
 
   useEffect(() => {
-    if (started && audioRef.current && !analysisText) {
-      audioRef.current.src = introAudio;
-      setMascotState('speaking');
-      audioRef.current
-        .play()
-        .then(() => {
-          audioRef.current!.addEventListener(
-            'ended',
-            () => {
-              speakTitleThenAnalyze();
-            },
-            { once: true }
-          );
-        })
-        .catch(() => setMascotState('idle'));
+    if (started && !analysisText) {
+      // Safety fallback: if audio can't start/finish quickly, run analysis after timeout
+      const safety = window.setTimeout(() => {
+        try { if (!analysisText) speakTitleThenAnalyze(); } catch {}
+      }, 2000);
+      if (audioRef.current) {
+        audioRef.current.src = introAudio;
+        setMascotState('speaking');
+        audioRef.current
+          .play()
+          .then(() => {
+            audioRef.current!.addEventListener(
+              'ended',
+              () => {
+                speakTitleThenAnalyze();
+              },
+              { once: true }
+            );
+          })
+          .catch(() => { setMascotState('idle'); speakTitleThenAnalyze(); });
+      } else {
+        // No audio element, go straight to analysis
+        speakTitleThenAnalyze();
+      }
+      return () => {
+        window.clearTimeout(safety);
+        if (audioRef.current) {
+          try {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          } catch {}
+        }
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      };
     }
     return () => {
       if (audioRef.current) {
@@ -163,29 +184,27 @@ export default function Step2() {
 
       {!started ? (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div
-            onClick={async () => {
-              setMarked(true);
-              try {
-                const u = getUser();
-                await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
-              } catch (e) {}
-              setTimeout(() => setStarted(true), 300);
-            }}
-            className="cursor-pointer bg-white rounded-xl shadow-lg border border-purple-200 p-6 max-w-2xl text-center hover:shadow-xl transition relative"
-          >
+          <div className="bg-white rounded-xl shadow-lg border border-purple-200 p-6 max-w-2xl text-center">
             <h2 className="text-2xl font-semibold text-purple-800 mb-2">
               2. Adım: Metnin başlığını inceleme ve tahminde bulunma
             </h2>
             <p className="text-gray-700">
               Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.
             </p>
-            {marked && (
-              <div className="absolute -top-3 -right-3 bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold">
-                ✓
-              </div>
-            )}
           </div>
+          <button
+            onClick={async () => {
+              setStarted(true);
+              setMarked(true);
+              try {
+                const u = getUser();
+                await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
+              } catch (e) {}
+            }}
+            className="mt-6 bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
+          >
+            Başla
+          </button>
         </div>
       ) : (
         <div className="w-full max-w-6xl mx-auto px-4">
@@ -195,48 +214,42 @@ export default function Step2() {
                 <img src={story.image} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />
               </div>
               <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{story.title}</h2>
-              {isAnalyzing && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-blue-700 font-medium">DOST başlığı analiz ediyor...</p>
-                </div>
-              )}
-              {analysisText && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Başlık Analizi:</h3>
-                  <p className="text-blue-700">{analysisText}</p>
-                </div>
-              )}
+
             </div>
 
-            {analysisText && (
-              <div className="lg:w-1/2 w-full">
-                <div className="bg-white rounded-xl shadow-lg p-6">
-                  <div className="bg-orange-50 rounded-lg border-l-4 border-orange-400 p-4 mb-6">
-                    <p className="text-orange-800 font-medium">Görev:</p>
-                    <p className="text-orange-700 text-lg">
-                      Başlık "{story.title}" diyor. Bu başlıktan yola çıkarak hikayenin ne hakkında olabileceğini düşünüyor musun? Fikirlerini paylaş!
-                    </p>
+            <div className="lg:w-1/2 w-full">
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                {isAnalyzing && !analysisText && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
+                    <p className="text-blue-700 font-medium">DOST başlığı analiz ediyor...</p>
                   </div>
+                )}
+                {analysisText && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
+                    <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Başlık Analizi:</h3>
+                    <p className="text-blue-700">{analysisText}</p>
+                  </div>
+                )}
 
-                  {!childrenVoiceResponse && (
-                    <div className="text-center">
-                      <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
-                      <VoiceRecorder onSave={handleVoiceSubmit} />
-                      {isProcessingVoice && (
-                        <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
-                      )}
-                    </div>
-                  )}
 
-                  {childrenVoiceResponse && (
-                    <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                      <h3 className="font-bold text-green-800 mb-2">🗣️ DOST'un Yorumu:</h3>
-                      <p className="text-green-700 text-lg">{childrenVoiceResponse}</p>
-                    </div>
-                  )}
-                </div>
+                {analysisText && !childrenVoiceResponse && (
+                  <div className="text-center">
+                    <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
+                    <VoiceRecorder onSave={handleVoiceSubmit} />
+                    {isProcessingVoice && (
+                      <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
+                    )}
+                  </div>
+                )}
+
+                {childrenVoiceResponse && (
+                  <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h3 className="font-bold text-green-800 mb-2">🗣️ DOST'un Yorumu:</h3>
+                    <p className="text-green-700 text-lg">{childrenVoiceResponse}</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { applyTypography } from './lib/settings';
 
 const stories = [
-    { id: 1, title: 'Oturum 1: Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
+    { id: 1, title: 'Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
     { id: 2, title: 'Çöl Gemisi', description: 'Develer hakkında', image: '/src/assets/images/story2.png', level: 2 },
     { id: 3, title: 'Fındık Canavarları', description: 'Sincaplar hakkında', image: '/src/assets/images/story3.png', level: 3 },
     { id: 4, title: 'Orman Macerası', description: 'Ayılar hakkında', image: '/src/assets/images/story4.png', level: 4, locked: true },
