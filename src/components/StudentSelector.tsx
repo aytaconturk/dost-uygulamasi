@@ -48,6 +48,7 @@ export default function StudentSelector({ onStudentSelected }: Props) {
 
   const handleSelectStudent = (student: Student) => {
     dispatch(setStudent(student));
+    localStorage.setItem('dost_student', JSON.stringify(student));
     onStudentSelected();
   };
 
@@ -96,6 +97,8 @@ export default function StudentSelector({ onStudentSelected }: Props) {
           <button
             onClick={() => {
               dispatch(clearUser());
+              localStorage.removeItem('dost_teacher');
+              localStorage.removeItem('dost_student');
             }}
             className="text-gray-600 hover:text-gray-800 text-sm font-medium"
           >

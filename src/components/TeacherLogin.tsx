@@ -60,6 +60,7 @@ export default function TeacherLogin({ onLoginSuccess }: Props) {
         if (hashedPassword === data.password) {
           console.log('[TeacherLogin] Password verified, logging in:', data);
           dispatch(setTeacher(data));
+          localStorage.setItem('dost_teacher', JSON.stringify(data));
           onLoginSuccess();
         } else {
           setLocalError('E-posta veya şifre hatalı');
@@ -82,6 +83,7 @@ export default function TeacherLogin({ onLoginSuccess }: Props) {
 
         console.log('[TeacherLogin] Teacher created:', newTeacher);
         dispatch(setTeacher(newTeacher));
+        localStorage.setItem('dost_teacher', JSON.stringify(newTeacher));
         onLoginSuccess();
       } else {
         setLocalError('Öğretmen bulunamadı. Lütfen kaydolun veya e-posta adresini kontrol edin.');

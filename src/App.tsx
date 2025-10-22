@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import StoryList from './components/StoryList';
 import StoryIntro from './components/StoryIntro';
 import ReadingScreen from './components/ReadingScreen';
@@ -11,7 +11,8 @@ import './index.css';
 import LevelRouter from './levels/LevelRouter';
 import { useEffect, useState } from 'react';
 import { applyTypography } from './lib/settings';
-import type { RootState } from './store/store';
+import { setTeacher, setStudent } from './store/userSlice';
+import type { RootState, AppDispatch } from './store/store';
 
 const stories = [
     { id: 1, title: 'Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
@@ -27,12 +28,40 @@ const stories = [
 ];
 
 export default function App() {
+    const dispatch = useDispatch<AppDispatch>();
     const teacher = useSelector((state: RootState) => state.user.teacher);
     const student = useSelector((state: RootState) => state.user.student);
     const [showStudentSelector, setShowStudentSelector] = useState(false);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
+    const [sessionLoaded, setSessionLoaded] = useState(false);
 
     useEffect(() => { applyTypography(); }, []);
+
+    // Restore session from localStorage on app mount
+    useEffect(() => {
+        const savedTeacher = localStorage.getItem('dost_teacher');
+        const savedStudent = localStorage.getItem('dost_student');
+
+        if (savedTeacher) {
+            try {
+                dispatch(setTeacher(JSON.parse(savedTeacher)));
+            } catch (err) {
+                console.error('Failed to restore teacher session:', err);
+                localStorage.removeItem('dost_teacher');
+            }
+        }
+
+        if (savedStudent) {
+            try {
+                dispatch(setStudent(JSON.parse(savedStudent)));
+            } catch (err) {
+                console.error('Failed to restore student session:', err);
+                localStorage.removeItem('dost_student');
+            }
+        }
+
+        setSessionLoaded(true);
+    }, [dispatch]);
 
     // Show diagnostics if user presses Ctrl+Shift+D
     useEffect(() => {
@@ -47,6 +76,10 @@ export default function App() {
 
     if (showDiagnostics) {
         return <DiagnosticsPanel />;
+    }
+
+    if (!sessionLoaded) {
+        return null;
     }
 
     if (!teacher) {

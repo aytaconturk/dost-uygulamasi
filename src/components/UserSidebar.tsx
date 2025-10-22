@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { clearUser } from '../store/userSlice';
+import { clearUser, setStudent } from '../store/userSlice';
 import type { RootState, AppDispatch } from '../store/store';
 
 interface Props {
@@ -16,12 +16,15 @@ export default function UserSidebar({ open, onClose }: Props) {
 
   const handleLogout = () => {
     dispatch(clearUser());
+    localStorage.removeItem('dost_teacher');
+    localStorage.removeItem('dost_student');
     onClose();
     navigate('/');
   };
 
   const handleChangeStudent = () => {
-    navigate('/');
+    dispatch(setStudent(null));
+    localStorage.removeItem('dost_student');
     onClose();
   };
 
@@ -46,8 +49,8 @@ export default function UserSidebar({ open, onClose }: Props) {
           {student && (
             <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
               <p className="text-xs text-gray-600 uppercase font-semibold mb-2">Öğrenci</p>
-              <h3 className="text-lg font-bold text-blue-800">{student.name}</h3>
-              <p className="text-sm text-gray-600">{student.email}</p>
+              <h3 className="text-lg font-bold text-blue-800">{student.first_name} {student.last_name}</h3>
+              <p className="text-xs text-gray-500 mt-1">ID: {student.id}</p>
             </div>
           )}
 
