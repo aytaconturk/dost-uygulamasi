@@ -1,12 +1,17 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import StoryList from './components/StoryList';
 import StoryIntro from './components/StoryIntro';
 import ReadingScreen from './components/ReadingScreen';
 import Header from './components/Header';
+import TeacherLogin from './components/TeacherLogin';
+import StudentSelector from './components/StudentSelector';
+import DiagnosticsPanel from './components/DiagnosticsPanel';
 import './index.css';
 import LevelRouter from './levels/LevelRouter';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { applyTypography } from './lib/settings';
+import type { RootState } from './store/store';
 
 const stories = [
     { id: 1, title: 'Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
@@ -22,7 +27,36 @@ const stories = [
 ];
 
 export default function App() {
+    const teacher = useSelector((state: RootState) => state.user.teacher);
+    const student = useSelector((state: RootState) => state.user.student);
+    const [showStudentSelector, setShowStudentSelector] = useState(false);
+    const [showDiagnostics, setShowDiagnostics] = useState(false);
+
     useEffect(() => { applyTypography(); }, []);
+
+    // Show diagnostics if user presses Ctrl+Shift+D
+    useEffect(() => {
+        const handleKeyPress = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                setShowDiagnostics(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, []);
+
+    if (showDiagnostics) {
+        return <DiagnosticsPanel />;
+    }
+
+    if (!teacher) {
+        return <TeacherLogin onLoginSuccess={() => setShowStudentSelector(true)} />;
+    }
+
+    if (!student) {
+        return <StudentSelector onStudentSelected={() => {}} />;
+    }
+
     return (
         <Router>
             <div className="space-background min-h-screen bg-cover bg-center relative">

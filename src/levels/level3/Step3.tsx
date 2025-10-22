@@ -33,7 +33,10 @@ export default function L3Step3() {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold text-purple-800 mb-3">3. Adım: Okuma hızı ve Performans geribildirimi</h2>
+      <audio ref={audioRef} preload="auto" />
+      <div className="flex flex-col items-center justify-center gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-purple-800">3. Adım: Okuma hızı ve Performans geribildirimi</h2>
+      </div>
       <div className="bg-white rounded-xl shadow p-5">
         <p className="text-lg text-gray-800">{summaryText}</p>
       </div>

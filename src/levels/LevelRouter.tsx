@@ -15,6 +15,10 @@ import L3Step1 from './level3/Step1';
 import L3Step2 from './level3/Step2';
 import L3Step3 from './level3/Step3';
 import L3Step4 from './level3/Step4';
+import L4Step1 from './level4/Step1';
+import L4Step2 from './level4/Step2';
+import L4Step3 from './level4/Step3';
+import L4Step4 from './level4/Step4';
 import L5Step1 from './level5/Step1';
 import L5Step2 from './level5/Step2';
 import L5Step3 from './level5/Step3';
@@ -25,6 +29,7 @@ const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 5,
   2: 4,
   3: 4,
+  4: 4,
   5: 3,
 };
 
@@ -42,6 +47,12 @@ const LEVEL3_TITLES = [
   '3. Adım: Okuma hızı ve Performans geribildirimi',
   'Tamamlama',
 ];
+const LEVEL4_TITLES = [
+  '1. Adım: Dolu Şema Üzerinden Beyin Fırtınası ve Yorum',
+  '2. Adım: Özetleme',
+  '3. Adım: Okuduğunu Anlama Soruları',
+  'Tamamlama',
+];
 const LEVEL5_TITLES = [
   '1. Adım: Okuduğunu anlama soruları',
   '2. Adım: Hedefe bağlı ödül',
@@ -49,6 +60,7 @@ const LEVEL5_TITLES = [
 ];
 const LS_KEY_L5 = 'level5_completed_steps';
 const LS_KEY_L3 = 'level3_completed_steps';
+const LS_KEY_L4 = 'level4_completed_steps';
 
 export default function LevelRouter() {
   const navigate = useNavigate();
@@ -88,6 +100,18 @@ export default function LevelRouter() {
   });
   useEffect(() => { try { localStorage.setItem(LS_KEY_L3, JSON.stringify(completedLevel3)); } catch {} }, [completedLevel3]);
 
+  const [completedLevel4, setCompletedLevel4] = useState<boolean[]>(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY_L4);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length === LEVEL4_TITLES.length) return arr;
+      }
+    } catch {}
+    return new Array(LEVEL4_TITLES.length).fill(false);
+  });
+  useEffect(() => { try { localStorage.setItem(LS_KEY_L4, JSON.stringify(completedLevel4)); } catch {} }, [completedLevel4]);
+
   const [completedLevel5, setCompletedLevel5] = useState<boolean[]>(() => {
     try {
       const raw = localStorage.getItem(LS_KEY_L5);
@@ -124,6 +148,14 @@ export default function LevelRouter() {
         return next;
       });
     }
+    if (level === 4) {
+      setCompletedLevel4(prev => {
+        const next = [...prev];
+        const idx = step - 1;
+        if (idx >= 0 && idx < next.length) next[idx] = true;
+        return next;
+      });
+    }
     if (level === 5) {
       setCompletedLevel5(prev => {
         const next = [...prev];
@@ -152,6 +184,11 @@ export default function LevelRouter() {
     else if (step === 2) content = <L3Step2 />;
     else if (step === 3) content = <L3Step3 />;
     else if (step === 4) content = <L3Step4 />;
+  } else if (level === 4) {
+    if (step === 1) content = <L4Step1 />;
+    else if (step === 2) content = <L4Step2 />;
+    else if (step === 3) content = <L4Step3 />;
+    else if (step === 4) content = <L4Step4 />;
   } else if (level === 5) {
     if (step === 1) content = <L5Step1 />;
     else if (step === 2) content = <L5Step2 />;
@@ -206,8 +243,8 @@ export default function LevelRouter() {
       totalSteps={totalSteps}
       onPrev={onPrev}
       onNext={onNext}
-      hideNext={level === 1 && (step === 4 || step === 5)}
-      hideFooter={level === 1 && (step === 4 || step === 5)}
+      hideNext={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
+      hideFooter={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
     >
       {level === 1 ? (step === 5 ? null : renderLevel1Checklist()) : null}
       {level === 3 ? (
@@ -218,6 +255,29 @@ export default function LevelRouter() {
               {LEVEL3_TITLES.map((title, i) => {
                 const isCurrent = i + 1 === step;
                 const isDone = completedLevel3[i];
+                const canJump = getApiEnv() === 'test';
+                const go = () => { if (canJump) goToStep(i + 1); };
+                return (
+                  <div key={i} className={`flex items-center gap-2 ${canJump ? 'cursor-pointer' : ''}`} onClick={go}>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isDone ? 'bg-green-500 border-green-500 text-white' : isCurrent ? 'border-purple-500 bg-purple-100' : 'border-gray-300'}`}>
+                      {isDone ? '✓' : isCurrent ? '●' : ''}
+                    </div>
+                    <span className={`text-sm ${isDone ? 'text-green-700 line-through' : isCurrent ? 'text-purple-700 font-medium' : 'text-gray-500'}`}>{title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {level === 4 ? (
+        <div className="bg-green-50 border-b border-green-200 py-3 px-6 -mt-4 mb-2">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-sm font-semibold text-green-800 mb-2">Adım Durumu:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {LEVEL4_TITLES.map((title, i) => {
+                const isCurrent = i + 1 === step;
+                const isDone = completedLevel4[i];
                 const canJump = getApiEnv() === 'test';
                 const go = () => { if (canJump) goToStep(i + 1); };
                 return (

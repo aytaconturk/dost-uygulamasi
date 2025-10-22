@@ -198,6 +198,48 @@ const STORY_CATEGORIES: Record<number, StoryCategory> = {
 export const getParagraphs = (storyId: number): Paragraph[] => STORIES[storyId] || [];
 export const getStoryCategory = (storyId: number): StoryCategory | null => STORY_CATEGORIES[storyId] || null;
 
+export type ComprehensionQuestion = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+};
+
+export type ComprehensionQuestions = Record<number, ComprehensionQuestion[]>;
+
+const COMPREHENSION_QUESTIONS: ComprehensionQuestions = {
+  3: [
+    {
+      question: 'Hurmalar hangi iklimde yetişir?',
+      options: ['Soğuk iklimde', 'Çöl ikliminde', 'Orman ikliminde', 'Dağ ikliminde'],
+      correctIndex: 1
+    },
+    {
+      question: 'Hurma ağacı kaç yıl yaşar?',
+      options: ['Yaklaşık 30 yıl', 'Yaklaşık 50 yıl', 'Yaklaşık 70 yıl', 'Yaklaşık 100 yıl'],
+      correctIndex: 2
+    },
+    {
+      question: 'Hurma ağacının temel parçaları nelerdir?',
+      options: ['Yaprak ve meyve', 'Gövde, yaprak ve meyve', 'Sadece gövde', 'Kök, gövde ve yaprak'],
+      correctIndex: 1
+    },
+    {
+      question: 'Hurma meyvesi ne şekilde ağaçtan sallanır?',
+      options: ['Tekil şekilde', 'Çift şekilde', 'Salkım şeklinde', 'Demetler halinde'],
+      correctIndex: 2
+    },
+    {
+      question: 'Hurma ağacının yapraklarından ne yapılır?',
+      options: ['Çay', 'Yağ', 'Reçel', 'Ekmek'],
+      correctIndex: 0
+    }
+  ]
+};
+
+export const getComprehensionQuestions = (storyId: number): ComprehensionQuestion[] => {
+  return COMPREHENSION_QUESTIONS[storyId] || [];
+};
+
 export const paragraphToPlain = (p: Paragraph) => p.map(s => s.text).join('');
 
 export const getFirstSentence = (text: string): string => {

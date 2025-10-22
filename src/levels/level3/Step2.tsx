@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { getParagraphs, paragraphToPlain } from '../../data/stories';
+import { insertReadingLog } from '../../lib/supabase';
+import type { RootState } from '../../store/store';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -7,6 +10,8 @@ function countWords(text: string) {
 }
 
 export default function L3Step2() {
+  const student = useSelector((state: RootState) => state.user.student);
+
   const story = { id: 3, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
@@ -33,43 +38,55 @@ export default function L3Step2() {
     } catch {}
   };
 
-  const startCountdown = () => {
+  const startCountdown = async () => {
     setPhase('countdown');
     setCount(3);
     const id = setInterval(() => {
       setCount((c) => {
         if (c <= 1) {
           clearInterval(id);
-          playBeep();
           setPhase('reading');
           startTimeRef.current = Date.now();
+          playBeep();
         }
         return c - 1;
       });
     }, 1000);
   };
 
-  const finishReading = () => {
-    const end = Date.now();
-    const start = startTimeRef.current || end;
-    const elapsedSec = Math.max(1, Math.round((end - start) / 1000));
+  const finishReading = async () => {
+    if (!startTimeRef.current) return;
+
+    const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
     const wpm = Math.round((totalWords / elapsedSec) * 60);
-    const payload = { totalWords, elapsedSec, wpm, targetWPM };
-    try { localStorage.setItem('level3_result', JSON.stringify(payload)); } catch {}
+
+    try {
+      localStorage.setItem('level3_result', JSON.stringify({ totalWords, elapsedSec, wpm, targetWPM }));
+    } catch {}
+
+    // Save reading log to Supabase
+    if (student) {
+      try {
+        await insertReadingLog(student.id, 3, 3, wpm, totalWords, totalWords);
+      } catch (err) {
+        console.error('Failed to save reading log:', err);
+      }
+    }
+
     setPhase('done');
   };
 
   return (
     <div className="w-full max-w-5xl mx-auto">
       <audio ref={audioRef} preload="auto" />
-      <h2 className="text-2xl font-bold text-purple-800 mb-3">2. Adım: Üçüncü okuma ve okuma hızı belirleme</h2>
+      <div className="flex flex-col items-center justify-center gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-purple-800">2. Adım: Üçüncü okuma ve okuma hızı belirleme</h2>
+      </div>
 
       {phase === 'intro' && (
-        <div className="bg-white rounded-xl shadow p-5">
-          <p className="text-gray-800 mb-4">Şimdi hedefine ulaşıp ulaşmadığını değerlendirmek için metni üçüncü kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni yine bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basar basmaz metin karşına çıkacak, sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde oku.</p>
-          <div className="flex items-center gap-3 mb-4">
-            <label className="text-sm text-gray-700">Hedef (sözcük/dk):</label>
-            <input type="number" className="border rounded px-2 py-1 w-24" value={targetWPM} onChange={e => setTargetWPM(Number(e.target.value || 0))} />
+        <div className="flex flex-col items-center gap-4">
+          <div className="bg-white rounded-xl shadow p-5 w-full">
+            <p className="text-gray-800 mb-6">Şimdi hedefine ulaşıp ulaşmadığını değerlendirmek için metni üçüncü kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni yine bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basar basmaz metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde metni oku. Okuman bitince "Bitir" butonuna bas.</p>
           </div>
           <button onClick={startCountdown} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
         </div>

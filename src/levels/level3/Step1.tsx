@@ -33,7 +33,7 @@ export default function L3Step1() {
     let played = false;
     if (el) {
       try {
-        el.src = '/src/assets/audios/level3/seviye-3-adim-1-fable.mp3';
+        el.src = '/src/assets/audios/level3/temp.mp3';
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         await el.play();
@@ -41,34 +41,56 @@ export default function L3Step1() {
         played = true;
       } catch {}
     }
-    if (!played) speak(instruction, () => readParagraph(0));
+    if (!played) readParagraph(0);
+  };
+
+  const playSiraSendeAudio = async () => {
+    const el = audioRef.current;
+    if (el) {
+      try {
+        el.src = '/src/assets/audios/sira-sende-mikrofon.mp3';
+        // @ts-ignore
+        el.playsInline = true; el.muted = false;
+        await el.play();
+      } catch {}
+    }
   };
 
   const readParagraph = (idx: number) => {
     setCurrentIdx(idx);
     const plain = paragraphToPlain(paragraphs[idx] || []);
     speak(plain, () => {
-      // After model reading, we simply show "Şimdi sıra sende" and wait for user to proceed
+      playSiraSendeAudio();
     });
   };
 
   const onNextParagraph = () => {
-    const next = currentIdx + 1;
-    if (next < paragraphs.length) readParagraph(next);
+    if (currentIdx < paragraphs.length - 1) readParagraph(currentIdx + 1);
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto">
       <audio ref={audioRef} preload="auto" />
-      <h2 className="text-2xl font-bold text-purple-800 mb-3">1. Adım: Model okuma ve İkinci okuma</h2>
+      <div className="flex flex-col items-center justify-center gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-purple-800">1. Adım: Model okuma ve İkinci okuma</h2>
+        {!started && (
+          <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+        )}
+      </div>
 
-      {!started ? (
-        <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Model okuma ve İkinci okuma</button>
-      ) : (
+      {started && (
         <div className="bg-white rounded-xl shadow p-5">
+          <div className="flex gap-4 mb-4">
+            <img src={story.image} alt={story.title} className="w-40 h-40 rounded-lg object-cover" />
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-purple-800 mb-2">{story.title}</h3>
+              <p className="text-sm text-gray-600">{isSpeaking ? '🔊 DOST okuyor...' : 'Dinlemek için başla butonuna bas'}</p>
+            </div>
+          </div>
+
           <div className="text-gray-800 text-lg">
             {paragraphs.map((p, i) => (
-              <p key={i} className={`mt-3 leading-relaxed ${i === currentIdx ? 'bg-yellow-50 rounded px-2' : ''}`}>
+              <p key={i} className="mt-3 leading-relaxed" style={i === currentIdx ? { backgroundColor: '#fff794', borderRadius: '0.5rem', padding: '0.5rem' } : undefined}>
                 {p.map((seg, j) => <span key={j} className={seg.bold ? 'font-bold' : undefined}>{seg.text}</span>)}
               </p>
             ))}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import type { ChildUser } from '../lib/user';
-import { generateUserId, getUser, setUser } from '../lib/user';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { clearUser } from '../store/userSlice';
+import type { RootState, AppDispatch } from '../store/store';
 
 interface Props {
   open: boolean;
@@ -8,70 +9,70 @@ interface Props {
 }
 
 export default function UserSidebar({ open, onClose }: Props) {
-  const [form, setForm] = useState<ChildUser>({ firstName: '', lastName: '', teacher: '', userId: '', password: '' });
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
+  const teacher = useSelector((state: RootState) => state.user.teacher);
+  const student = useSelector((state: RootState) => state.user.student);
 
-  useEffect(() => {
-    if (open) {
-      const u = getUser();
-      if (u) setForm(u);
-    }
-  }, [open]);
-
-  const setField = (k: keyof ChildUser, v: string) => setForm((f) => ({ ...f, [k]: v }));
-
-  const handleSave = () => {
-    const userId = form.userId || generateUserId();
-    const next: ChildUser = { ...form, userId };
-    setUser(next);
+  const handleLogout = () => {
+    dispatch(clearUser());
     onClose();
+    navigate('/');
   };
 
-  const ensureId = () => {
-    if (!form.userId) setField('userId', generateUserId());
+  const handleChangeStudent = () => {
+    navigate('/');
+    onClose();
   };
 
   return open ? (
     <div className="fixed inset-0 z-40">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <aside className="absolute right-0 top-0 h-full w-80 bg-white shadow-2xl z-50 p-4 flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-[#512DA8]">Kullanıcı</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-[#512DA8]">Profil</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Ad</label>
-            <input value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} className="w-full border border-gray-300 rounded-lg p-2" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Soyad</label>
-            <input value={form.lastName} onChange={(e) => setField('lastName', e.target.value)} className="w-full border border-gray-300 rounded-lg p-2" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Öğretmen</label>
-            <input value={form.teacher} onChange={(e) => setField('teacher', e.target.value)} className="w-full border border-gray-300 rounded-lg p-2" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">User ID</label>
-            <div className="flex gap-2">
-              <input value={form.userId} onChange={(e) => setField('userId', e.target.value)} className="flex-1 border border-gray-300 rounded-lg p-2" />
-              <button onClick={ensureId} className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Üret</button>
+        <div className="space-y-6 flex-1">
+          {teacher && (
+            <div className="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+              <p className="text-xs text-gray-600 uppercase font-semibold mb-2">Öğretmen</p>
+              <h3 className="text-lg font-bold text-purple-800">{teacher.name}</h3>
+              <p className="text-sm text-gray-600">{teacher.email}</p>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Şifre</label>
-            <input type="password" value={form.password} onChange={(e) => setField('password', e.target.value)} className="w-full border border-gray-300 rounded-lg p-2" />
+          )}
+
+          {student && (
+            <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+              <p className="text-xs text-gray-600 uppercase font-semibold mb-2">Öğrenci</p>
+              <h3 className="text-lg font-bold text-blue-800">{student.name}</h3>
+              <p className="text-sm text-gray-600">{student.email}</p>
+            </div>
+          )}
+
+          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+            <p className="font-semibold mb-2">Oturum Bilgisi:</p>
+            <ul className="space-y-1 text-xs">
+              <li>🔒 Verileriniz Supabase'de güvenli şekilde saklanmaktadır</li>
+              <li>📊 Tüm ilerleme ve okuma değerlendirmeleri otomatik kaydedilir</li>
+            </ul>
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Vazgeç</button>
-          <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white">Kaydet</button>
-        </div>
-
-        <div className="mt-4 text-xs text-gray-600">
-          Kaydedilen bilgiler bu oturumda saklanır.
+        <div className="mt-6 space-y-2">
+          <button
+            onClick={handleChangeStudent}
+            className="w-full px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+          >
+            Öğrenci Değiştir
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold"
+          >
+            Çıkış Yap
+          </button>
         </div>
       </aside>
     </div>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, CheckCircle } from 'lucide-react';
+import { useReadingProgress } from '../hooks/useReadingProgress';
 
 interface Story {
     id: number;
@@ -15,6 +16,7 @@ export default function StoryList({ stories }: { stories: Story[] }) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [showPrev, setShowPrev] = useState(false);
     const [showNext, setShowNext] = useState(false);
+    const { getCurrentLevel, isStoryCompleted } = useReadingProgress();
 
     useEffect(() => {
         const checkScroll = () => {
@@ -97,15 +99,26 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                     alt={story.title}
                                     className="w-full h-full object-cover"
                                 />
-                                <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">
-                                    <div className="absolute -bottom-[28px] right-[2px] text-white text-xs font-bold leading-none">
-                                        {story.level}
+                                {isStoryCompleted(story.id) ? (
+                                    <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
+                                        <CheckCircle size={24} className="text-white" />
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">
+                                        <div className="absolute -bottom-[28px] right-[2px] text-white text-xs font-bold leading-none">
+                                            {getCurrentLevel(story.id)}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="p-3">
                                 <h3 className="font-bold text-md text-[#512DA8]">{story.title}</h3>
                                 <p className="text-sm text-gray-600">{story.description}</p>
+                                {!isStoryCompleted(story.id) && (
+                                    <p className="text-xs text-purple-600 mt-1 font-semibold">
+                                        Seviye {getCurrentLevel(story.id)}/5
+                                    </p>
+                                )}
                             </div>
                         </Link>
                     )
