@@ -33,7 +33,7 @@ export default function L3Step1() {
     let played = false;
     if (el) {
       try {
-        el.src = '/src/assets/audios/level3/temp.mp3';
+        el.src = '/src/assets/audios/level3/seviye-3-adim-1.mp3';
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         await el.play();
@@ -48,7 +48,7 @@ export default function L3Step1() {
     const el = audioRef.current;
     if (el) {
       try {
-        el.src = '/src/assets/audios/sira-sende-mikrofon.mp3';
+        el.src = '/src/assets/audios/level3/simdi-sira-sende.mp3';
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         await el.play();
