@@ -5,7 +5,7 @@ export type StoryCategory =
   | 'Hayvanlarla ilgili metinler'
   | 'Bitkilerle ilgili metinler'
   | 'Elektronik araçlarla ilgili metinler'
-  | 'Coğrafi B��lgelerle İlgili ilgili metinler';
+  | 'Coğrafi Bölgelerle İlgili ilgili metinler';
 
 // Map storyId -> array of paragraphs
 const STORIES: Record<number, Paragraph[]> = {
@@ -66,6 +66,54 @@ const STORIES: Record<number, Paragraph[]> = {
       { text: ' Küçük dostlarımızı artık çok iyi biliyorsun. Onlara bugün bir küp şeker ısmarlamaya ne dersin?' }
     ]
   ],
+  2: [
+    [
+      { text: 'Hey! Akıllı telefonlar hakkında neler biliyorsun? Bu icatla ilgili bir maceraya hazır mısın? Şimdi birlikte keşfetme zamanı!' }
+    ],
+    [
+      { text: 'Önce akıllı telefonun kullanım amaçlarına bakalım. ' },
+      { text: 'Bu telefonlar birçok amaç için kullanılır.', bold: true },
+      { text: ' ' },
+      { text: 'Örneğin iletişim kurarsın.', bold: true },
+      { text: ' Aramalar, mesajlaşmalar, videolu görüşmeler yaparsın.' },
+      { text: ' Önemli bilgilere tek tuşla erişirsin.', bold: true },
+      { text: ' Tabi ki eğlenmek için de kullanırsın. Oyunlar oynarsın. Müzik dinlersin. Video izlersin. Fotoğraf çekersin. Hatta bir film bile çekebilirsin.' }
+    ],
+    [
+      { text: 'Haydi, şimdi akıllı telefonların şekil ve boyutlarına bakalım. ' },
+      { text: 'Genellikle telefonlar dikdörtgendir.', bold: true },
+      { text: ' ' },
+      { text: 'Bazı telefonlar katlanabilir.', bold: true },
+      { text: ' Evet, yanlış okumadın. Tıpkı bir kâğıt gibi katlanır.' },
+      { text: ' Hepsi cebine sığacak boydadır.', bold: true },
+      { text: ' Hafif ve rahat kullanıma sahiptir.', bold: true },
+      { text: ' Hem ön hem arka kameraları vardır. Alt tarafında hoparlör ve mikrofon bulunur.' }
+    ],
+    [
+      { text: 'Peki, nasıl çalışır? Hiç merak ettin mi? ' },
+      { text: 'Bu cihazlar elektrik enerjisi kullanır.', bold: true },
+      { text: ' Bir batarya ile çalışır.', bold: true },
+      { text: ' Dokunmatik ekran ile kontrol edilir.', bold: true },
+      { text: ' Sinyalleri alır. Ardından bu sinyalleri işler. Daha sonra iletir.', bold: true },
+      { text: ' İnternet bağlantısı da böyle sağlanır.' }
+    ],
+    [
+      { text: 'Şimdi de üretimlerine bakalım. ' },
+      { text: 'Bu cihazlar özel fabrikalarda üretilir.', bold: true },
+      { text: ' Akıllı telefonlar önce tasarlanır, yani nasıl görüneceğine karar verilir.' },
+      { text: ' Sonra ekran, pil ve kamera gibi parçalar laboratuvarda birleştirilir.', bold: true },
+      { text: ' Daha sonra telefonun çalışmasını sağlayan yazılımlar yüklenir.', bold: true },
+      { text: ' Son olarak her şeyin düzgün çalışıp çalışmadığı test edilir.' }
+    ],
+    [
+      { text: 'Akıllı telefonların insanların hayatına farklı etkileri vardır. ' },
+      { text: 'Bu cihazlar hayatımızı oldukça kolaylaştırır.', bold: true },
+      { text: ' Âdeta iletişim, eğlence ve bilgi edinme küçücük bir kutuya sıkıştırılmıştır!', bold: true },
+      { text: ' Akıllı bir kutu gibi!' },
+      { text: ' Ancak aşırı kullanımda göz sağlığın etkilenebilir.', bold: true },
+      { text: ' Bu nedenle onu ihtiyacın kadar kullanmalısın.' }
+    ]
+  ],
   3: [
     [
       { text: 'Hey! Sana bir meyvenin ismini vermeden anlatayım, sen hangi meyve olduğunu tahmin et. Buruşuk, tatlı, kahverengi renkte bir meyvedir. Birçok çeşidi vardır. Özellikle Ramazan ayında tüketilir. Sence bu hangi meyvedir? ' },
@@ -112,8 +160,7 @@ const STORIES: Record<number, Paragraph[]> = {
       { text: ' Hurma meyvesi ise, beynimizin ve kalbimizin sağlığı için çok faydalıdır.', bold: true },
       { text: ' Ancak çok tüketilirse baş ağrısı yapabilir.', bold: true }
     ]
-  ]
-,
+  ],
   4: [
     [
       { text: 'Hey! Sana bir sorum var: Turizmin incisi olarak bilinen bölgemiz hangisidir? Tabii ki, Akdeniz Bölgesi. Haydi, birlikte Akdeniz\'i keşfedelim.' }
@@ -143,8 +190,7 @@ const STORIES: Record<number, Paragraph[]> = {
       { text: 'Bölgede yaşayan insanların çoğunluğu kentlerde yaşamaktadır.', bold: true },
       { text: ' Sen de burada yaşamak ister miydin?' }
     ]
-  ]
-,
+  ],
   5: [
     [
       { text: 'Çöl Gemisi deyince aklına ne geliyor? Şimdi birlikte bu sorunun cevabını öğreneceğiz. Hazır mısın?' }
@@ -190,6 +236,7 @@ const STORIES: Record<number, Paragraph[]> = {
 
 const STORY_CATEGORIES: Record<number, StoryCategory> = {
   1: 'Hayvanlarla ilgili metinler',
+  2: 'Elektronik araçlarla ilgili metinler',
   3: 'Bitkilerle ilgili metinler',
   4: 'Coğrafi Bölgelerle İlgili ilgili metinler',
   5: 'Hayvanlarla ilgili metinler',

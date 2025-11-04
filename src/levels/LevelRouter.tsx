@@ -27,7 +27,7 @@ import { getApiEnv } from '../lib/api';
 
 const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 5,
-  2: 4,
+  2: 3,
   3: 4,
   4: 4,
   5: 3,
@@ -41,6 +41,12 @@ const LEVEL1_TITLES = [
 ];
 
 const LS_KEY_L1 = 'level1_completed_steps';
+const LEVEL2_TITLES = [
+  '1. Adım: Birinci okuma ve Okuma hızı belirleme',
+  '2. Adım: Okuma hızı',
+  '3. Adım: Okuma hedefi belirleme',
+];
+const LS_KEY_L2 = 'level2_completed_steps';
 const LEVEL3_TITLES = [
   '1. Adım: Model okuma ve İkinci okuma',
   '2. Adım: Üçüncü okuma ve okuma hızı belirleme',
@@ -88,6 +94,18 @@ export default function LevelRouter() {
     try { localStorage.setItem(LS_KEY_L1, JSON.stringify(completedLevel1)); } catch {}
   }, [completedLevel1]);
 
+  const [completedLevel2, setCompletedLevel2] = useState<boolean[]>(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY_L2);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length === LEVEL2_TITLES.length) return arr;
+      }
+    } catch {}
+    return new Array(LEVEL2_TITLES.length).fill(false);
+  });
+  useEffect(() => { try { localStorage.setItem(LS_KEY_L2, JSON.stringify(completedLevel2)); } catch {} }, [completedLevel2]);
+
   const [completedLevel3, setCompletedLevel3] = useState<boolean[]>(() => {
     try {
       const raw = localStorage.getItem(LS_KEY_L3);
@@ -134,6 +152,14 @@ export default function LevelRouter() {
   const onNext = () => {
     if (level === 1) {
       setCompletedLevel1(prev => {
+        const next = [...prev];
+        const idx = step - 1;
+        if (idx >= 0 && idx < next.length) next[idx] = true;
+        return next;
+      });
+    }
+    if (level === 2) {
+      setCompletedLevel2(prev => {
         const next = [...prev];
         const idx = step - 1;
         if (idx >= 0 && idx < next.length) next[idx] = true;
@@ -247,6 +273,29 @@ export default function LevelRouter() {
       hideFooter={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
     >
       {level === 1 ? (step === 5 ? null : renderLevel1Checklist()) : null}
+      {level === 2 ? (
+        <div className="bg-green-50 border-b border-green-200 py-3 px-6 -mt-4 mb-2">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-sm font-semibold text-green-800 mb-2">Adım Durumu:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {LEVEL2_TITLES.map((title, i) => {
+                const isCurrent = i + 1 === step;
+                const isDone = completedLevel2[i];
+                const canJump = getApiEnv() === 'test';
+                const go = () => { if (canJump) goToStep(i + 1); };
+                return (
+                  <div key={i} className={`flex items-center gap-2 ${canJump ? 'cursor-pointer' : ''}`} onClick={go}>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isDone ? 'bg-green-500 border-green-500 text-white' : isCurrent ? 'border-purple-500 bg-purple-100' : 'border-gray-300'}`}>
+                      {isDone ? '✓' : isCurrent ? '●' : ''}
+                    </div>
+                    <span className={`text-sm ${isDone ? 'text-green-700 line-through' : isCurrent ? 'text-purple-700 font-medium' : 'text-gray-500'}`}>{title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {level === 3 ? (
         <div className="bg-green-50 border-b border-green-200 py-3 px-6 -mt-4 mb-2">
           <div className="max-w-4xl mx-auto">
