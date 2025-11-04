@@ -5,8 +5,47 @@ export interface Step {
     options?: string[];
     content?: string;
   }
-  
+
   export interface AudioResponse {
     success: boolean;
     message?: string;
+  }
+
+  // Level 1 - Image Analysis API Types
+  export interface Level1ImageAnalysisRequest {
+    imageUrl: string;
+    stepNum: number;
+    storyTitle: string;
+    userId: string;
+    userName: string;
+    ilkUcParagraf: string[];
+    metin: string;
+  }
+
+  export interface Level1ImageAnalysisResponse {
+    audioBase64?: string;
+    imageExplanation: string;
+    resumeUrl: string;
+    title: string;
+    message?: string;
+    text?: string;
+    response?: string;
+  }
+
+  // Level 1 - Children Voice API Types
+  export interface Level1ChildrenVoiceRequest {
+    ses: Blob;
+    kullanici_id: string;
+    hikaye_adi: string;
+    adim: string;
+    adim_tipi: string;
+  }
+
+  export interface Level1ChildrenVoiceResponse {
+    respodKidVoice: string;
+    audioBase64: string;
+    message?: string;
+    text?: string;
+    response?: string;
+    resumeUrl?: string;
   }

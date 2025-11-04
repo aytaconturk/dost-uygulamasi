@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { getApiBase } from '../../lib/api';
+import { analyzeStoryImage, submitChildrenVoice } from '../../lib/level1-api';
+import { getRecordingDuration } from '../../components/SidebarSettings';
 import { motion } from 'framer-motion';
 import VoiceRecorder from '../../components/VoiceRecorder';
+import type { Level1ImageAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
 
 export default function Step1() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -12,6 +15,7 @@ export default function Step1() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [childrenVoiceResponse, setChildrenVoiceResponse] = useState('');
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState('');
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
   const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
@@ -92,31 +96,31 @@ export default function Step1() {
       const { getFirstThreeParagraphFirstSentences, getFullText } = await import('../../data/stories');
       const ilkUcParagraf = getFirstThreeParagraphFirstSentences(story.id);
       const metin = getFullText(story.id);
-      const { data } = await axios.post(
-        `${getApiBase()}/dost/level1`,
-        {
-          imageUrl: postImage,
-          stepNum: 1,
-          storyTitle: story.title,
-          userId: u?.userId || '',
-          userName: u ? `${u.firstName} ${u.lastName}`.trim() : '',
-          ilkUcParagraf,
-          metin,
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
+
+      const response: Level1ImageAnalysisResponse = await analyzeStoryImage({
+        imageUrl: postImage,
+        stepNum: 1,
+        storyTitle: story.title,
+        userId: u?.userId || '',
+        userName: u ? `${u.firstName} ${u.lastName}`.trim() : '',
+        ilkUcParagraf,
+        metin,
+      });
 
       const analysisText =
-        data.imageExplanation ||
-        data.message ||
-        data.text ||
-        data.response ||
-        'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak büyük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
+        response.imageExplanation ||
+        response.message ||
+        response.text ||
+        response.response ||
+        '...';
+
       setImageAnalysisText(analysisText);
-      if (!data?.audioBase64) speakText(analysisText);
+      setResumeUrl(response.resumeUrl);
+
+      if (!response?.audioBase64) speakText(analysisText);
       else {
         try {
-          await playAudioFromBase64(data.audioBase64 as string);
+          await playAudioFromBase64(response.audioBase64);
         } catch {
           speakText(analysisText);
         }
@@ -157,23 +161,24 @@ export default function Step1() {
   const handleVoiceSubmit = async (audioBlob: Blob) => {
     setIsProcessingVoice(true);
     try {
-      const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
-      const formData = new FormData();
-      formData.append('ses', file);
-      formData.append('kullanici_id', '12345');
-      formData.append('hikaye_adi', story.title);
-      formData.append('adim', '1');
-      formData.append('adim_tipi', 'gorsel_tahmini');
-
-      const { data } = await axios.post(
-        `${getApiBase()}/dost/level1/children-voice`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+      const response: Level1ChildrenVoiceResponse = await submitChildrenVoice(
+        audioBlob,
+        resumeUrl,
+        story.title
       );
 
-      const responseText = data.message || data.text || data.response || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin.';
+      const responseText = response.respodKidVoice || response.message || response.text || response.response || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin.';
       setChildrenVoiceResponse(responseText);
-      speakText(responseText);
+
+      if (response.audioBase64) {
+        try {
+          await playAudioFromBase64(response.audioBase64);
+        } catch {
+          speakText(responseText);
+        }
+      } else {
+        speakText(responseText);
+      }
     } catch (e) {
       const fallbackText = 'Çok güzel konuştun! Karıncaları iyi gözlemlediğin anlaşılıyor. (Çevrimdışı mod)';
       setChildrenVoiceResponse(fallbackText);
@@ -250,15 +255,19 @@ export default function Step1() {
               ) : (
                 // After analysis (screenshot 2)
                 <div className="bg-white rounded-xl shadow-lg p-6">
-                  <div className="mt-0 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Analizi:</h3>
-                    <p className="text-blue-700">{imageAnalysisText}</p>
-                  </div>
+                  {!childrenVoiceResponse && (
+                    <>
+                      <div className="mt-0 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Analizi:</h3>
+                        <p className="text-blue-700">{imageAnalysisText}</p>
+                      </div>
 
-                  <div className="bg-blue-50 rounded-lg border-l-4 border-blue-400 p-4 mt-6">
-                    <p className="text-blue-800 font-medium">Görev:</p>
-                    <p className="text-blue-700">Görseli inceleyerek hikayenin ne hakkında olabileceğini tahmin et. Neler gözlemliyorsun?</p>
-                  </div>
+                      <div className="bg-blue-50 rounded-lg border-l-4 border-blue-400 p-4 mt-6">
+                        <p className="text-blue-800 font-medium">Görev:</p>
+                        <p className="text-blue-700">Görseli inceleyerek hikayenin ne hakkında olabileceğini tahmin et. Neler gözlemliyorsun?</p>
+                      </div>
+                    </>
+                  )}
 
                   {!childrenVoiceResponse && (
                     <div className="mt-6 text-center">
@@ -271,6 +280,8 @@ export default function Step1() {
                   {!childrenVoiceResponse && (
                     <div className="mt-6">
                       <VoiceRecorder
+                        recordingDurationMs={getRecordingDuration()}
+                        autoSubmit={true}
                         onSave={handleVoiceSubmit}
                         onPlayStart={() => {
                           try {

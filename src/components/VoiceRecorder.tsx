@@ -1,37 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Play, Upload, Download } from 'lucide-react';
+import { Mic, Square } from 'lucide-react';
 
 interface Props {
   onSave: (blob: Blob) => void;
   onPlayStart?: () => void;
+  recordingDurationMs?: number;
+  autoSubmit?: boolean;
 }
 
-export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
+export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs = 10000, autoSubmit = true }: Props) {
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecording, setHasRecording] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [recordingTimeLeft, setRecordingTimeLeft] = useState<number | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recordedBlobRef = useRef<Blob | null>(null);
   const recordStartAtRef = useRef<number | null>(null);
   const keepAliveRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Not converting on client; we'll keep original encoding and let server handle any conversion if needed.
+  const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const startRecording = async () => {
     try {
       console.log('[Recorder] Requesting microphone access...');
       
-      // Check if MediaRecorder is supported
       if (!MediaRecorder) {
         alert('Bu tarayıcı ses kaydını desteklemiyor. Chrome, Firefox veya Edge kullanın.');
         return;
       }
 
-      // Check if getUserMedia is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('Bu tarayıcı mikrofon erişimini desteklemiyor. HTTPS gerekli olabilir.');
         return;
@@ -45,9 +42,8 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
         }
       });
       
-      console.log('[Recorder] Microphone access granted, stream tracks:', stream.getTracks().length);
+      console.log('[Recorder] Microphone access granted');
       
-      // Test different mime types and pick the first working one
       let options: MediaRecorderOptions = {};
       const testMimes = [
         'audio/webm;codecs=opus',
@@ -55,7 +51,7 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
         'audio/ogg;codecs=opus', 
         'audio/mp4',
         'audio/aac',
-        '' // fallback to default
+        ''
       ];
       
       for (const mime of testMimes) {
@@ -76,15 +72,13 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
-      // Add error handling
       mediaRecorder.onerror = (event) => {
         console.error('[Recorder] MediaRecorder error:', event);
-        alert('Kayıt sırasında hata oluştu. Lütfen sayfayı yenileyin.');
+        alert('Kayıt s��rasında hata oluştu. Lütfen sayfayı yenileyin.');
         setIsRecording(false);
       };
 
       mediaRecorder.ondataavailable = (event) => {
-        console.log('[Recorder] Data chunk received:', event.data.size, 'bytes');
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
@@ -94,12 +88,10 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
         console.log('[Recorder] Recording started');
         recordStartAtRef.current = Date.now();
         
-        // Clear any existing interval
         if (keepAliveRef.current) {
           clearInterval(keepAliveRef.current);
         }
         
-        // Force data chunks every second
         keepAliveRef.current = setInterval(() => {
           if (mediaRecorder.state === 'recording') {
             try {
@@ -109,57 +101,87 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
             }
           }
         }, 1000);
+
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+        }
+        
+        recordingTimerRef.current = setInterval(() => {
+          const elapsed = Date.now() - (recordStartAtRef.current || Date.now());
+          const remaining = Math.max(0, Math.ceil((recordingDurationMs - elapsed) / 1000));
+          setRecordingTimeLeft(remaining);
+        }, 100);
+
+        if (autoSubmit) {
+          if (autoSubmitTimerRef.current) {
+            clearTimeout(autoSubmitTimerRef.current);
+          }
+          
+          autoSubmitTimerRef.current = setTimeout(() => {
+            console.log('[Recorder] Auto-submit triggered after', recordingDurationMs, 'ms');
+            stopRecording();
+          }, recordingDurationMs);
+        }
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[Recorder] Recording stopped via onstop');
+        console.log('[Recorder] Recording stopped');
         
-        // Ensure UI is in stopped state
         setIsRecording(false);
+        setRecordingTimeLeft(null);
         
-        const totalChunks = chunksRef.current.length;
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const audioBlob = new Blob(chunksRef.current, { type: mime });
         
-        console.log('[Recorder] Final result - chunks:', totalChunks, 'blob size:', audioBlob.size, 'mime:', mime);
+        console.log('[Recorder] Final result - blob size:', audioBlob.size, 'mime:', mime);
         
         if (audioBlob.size === 0) {
           console.warn('[Recorder] Empty recording');
-          alert('Kayıt alınamadı. Mikrofon izni verdiğinizden ve başka uygulama mikrofonu kullanmadığından emin olun.');
-          setHasRecording(false);
+          alert('Kayıt alınamadı. Mikrofon izni verdiğinizden emin olun.');
+          setIsProcessing(false);
         } else if (audioBlob.size < 500) {
           console.warn('[Recorder] Very short recording');
-          alert('Kayıt çok kısa. En az 2-3 saniye konuşun.');
-          setHasRecording(false);
+          alert('Kayıt çok kısa. En az 1-2 saniye konuşun.');
+          setIsProcessing(false);
         } else {
-          recordedBlobRef.current = audioBlob;
-          setHasRecording(true);
+          console.log('[Recorder] Valid recording, submitting...');
+          setIsProcessing(true);
+          try {
+            onSave(audioBlob);
+          } catch (error) {
+            console.error('[Recorder] Submit error:', error);
+            alert('Ses gönderilirken hata oluştu.');
+          } finally {
+            setIsProcessing(false);
+          }
         }
         
-        // Cleanup interval if still running
         if (keepAliveRef.current) {
           clearInterval(keepAliveRef.current);
           keepAliveRef.current = null;
         }
+        if (autoSubmitTimerRef.current) {
+          clearTimeout(autoSubmitTimerRef.current);
+          autoSubmitTimerRef.current = null;
+        }
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
         
-        // Stop all tracks
         stream.getTracks().forEach(track => {
           try {
             track.stop();
-            console.log('[Recorder] Stopped track:', track.kind, track.label);
           } catch (e) {
             console.warn('[Recorder] Error stopping track:', e);
           }
         });
         
-        // Clear references
         mediaRecorderRef.current = null;
         chunksRef.current = [];
       };
 
-      // Start recording with timeslice for reliable chunks
-      console.log('[Recorder] Starting MediaRecorder...');
-      mediaRecorder.start(1000); // 1 second timeslice
+      mediaRecorder.start(1000);
       setIsRecording(true);
       
     } catch (error: any) {
@@ -181,8 +203,8 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
   const stopRecording = () => {
     console.log('[Recorder] Stop requested');
     
-    // Force UI state to show stopped immediately to prevent button hanging
     setIsRecording(false);
+    setRecordingTimeLeft(null);
     
     if (!mediaRecorderRef.current) {
       console.log('[Recorder] No MediaRecorder instance');
@@ -190,243 +212,72 @@ export default function VoiceRecorder({ onSave, onPlayStart }: Props) {
     }
     
     const mr = mediaRecorderRef.current;
-    console.log('[Recorder] MediaRecorder state:', mr.state);
     
-    // Clean up interval immediately
     if (keepAliveRef.current) {
       clearInterval(keepAliveRef.current);
       keepAliveRef.current = null;
-      console.log('[Recorder] Keep-alive interval cleared');
+    }
+    if (autoSubmitTimerRef.current) {
+      clearTimeout(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
     }
     
     try {
       if (mr.state === 'recording') {
-        // Request final data
         mr.requestData();
-        console.log('[Recorder] Final requestData called');
-        
-        // Stop immediately
         mr.stop();
-        console.log('[Recorder] MediaRecorder.stop() called');
-      } else {
-        console.log('[Recorder] MediaRecorder not in recording state:', mr.state);
-        // Force onstop if stuck
-        if (mr.onstop) {
-          setTimeout(() => mr.onstop!(new Event('stop') as any), 100);
-        }
       }
     } catch (e) {
       console.error('[Recorder] Error stopping MediaRecorder:', e);
-      // Force cleanup if error
-      recordedBlobRef.current = new Blob(chunksRef.current, { type: 'audio/webm' });
-      setHasRecording(recordedBlobRef.current.size > 0);
     }
-  };
-
-  const playRecording = () => {
-    if (!recordedBlobRef.current) return;
-    const el = audioRef.current;
-    if (!el) return;
-
-    const audioUrl = URL.createObjectURL(recordedBlobRef.current);
-    el.src = audioUrl;
-  // Ensure inline playback on mobile browsers
-  // @ts-ignore - playsInline is supported on HTMLMediaElement in modern browsers
-  el.playsInline = true;
-    el.muted = false;
-    el.onended = () => {
-      setIsPlaying(false);
-      URL.revokeObjectURL(audioUrl);
-    };
-    // Stop other audios (global)
-    try {
-      window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
-    } catch {}
-    onPlayStart?.();
-    el.play()
-      .then(() => setIsPlaying(true))
-      .catch((err) => {
-        console.error('Audio play error:', err);
-        const msg = err?.name === 'NotAllowedError'
-          ? 'Tarayıcı otomatik çalmayı engelledi. Lütfen "Dinle" butonuna tekrar basın.'
-          : err?.name === 'NotSupportedError'
-          ? 'Bu ses formatı tarayıcınız tarafından desteklenmiyor olabilir. Chrome/Edge ile deneyin.'
-          : 'Ses çalınamadı. Lütfen tekrar deneyin.';
-        alert(msg);
-      });
-  };
-
-  const stopPlaying = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(false);
-    }
-  };
-
-  // Download helpers
-  const getExtensionForMime = (mime: string) => {
-    if (!mime) return 'webm';
-    if (mime.includes('ogg')) return 'ogg';
-    if (mime.includes('mp4')) return 'm4a';
-    if (mime.includes('aac')) return 'aac';
-    if (mime.includes('webm')) return 'webm';
-    return 'webm';
-  };
-
-  const handleDownload = () => {
-    const blob = recordedBlobRef.current;
-    if (!blob) return;
-    if (blob.size === 0) {
-      alert('Kayıt dosyası boş görünüyor. Lütfen yeniden kaydedin.');
-      return;
-    }
-    const ext = getExtensionForMime(blob.type || 'audio/webm');
-    const ts = new Date();
-    const pad = (n: number) => `${n}`.padStart(2, '0');
-    const filename = `kayit-${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}.${ext}`;
-    // Old Edge/IE fallback
-    // @ts-ignore
-    if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-      // @ts-ignore
-      window.navigator.msSaveOrOpenBlob(blob, filename);
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    // Important: do NOT revoke immediately; some browsers need the URL alive during download
-    setTimeout(() => {
-      try { URL.revokeObjectURL(url); } catch {}
-      a.remove();
-    }, 4000);
   };
 
   useEffect(() => {
-    const handleStopAll = () => {
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        } catch {}
-      }
-      setIsPlaying(false);
-    };
-    window.addEventListener('STOP_ALL_AUDIO' as any, handleStopAll);
     return () => {
-      window.removeEventListener('STOP_ALL_AUDIO' as any, handleStopAll);
+      if (keepAliveRef.current) clearInterval(keepAliveRef.current);
+      if (autoSubmitTimerRef.current) clearTimeout(autoSubmitTimerRef.current);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     };
   }, []);
 
-  const handleSendRecording = async () => {
-    if (!recordedBlobRef.current) return;
-    
-    setIsSending(true);
-    try {
-      // Send original blob (keep codec/mime); server will transcode if needed
-      console.log('[Recorder] send -> size:', recordedBlobRef.current.size, 'type:', recordedBlobRef.current.type);
-      if (recordedBlobRef.current.size < 2000) {
-        alert('Kayıt dosyası çok küçük görünüyor. Lütfen tekrar kaydedip en az 1-2 saniye konuşun.');
-        setIsSending(false);
-        return;
-      }
-      onSave(recordedBlobRef.current);
-      
-      // Reset recording state
-      setHasRecording(false);
-      recordedBlobRef.current = null;
-    } catch (error) {
-      console.error('Error converting to MP3:', error);
-      alert('Ses dosyası işlenirken hata oluştu!');
-    } finally {
-      setIsSending(false);
-    }
-  };
+  const displayTime = recordingTimeLeft !== null ? `${recordingTimeLeft}s` : '';
 
   return (
     <div className="voice-recorder">
-      {/* Hidden audio element for reliable playback */}
-      <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
       <div className="recording-controls">
-        {!hasRecording ? (
-          <div className="recording-section">
-            <button
-              className={`record-button ${isRecording ? 'recording' : ''}`}
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isSending}
-            >
-              {isRecording ? (
-                <>
-                  <Square className="icon" />
-                  Kaydı Durdur
-                </>
-              ) : (
-                <>
-                  <Mic className="icon" />
-                  Kaydı Başlat
-                </>
-              )}
-            </button>
-            
-            {isRecording && (
-              <div className="recording-indicator">
-                <div className="pulse-dot"></div>
-                Kayıt alınıyor...
-              </div>
-            )}
+        <button
+          className={`record-button ${isRecording ? 'recording' : ''}`}
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={isProcessing}
+        >
+          {isRecording ? (
+            <>
+              <Square className="icon" />
+              Kaydı Durdur
+            </>
+          ) : (
+            <>
+              <Mic className="icon" />
+              Kaydı Başlat
+            </>
+          )}
+        </button>
+        
+        {isRecording && (
+          <div className="recording-indicator">
+            <div className="pulse-dot"></div>
+            <div>Kayıt alınıyor... {displayTime}</div>
           </div>
-        ) : (
-          <div className="playback-section">
-            <button
-              className="play-button"
-              onClick={isPlaying ? stopPlaying : playRecording}
-              disabled={isSending}
-            >
-              {isPlaying ? (
-                <>
-                  <Square className="icon" />
-                  Durdur
-                </>
-              ) : (
-                <>
-                  <Play className="icon" />
-                  Dinle
-                </>
-              )}
-            </button>
-            
-            <button
-              className="download-button"
-              onClick={handleDownload}
-              disabled={isSending || !recordedBlobRef.current}
-            >
-              <Download className="icon" />
-              İndir
-            </button>
-            
-            <button
-              className="send-button"
-              onClick={handleSendRecording}
-              disabled={isSending}
-            >
-              <Upload className="icon" />
-              {isSending ? 'Gönderiliyor...' : 'Gönder'}
-            </button>
-            
-            <button
-              className="restart-button"
-              onClick={() => {
-                setHasRecording(false);
-                recordedBlobRef.current = null;
-              }}
-              disabled={isSending}
-            >
-              Tekrar Kaydet
-            </button>
+        )}
+
+        {isProcessing && (
+          <div className="recording-indicator">
+            <div className="pulse-dot"></div>
+            <div>Gönderiliyor...</div>
           </div>
         )}
       </div>

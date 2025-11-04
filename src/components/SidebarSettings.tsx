@@ -2,6 +2,23 @@ import { useEffect, useState } from 'react';
 import { getApiBase, getApiEnv, setApiEnv, type ApiEnv } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
 
+const RECORDING_DURATION_KEY = 'voice_recording_duration_ms';
+
+export function getRecordingDuration(): number {
+  try {
+    const stored = localStorage.getItem(RECORDING_DURATION_KEY);
+    return stored ? parseInt(stored, 10) : 10000;
+  } catch {
+    return 10000;
+  }
+}
+
+export function setRecordingDuration(ms: number): void {
+  try {
+    localStorage.setItem(RECORDING_DURATION_KEY, String(ms));
+  } catch {}
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -9,15 +26,23 @@ interface Props {
 
 export default function SidebarSettings({ open, onClose }: Props) {
   const [env, setEnv] = useState<ApiEnv>(getApiEnv());
+  const [recordingDuration, setRecordingDurationState] = useState<number>(getRecordingDuration());
 
   useEffect(() => {
     setEnv(getApiEnv());
+    setRecordingDurationState(getRecordingDuration());
   }, [open]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const next = (e.target.value as ApiEnv);
     setEnv(next);
     setApiEnv(next);
+  };
+
+  const handleRecordingDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const ms = parseInt(e.target.value, 10);
+    setRecordingDurationState(ms);
+    setRecordingDuration(ms);
   };
 
   return (
@@ -40,6 +65,24 @@ export default function SidebarSettings({ open, onClose }: Props) {
               <div className="mt-3 text-xs text-gray-600 break-all">
                 Aktif temel adres: <span className="font-semibold text-[#512DA8]">{getApiBase()}</span>
               </div>
+            </div>
+
+            <hr className="my-4" />
+
+            <div className="mt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ses Kaydı Süresi (saniye)</label>
+              <input
+                type="number"
+                min="3"
+                max="60"
+                step="1"
+                value={recordingDuration / 1000}
+                onChange={(e) => handleRecordingDurationChange({ ...e, target: { ...e.target, value: String(parseInt(e.target.value, 10) * 1000) } } as any)}
+                className="w-full border border-gray-300 rounded-lg p-2"
+              />
+              <p className="mt-2 text-xs text-gray-600">
+                Ses kaydı {recordingDuration / 1000} saniye sonra otomatik olarak gönderilir.
+              </p>
             </div>
 
             <hr className="my-4" />
