@@ -1,34 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { getApiBase } from '../../lib/api';
-import { getUser } from '../../lib/user';
+import { getRecordingDuration } from '../../components/SidebarSettings';
+import { analyzeTitleForStep2, submitChildrenVoice } from '../../lib/level1-api';
 import VoiceRecorder from '../../components/VoiceRecorder';
+import type { Level1TitleAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
 
 export default function Step2() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
-  const [marked, setMarked] = useState(false);
   const [mascotState, setMascotState] = useState<'idle' | 'speaking' | 'listening'>('idle');
   const [analysisText, setAnalysisText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [childrenVoiceResponse, setChildrenVoiceResponse] = useState('');
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState('');
 
-  // Contract intro for step 2
   const introAudio = '/src/assets/audios/level1/seviye-1-adim-2-fable.mp3';
   const story = {
     id: 1,
-    title: 'Büyük İşler Küçük Dostlar',
+    title: 'Oturum 1: Kırıntıların Kahramanları',
     description: 'Karıncalar hakkında',
     image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
   };
 
   useEffect(() => {
     if (started && !analysisText) {
-      // Safety fallback: if audio can't start/finish quickly, run analysis after timeout
       const safety = window.setTimeout(() => {
-        try { if (!analysisText) speakTitleThenAnalyze(); } catch {}
+        try {
+          if (!analysisText) handleTitleAnalysis();
+        } catch {}
       }, 2000);
+
       if (audioRef.current) {
         audioRef.current.src = introAudio;
         setMascotState('speaking');
@@ -38,16 +39,20 @@ export default function Step2() {
             audioRef.current!.addEventListener(
               'ended',
               () => {
-                speakTitleThenAnalyze();
+                setMascotState('listening');
+                handleTitleAnalysis();
               },
               { once: true }
             );
           })
-          .catch(() => { setMascotState('idle'); speakTitleThenAnalyze(); });
+          .catch(() => {
+            setMascotState('listening');
+            handleTitleAnalysis();
+          });
       } else {
-        // No audio element, go straight to analysis
-        speakTitleThenAnalyze();
+        handleTitleAnalysis();
       }
+
       return () => {
         window.clearTimeout(safety);
         if (audioRef.current) {
@@ -56,11 +61,9 @@ export default function Step2() {
             audioRef.current.currentTime = 0;
           } catch {}
         }
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
       };
     }
+
     return () => {
       if (audioRef.current) {
         try {
@@ -68,70 +71,62 @@ export default function Step2() {
           audioRef.current.currentTime = 0;
         } catch {}
       }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
     };
-  }, [started]);
+  }, [started, analysisText]);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      setMascotState('speaking');
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'tr-TR';
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.onend = () => setMascotState('listening');
-      utterance.onerror = () => setMascotState('listening');
-      speechSynthesis.speak(utterance);
-    }
-  };
 
-  const speakTitleThenAnalyze = () => {
-    if ('speechSynthesis' in window) {
+  const playAudioFromBase64 = async (base64: string) => {
+    if (!audioRef.current || !base64) return;
+    const tryMime = async (mime: string) => {
+      const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
+      audioRef.current!.src = src;
       setMascotState('speaking');
-      const utter = new SpeechSynthesisUtterance(story.title);
-      utter.lang = 'tr-TR';
-      utter.rate = 0.95;
-      utter.pitch = 1;
-      utter.onend = () => {
+      await audioRef.current!.play();
+      audioRef.current!.addEventListener('ended', () => setMascotState('listening'), { once: true });
+    };
+    try {
+      await tryMime('audio/mpeg');
+    } catch {
+      try {
+        await tryMime('audio/webm;codecs=opus');
+      } catch (e) {
         setMascotState('listening');
-        handleTitleAnalysis();
-      };
-      utter.onerror = () => {
-        setMascotState('listening');
-        handleTitleAnalysis();
-      };
-      speechSynthesis.speak(utter);
-    } else {
-      handleTitleAnalysis();
+        throw e;
+      }
     }
   };
 
   const handleTitleAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      const { data } = await axios.post(
-        `${getApiBase()}/dost/level1/step2`,
-        { title: story.title, imageUrl: story.image, step: 2 },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-
-      console.log("Step2.tsx ,",data );
+      const response: Level1TitleAnalysisResponse = await analyzeTitleForStep2({
+        stepNum: 2,
+        userId: '',
+      });
 
       const text =
-        data.imageExplanation ||
-        data.titleExplanation ||
-        data.text ||
-        data.message ||
-        'Başlık "Büyük İşler Küçük Dostlar" karıncaların iş birliğini vurguluyor. Başlıktan yola çıkarak metnin iş birliği, azim ve yardımlaşma temasını işleyeceğini tahmin edebiliriz.';
+        response.titleExplanation ||
+        response.imageExplanation ||
+        response.message ||
+        response.text ||
+        response.response ||
+        '';
+
       setAnalysisText(text);
-      speakText(text);
+      setResumeUrl(response.resumeUrl);
+
+      if (response.audioBase64) {
+        try {
+          await playAudioFromBase64(response.audioBase64);
+        } catch (e) {
+          setMascotState('listening');
+        }
+      } else {
+        setMascotState('listening');
+      }
     } catch (e) {
-      const fallback =
-        'Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz. Başlık "Büyük İşler Küçük Dostlar" karıncaların birlikte çalışmasını anlatıyor olabilir. Sence başlık bize neler söylüyor?';
-      setAnalysisText(fallback);
-      speakText(fallback);
+      setAnalysisText('');
+      setMascotState('listening');
     } finally {
       setIsAnalyzing(false);
     }
@@ -140,41 +135,37 @@ export default function Step2() {
   const handleVoiceSubmit = async (audioBlob: Blob) => {
     setIsProcessingVoice(true);
     try {
-      const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
-      const formData = new FormData();
-      formData.append('ses', file);
-      formData.append('kullanici_id', '12345');
-      formData.append('hikaye_adi', story.title);
-      formData.append('adim', '2');
-      formData.append('adim_tipi', 'baslik_tahmini');
-
-      const { data } = await axios.post(
-        `${getApiBase()}/dost/level1/children-voice`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+      const response: Level1ChildrenVoiceResponse = await submitChildrenVoice(
+        audioBlob,
+        resumeUrl,
+        story.title,
+        2,
+        'baslik_tahmini'
       );
 
       const responseText =
-        data.message ||
-        data.text ||
-        data.response ||
-        'Harika bir tahmin! Başlıktan yola çıkarak çok güzel fikirler ürettin.';
+        response.respodKidVoice ||
+        response.message ||
+        response.text ||
+        response.response ||
+        '';
+
       setChildrenVoiceResponse(responseText);
-      speakText(responseText);
+
+      if (response.audioBase64) {
+        try {
+          await playAudioFromBase64(response.audioBase64);
+        } catch (e) {
+          setMascotState('listening');
+        }
+      } else {
+        setMascotState('listening');
+      }
     } catch (e) {
-      const fallback = 'Çok güzel düşünmüşsün! (Çevrimdışı mod)';
-      setChildrenVoiceResponse(fallback);
-      speakText(fallback);
+      setChildrenVoiceResponse('');
+      setMascotState('listening');
     } finally {
       setIsProcessingVoice(false);
-    }
-  };
-
-  const handleReplay = () => {
-    if (audioRef.current) {
-      setMascotState('speaking');
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().finally(() => setMascotState('listening'));
     }
   };
 
@@ -193,14 +184,7 @@ export default function Step2() {
             </p>
           </div>
           <button
-            onClick={async () => {
-              setStarted(true);
-              setMarked(true);
-              try {
-                const u = getUser();
-                await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
-              } catch (e) {}
-            }}
+            onClick={() => setStarted(true)}
             className="mt-6 bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
           >
             Başla
@@ -214,7 +198,6 @@ export default function Step2() {
                 <img src={story.image} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />
               </div>
               <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{story.title}</h2>
-
             </div>
 
             <div className="lg:w-1/2 w-full">
@@ -224,18 +207,27 @@ export default function Step2() {
                     <p className="text-blue-700 font-medium">DOST başlığı analiz ediyor...</p>
                   </div>
                 )}
-                {analysisText && (
+
+                {analysisText && !childrenVoiceResponse && (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
                     <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Başlık Analizi:</h3>
                     <p className="text-blue-700">{analysisText}</p>
                   </div>
                 )}
 
-
                 {analysisText && !childrenVoiceResponse && (
                   <div className="text-center">
                     <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
-                    <VoiceRecorder onSave={handleVoiceSubmit} />
+                    <VoiceRecorder
+                      recordingDurationMs={getRecordingDuration()}
+                      autoSubmit={true}
+                      onSave={handleVoiceSubmit}
+                      onPlayStart={() => {
+                        try {
+                          window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+                        } catch {}
+                      }}
+                    />
                     {isProcessingVoice && (
                       <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
                     )}
@@ -253,7 +245,6 @@ export default function Step2() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

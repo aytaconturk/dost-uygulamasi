@@ -26,7 +26,7 @@ export default function Step1() {
 
   const story = {
     id: 1,
-    title: 'Büyük İşler Küçük Dostlar',
+    title: 'Oturum 1: Kırıntıların Kahramanları',
     description: 'Karıncalar hakkında',
     image: preImage,
   };

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function Step4() {
   const story = {
     id: 1,
-    title: 'Büyük İşler Küçük Dostlar',
+    title: 'Oturum 1: Kırıntıların Kahramanları',
     description: 'Karıncalar hakkında',
     image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
   };

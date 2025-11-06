@@ -49,3 +49,21 @@ export interface Step {
     response?: string;
     resumeUrl?: string;
   }
+
+  // Level 1 Step 2 - Title Analysis API Types
+  export interface Level1TitleAnalysisRequest {
+    stepNum: number;
+    userId: string;
+  }
+
+  export interface Level1TitleAnalysisResponse {
+    title: string;
+    userId: string;
+    audioBase64: string;
+    resumeUrl: string;
+    titleExplanation?: string;
+    imageExplanation?: string;
+    message?: string;
+    text?: string;
+    response?: string;
+  }
