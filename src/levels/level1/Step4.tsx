@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getParagraphs, type Paragraph, getStoryCategory, type StoryCategory } from '../../data/stories';
+import { getParagraphs, type Paragraph } from '../../data/stories';
 import { useNavigate } from 'react-router-dom';
+import { analyzeObjectiveForStep4 } from '../../lib/level1-api';
+import type { Level1ObjectiveAnalysisResponse } from '../../types';
 
 export default function Step4() {
   const story = {
@@ -13,38 +15,20 @@ export default function Step4() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [phase, setPhase] = useState<'intro' | 'text' | 'objective'>('intro');
   const [objectiveText, setObjectiveText] = useState<string>('');
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-4-fable.mp3';
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const navigate = useNavigate();
-  const category = useMemo<StoryCategory | null>(() => getStoryCategory(story.id), [story.id]);
-
-
-  const getObjectiveByCategory = (cat: StoryCategory | null): string => {
-    switch (cat) {
-      case 'Hayvanlarla ilgili metinler':
-        return 'Hayvanlarla ilgili metinlerde; hayvanların yaşayışları, fiziksel özellikleri, beslenmeleri, çoğalmaları, çevreye etkileri hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
-      case 'Bitkilerle ilgili metinler':
-        return 'Bitkilerle ilgili metinlerde; bitkilerin yaşam koşulları, fiziksel özellikleri, çoğalmaları, çevreye etkileri hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
-      case 'Elektronik araçlarla ilgili metinler':
-        return 'Elektronik araçlarla ilgili metinlerde; elektronik araçların kullanım amaçları, fiziksel özellikleri, çalışma biçimleri, üretimleri, çevreye etkileri hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
-      case 'Coğrafi Bölgelerle İlgili ilgili metinler':
-        return 'Coğrafi Bölgelerle İlgili ilgili metinlerde; coğrafi bölgelerin iklimi, bitki örtüsü, yeryüzü özellikleri, ekonomik faaliyetleri, nüfus ve yerleşmesi hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
-      default:
-        return '';
-    }
-  };
-
 
   useEffect(() => {
     const el = audioRef.current;
     const onEnded = () => {
       setPhase('text');
-      const msg = getObjectiveByCategory(category);
-      setObjectiveText(msg);
-      // Objective will be presented shortly after text appears
       setTimeout(() => {
         setPhase('objective');
+        handleObjectiveAnalysis();
       }, 600);
     };
     if (el) {
@@ -52,29 +36,120 @@ export default function Step4() {
       // @ts-ignore
       el.playsInline = true;
       el.muted = false;
-      el.play().then(() => el.addEventListener('ended', onEnded, { once: true })).catch(onEnded);
+      el.play()
+        .then(() => el.addEventListener('ended', onEnded, { once: true }))
+        .catch(onEnded);
     } else {
       onEnded();
     }
-    const stopAll = () => { try { audioRef.current?.pause(); } catch {} };
+    const stopAll = () => {
+      try {
+        audioRef.current?.pause();
+      } catch {}
+    };
     window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
     return () => {
       window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
-      try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch {}
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+      } catch {}
     };
-  }, [category]);
+  }, []);
+
+  const playAudioFromBase64 = async (base64: string) => {
+    if (!audioRef.current || !base64) return;
+    const tryMime = async (mime: string) => {
+      const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
+      audioRef.current!.src = src;
+
+      // Reset progress
+      setAudioProgress(0);
+      setAudioDuration(0);
+
+      // Update duration when metadata is loaded
+      const onLoadedMetadata = () => {
+        setAudioDuration(audioRef.current?.duration || 0);
+      };
+
+      // Update progress during playback
+      const onTimeUpdate = () => {
+        setAudioProgress(audioRef.current?.currentTime || 0);
+      };
+
+      // Clean up when done
+      const onEnded = () => {
+        setAudioProgress(0);
+        setAudioDuration(0);
+        audioRef.current?.removeEventListener('loadedmetadata', onLoadedMetadata);
+        audioRef.current?.removeEventListener('timeupdate', onTimeUpdate);
+        audioRef.current?.removeEventListener('ended', onEnded);
+      };
+
+      audioRef.current?.addEventListener('loadedmetadata', onLoadedMetadata);
+      audioRef.current?.addEventListener('timeupdate', onTimeUpdate);
+      audioRef.current?.addEventListener('ended', onEnded);
+
+      await audioRef.current?.play();
+    };
+    try {
+      await tryMime('audio/mpeg');
+    } catch {
+      try {
+        await tryMime('audio/webm;codecs=opus');
+      } catch {
+        try {
+          await tryMime('audio/wav');
+        } catch {
+          // Fallback: just don't play if all formats fail
+        }
+      }
+    }
+  };
+
+  const handleObjectiveAnalysis = async () => {
+    try {
+      const response: Level1ObjectiveAnalysisResponse = await analyzeObjectiveForStep4({
+        stepNum: 4,
+        userId: '',
+      });
+
+      const text = response.answer || response.message || response.text || response.response || '';
+      setObjectiveText(text);
+
+      if (response.audioBase64) {
+        try {
+          await playAudioFromBase64(response.audioBase64);
+          setPhase('objective');
+        } catch {
+          setPhase('objective');
+        }
+      } else {
+        setPhase('objective');
+      }
+    } catch (e) {
+      setObjectiveText('');
+      setPhase('objective');
+    }
+  };
 
   const renderParagraph = (p: Paragraph, idx: number) => (
     <p key={idx} className="mt-3 leading-relaxed text-gray-800">
       {p.map((seg, i) => (
-        <span key={i} className={seg.bold ? 'font-bold' : undefined}>{seg.text}</span>
+        <span key={i} className={seg.bold ? 'font-bold' : undefined}>
+          {seg.text}
+        </span>
       ))}
     </p>
   );
 
-  const onClickTamamla = async () => {
-    try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
-    navigate('/level/1/step/5');
+  const onClickTamamla = () => {
+    try {
+      window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+    } catch {}
+    navigate('/level/1/completion');
   };
 
   return (
@@ -87,22 +162,46 @@ export default function Step4() {
         <h2 className="text-2xl font-bold text-purple-800 mb-4">4. Adım: Okuma amacı belirleme</h2>
 
         {phase === 'intro' && (
-          <p className="mt-2 text-gray-800">Bu seviyenin son basamağına geldik. Bu basamakta karşımıza çıkan metinler için okuma amaçları belirlememiz gerekiyor.</p>
+          <p className="mt-2 text-gray-800">
+            Bu seviyenin son basamağına geldik. Bu basamakta karşımıza çıkan metinler için okuma amaçları belirlememiz gerekiyor.
+          </p>
         )}
 
         {phase !== 'intro' && (
           <div className="space-y-4">
-            {/* The text replaces the explanation area, image and title stay */}
             <div className="bg-white rounded-xl shadow p-4">
-              <div className="text-base md:text-lg">
-                {paragraphs.map((p, idx) => renderParagraph(p, idx))}
-              </div>
+              <div className="text-base md:text-lg">{paragraphs.map((p, idx) => renderParagraph(p, idx))}</div>
             </div>
 
+            {phase === 'objective' && audioDuration > 0 && (
+              <div className="space-y-1">
+                <div className="w-full bg-gray-200 rounded-full h-1">
+                  <div
+                    className="bg-blue-500 h-1 rounded-full transition-all duration-100"
+                    style={{ width: `${(audioProgress / audioDuration) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  {Math.floor(audioProgress)}s / {Math.floor(audioDuration)}s
+                </p>
+              </div>
+            )}
+
+            {objectiveText && phase === 'objective' && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Açıklaması:</h3>
+                <p className="text-blue-700">{objectiveText}</p>
+              </div>
+            )}
 
             {phase === 'objective' && (
-              <div className="pt-2">
-                <button onClick={onClickTamamla} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Tamamla</button>
+              <div className="pt-4 text-center">
+                <button
+                  onClick={onClickTamamla}
+                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-bold transition"
+                >
+                  Sonraki Adıma Geç
+                </button>
               </div>
             )}
           </div>

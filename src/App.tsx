@@ -7,6 +7,7 @@ import Header from './components/Header';
 import TeacherLogin from './components/TeacherLogin';
 import StudentSelector from './components/StudentSelector';
 import DiagnosticsPanel from './components/DiagnosticsPanel';
+import Completion from './levels/level1/Completion';
 import './index.css';
 import LevelRouter from './levels/LevelRouter';
 import { useEffect, useState } from 'react';
@@ -101,6 +102,7 @@ export default function App() {
                     <Routes>
                         <Route path="/" element={<StoryList stories={stories} />} />
                         <Route path="/story/:id" element={<StoryIntro stories={stories} />} />
+                        <Route path="/level/:level/completion" element={<Completion />} />
                         <Route path="/level:level/step:step" element={<LevelRouter />} />
                         <Route path="/level/:level/step/:step" element={<LevelRouter />} />
                         <Route path="/story/:id/read" element={<ReadingScreen stories={stories} />} />

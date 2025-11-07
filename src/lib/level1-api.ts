@@ -8,6 +8,8 @@ import type {
   Level1TitleAnalysisResponse,
   Level1SentencesAnalysisRequest,
   Level1SentencesAnalysisResponse,
+  Level1ObjectiveAnalysisRequest,
+  Level1ObjectiveAnalysisResponse,
 } from '../types';
 
 /**
@@ -50,6 +52,22 @@ export async function analyzeSentencesForStep3(
 ): Promise<Level1SentencesAnalysisResponse> {
   const { data } = await axios.post<Level1SentencesAnalysisResponse>(
     `${getApiBase()}/dost/level1/step3`,
+    request,
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+
+  return data;
+}
+
+/**
+ * Analyzes reading objective for Step 4
+ * Returns audioBase64 for playback and resumeUrl for voice submission
+ */
+export async function analyzeObjectiveForStep4(
+  request: Level1ObjectiveAnalysisRequest
+): Promise<Level1ObjectiveAnalysisResponse> {
+  const { data } = await axios.post<Level1ObjectiveAnalysisResponse>(
+    `${getApiBase()}/dost/level1/step4`,
     request,
     { headers: { 'Content-Type': 'application/json' } }
   );

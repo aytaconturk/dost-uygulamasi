@@ -1,34 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const completionText = 'Metnin görselini inceleme, Metnin başlığını inceleme, Metnin içindeki cümlelerden bazılarını okuma ve tahminde bulunma, okuma amacı görevlerini gerçekleştirerek 1. Seviyemizi tamamladık seni tebrik ediyorum.';
 
 export default function Step5() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
-  const completionAudio = '/src/assets/audios/level1/seviye-1-tamamlandi.mp3';
-
-  useEffect(() => {
-    const el = audioRef.current;
-    if (el) {
-      try {
-        el.src = completionAudio;
-        // @ts-ignore
-        el.playsInline = true; el.muted = false;
-        el.play().catch(() => {
-          // Fallback: just don't play anything if audio fails
-        });
-      } catch {
-        // Fallback: just don't play anything if audio setup fails
-      }
-    }
-    const stopAll = () => { try { audioRef.current?.pause(); } catch {} };
-    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
-    return () => {
-      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
-      try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch {}
-    };
-  }, []);
 
   const confettiPieces = useMemo(() => {
     const lefts = [2,8,14,20,26,32,38,44,50,56,62,68,74,80,86,92];
@@ -48,7 +24,6 @@ export default function Step5() {
 
   return (
     <div className="relative">
-      <audio ref={audioRef} preload="auto" />
       <div className="absolute inset-0 confetti pointer-events-none" aria-hidden>
         {confettiPieces.map((p, i) => (
           <div key={i} className={p.cls}></div>

@@ -82,3 +82,18 @@ export interface Step {
     text?: string;
     response?: string;
   }
+
+  // Level 1 Step 4 - Reading Objective API Types
+  export interface Level1ObjectiveAnalysisRequest {
+    stepNum: number;
+    userId: string;
+  }
+
+  export interface Level1ObjectiveAnalysisResponse {
+    answer: string;
+    audioBase64: string;
+    resumeUrl: string;
+    message?: string;
+    text?: string;
+    response?: string;
+  }
