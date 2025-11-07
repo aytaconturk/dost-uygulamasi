@@ -16,6 +16,8 @@ export default function Step1() {
   const [childrenVoiceResponse, setChildrenVoiceResponse] = useState('');
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
   const [resumeUrl, setResumeUrl] = useState('');
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
   const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
@@ -142,8 +144,36 @@ export default function Step1() {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
       audioRef.current!.src = src;
       setMascotState('speaking');
+
+      // Reset progress
+      setAudioProgress(0);
+      setAudioDuration(0);
+
+      // Update duration when metadata is loaded
+      const onLoadedMetadata = () => {
+        setAudioDuration(audioRef.current?.duration || 0);
+      };
+
+      // Update progress during playback
+      const onTimeUpdate = () => {
+        setAudioProgress(audioRef.current?.currentTime || 0);
+      };
+
+      // Clean up and set to listening when done
+      const onEnded = () => {
+        setMascotState('listening');
+        setAudioProgress(0);
+        setAudioDuration(0);
+        audioRef.current?.removeEventListener('loadedmetadata', onLoadedMetadata);
+        audioRef.current?.removeEventListener('timeupdate', onTimeUpdate);
+        audioRef.current?.removeEventListener('ended', onEnded);
+      };
+
+      audioRef.current.addEventListener('loadedmetadata', onLoadedMetadata);
+      audioRef.current.addEventListener('timeupdate', onTimeUpdate);
+      audioRef.current.addEventListener('ended', onEnded);
+
       await audioRef.current!.play();
-      audioRef.current!.addEventListener('ended', () => setMascotState('listening'), { once: true });
     };
     try {
       await tryMime('audio/mpeg');
@@ -152,7 +182,8 @@ export default function Step1() {
         await tryMime('audio/webm;codecs=opus');
       } catch (e) {
         setMascotState('listening');
-        // fall back to TTS happens in caller
+        setAudioProgress(0);
+        setAudioDuration(0);
         throw e;
       }
     }
@@ -255,6 +286,19 @@ export default function Step1() {
               ) : (
                 // After analysis (screenshot 2)
                 <div className="bg-white rounded-xl shadow-lg p-6">
+                  {mascotState === 'speaking' && audioDuration > 0 && (
+                    <div className="mb-4 space-y-1">
+                      <div className="w-full bg-gray-200 rounded-full h-1">
+                        <div
+                          className="bg-blue-500 h-1 rounded-full transition-all duration-100"
+                          style={{ width: `${(audioProgress / audioDuration) * 100}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 text-center">
+                        {Math.floor(audioProgress)}s / {Math.floor(audioDuration)}s
+                      </p>
+                    </div>
+                  )}
                   {!childrenVoiceResponse && (
                     <>
                       <div className="mt-0 p-4 bg-blue-50 rounded-lg border border-blue-200">

@@ -67,3 +67,18 @@ export interface Step {
     text?: string;
     response?: string;
   }
+
+  // Level 1 Step 3 - Sentences Analysis API Types
+  export interface Level1SentencesAnalysisRequest {
+    stepNum: number;
+    userId: string;
+  }
+
+  export interface Level1SentencesAnalysisResponse {
+    answer: string;
+    audioBase64: string;
+    resumeUrl: string;
+    message?: string;
+    text?: string;
+    response?: string;
+  }

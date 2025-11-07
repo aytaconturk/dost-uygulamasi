@@ -6,6 +6,8 @@ import type {
   Level1ChildrenVoiceResponse,
   Level1TitleAnalysisRequest,
   Level1TitleAnalysisResponse,
+  Level1SentencesAnalysisRequest,
+  Level1SentencesAnalysisResponse,
 } from '../types';
 
 /**
@@ -32,6 +34,22 @@ export async function analyzeTitleForStep2(
 ): Promise<Level1TitleAnalysisResponse> {
   const { data } = await axios.post<Level1TitleAnalysisResponse>(
     `${getApiBase()}/dost/level1/step2`,
+    request,
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+
+  return data;
+}
+
+/**
+ * Analyzes story sentences for Step 3
+ * Returns audioBase64 for playback and resumeUrl for voice submission
+ */
+export async function analyzeSentencesForStep3(
+  request: Level1SentencesAnalysisRequest
+): Promise<Level1SentencesAnalysisResponse> {
+  const { data } = await axios.post<Level1SentencesAnalysisResponse>(
+    `${getApiBase()}/dost/level1/step3`,
     request,
     { headers: { 'Content-Type': 'application/json' } }
   );
