@@ -10,23 +10,17 @@ export default function Step5() {
 
   useEffect(() => {
     const el = audioRef.current;
-    const speakTTS = () => {
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance(completionText);
-        u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; window.speechSynthesis.speak(u);
-      }
-    };
     if (el) {
       try {
         el.src = completionAudio;
         // @ts-ignore
         el.playsInline = true; el.muted = false;
-        el.play().catch(speakTTS);
+        el.play().catch(() => {
+          // Fallback: just don't play anything if audio fails
+        });
       } catch {
-        speakTTS();
+        // Fallback: just don't play anything if audio setup fails
       }
-    } else {
-      speakTTS();
     }
     const stopAll = () => { try { audioRef.current?.pause(); } catch {} };
     window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);

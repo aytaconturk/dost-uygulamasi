@@ -35,17 +35,6 @@ export default function Step4() {
     }
   };
 
-  const speak = (text: string) => {
-    if (!text) return;
-    try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'tr-TR';
-      u.rate = 0.95;
-      u.pitch = 1;
-      window.speechSynthesis.speak(u);
-    }
-  };
 
   useEffect(() => {
     const el = audioRef.current;
@@ -56,7 +45,6 @@ export default function Step4() {
       // Objective will be presented shortly after text appears
       setTimeout(() => {
         setPhase('objective');
-        speak(msg);
       }, 600);
     };
     if (el) {

@@ -36,7 +36,9 @@ export default function Step1() {
   const displayedImage = imageAnalysisText ? postImage : story.image;
 
   useEffect(() => {
-    if (started && audioRef.current && !imageAnalysisText) {
+    if (!started || imageAnalysisText) return;
+
+    if (audioRef.current) {
       audioRef.current.src = stepAudio;
       setMascotState('speaking');
       audioRef.current
@@ -51,19 +53,13 @@ export default function Step1() {
             { once: true }
           );
         })
-        .catch(() => setMascotState('idle'));
+        .catch(() => {
+          setMascotState('listening');
+          handleImageAnalysis();
+        });
+    } else {
+      handleImageAnalysis();
     }
-    return () => {
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        } catch {}
-      }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
   }, [started, imageAnalysisText]);
 
   useEffect(() => {
@@ -78,18 +74,6 @@ export default function Step1() {
     return () => window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
   }, []);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      setMascotState('speaking');
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'tr-TR';
-      utterance.rate = 0.8;
-      utterance.pitch = 1;
-      utterance.onend = () => setMascotState('listening');
-      utterance.onerror = () => setMascotState('listening');
-      speechSynthesis.speak(utterance);
-    }
-  };
 
   const handleImageAnalysis = async () => {
     setIsAnalyzing(true);
@@ -119,19 +103,20 @@ export default function Step1() {
       setImageAnalysisText(analysisText);
       setResumeUrl(response.resumeUrl);
 
-      if (!response?.audioBase64) speakText(analysisText);
-      else {
+      if (response?.audioBase64) {
         try {
           await playAudioFromBase64(response.audioBase64);
         } catch {
-          speakText(analysisText);
+          setMascotState('listening');
         }
+      } else {
+        setMascotState('listening');
       }
     } catch (e) {
       const fallbackText =
         'Bu görselde çalışkan karıncaları görüyoruz. Karıncalar birlikte çalışarak büyük işler başarırlar. Onlar bizim için çok önemli örneklerdir.';
       setImageAnalysisText(fallbackText);
-      speakText(fallbackText);
+      setMascotState('listening');
     } finally {
       setIsAnalyzing(false);
     }
@@ -169,9 +154,9 @@ export default function Step1() {
         audioRef.current?.removeEventListener('ended', onEnded);
       };
 
-      audioRef.current.addEventListener('loadedmetadata', onLoadedMetadata);
-      audioRef.current.addEventListener('timeupdate', onTimeUpdate);
-      audioRef.current.addEventListener('ended', onEnded);
+      audioRef.current?.addEventListener('loadedmetadata', onLoadedMetadata);
+      audioRef.current?.addEventListener('timeupdate', onTimeUpdate);
+      audioRef.current?.addEventListener('ended', onEnded);
 
       await audioRef.current!.play();
     };
@@ -195,7 +180,9 @@ export default function Step1() {
       const response: Level1ChildrenVoiceResponse = await submitChildrenVoice(
         audioBlob,
         resumeUrl,
-        story.title
+        story.title,
+        1,
+        'gorsel_tahmini'
       );
 
       const responseText = response.respodKidVoice || response.message || response.text || response.response || 'Çok güzel gözlemler! Karıncaları gerçekten iyi incelemişsin.';
@@ -205,15 +192,15 @@ export default function Step1() {
         try {
           await playAudioFromBase64(response.audioBase64);
         } catch {
-          speakText(responseText);
+          setMascotState('listening');
         }
       } else {
-        speakText(responseText);
+        setMascotState('listening');
       }
     } catch (e) {
       const fallbackText = 'Çok güzel konuştun! Karıncaları iyi gözlemlediğin anlaşılıyor. (Çevrimdışı mod)';
       setChildrenVoiceResponse(fallbackText);
-      speakText(fallbackText);
+      setMascotState('listening');
     } finally {
       setIsProcessingVoice(false);
     }

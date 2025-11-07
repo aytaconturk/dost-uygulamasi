@@ -110,13 +110,13 @@ export default function Step3() {
         audioRef.current?.removeEventListener('ended', onEnded);
       };
 
-      audioRef.current.addEventListener('loadedmetadata', onLoadedMetadata);
-      audioRef.current.addEventListener('timeupdate', onTimeUpdate);
-      audioRef.current.addEventListener('ended', onEnded);
+      audioRef.current?.addEventListener('loadedmetadata', onLoadedMetadata);
+      audioRef.current?.addEventListener('timeupdate', onTimeUpdate);
+      audioRef.current?.addEventListener('ended', onEnded);
 
-      await audioRef.current!.play();
+      await audioRef.current?.play();
       await new Promise<void>((resolve) => {
-        audioRef.current!.addEventListener('ended', () => resolve(), { once: true });
+        audioRef.current?.addEventListener('ended', () => resolve(), { once: true });
       });
     };
     try {

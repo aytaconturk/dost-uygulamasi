@@ -25,48 +25,37 @@ export default function Step2() {
   };
 
   useEffect(() => {
-    if (started && !analysisText) {
-      const safety = window.setTimeout(() => {
-        try {
-          if (!analysisText) handleTitleAnalysis();
-        } catch {}
-      }, 2000);
+    if (!started || analysisText) return;
 
-      if (audioRef.current) {
-        audioRef.current.src = introAudio;
-        setMascotState('speaking');
-        audioRef.current
-          .play()
-          .then(() => {
-            audioRef.current!.addEventListener(
-              'ended',
-              () => {
-                setMascotState('listening');
-                handleTitleAnalysis();
-              },
-              { once: true }
-            );
-          })
-          .catch(() => {
-            setMascotState('listening');
-            handleTitleAnalysis();
-          });
-      } else {
-        handleTitleAnalysis();
-      }
+    const safety = window.setTimeout(() => {
+      handleTitleAnalysis();
+    }, 2000);
 
-      return () => {
-        window.clearTimeout(safety);
-        if (audioRef.current) {
-          try {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-          } catch {}
-        }
-      };
+    if (audioRef.current) {
+      audioRef.current.src = introAudio;
+      setMascotState('speaking');
+      audioRef.current
+        .play()
+        .then(() => {
+          audioRef.current!.addEventListener(
+            'ended',
+            () => {
+              setMascotState('listening');
+              handleTitleAnalysis();
+            },
+            { once: true }
+          );
+        })
+        .catch(() => {
+          setMascotState('listening');
+          handleTitleAnalysis();
+        });
+    } else {
+      handleTitleAnalysis();
     }
 
     return () => {
+      window.clearTimeout(safety);
       if (audioRef.current) {
         try {
           audioRef.current.pause();
@@ -76,6 +65,17 @@ export default function Step2() {
     };
   }, [started, analysisText]);
 
+  useEffect(() => {
+    const stopAll = () => {
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+      }
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+    return () => window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+  }, []);
 
   const playAudioFromBase64 = async (base64: string) => {
     if (!audioRef.current || !base64) return;
@@ -108,9 +108,9 @@ export default function Step2() {
         audioRef.current?.removeEventListener('ended', onEnded);
       };
 
-      audioRef.current.addEventListener('loadedmetadata', onLoadedMetadata);
-      audioRef.current.addEventListener('timeupdate', onTimeUpdate);
-      audioRef.current.addEventListener('ended', onEnded);
+      audioRef.current?.addEventListener('loadedmetadata', onLoadedMetadata);
+      audioRef.current?.addEventListener('timeupdate', onTimeUpdate);
+      audioRef.current?.addEventListener('ended', onEnded);
 
       await audioRef.current!.play();
     };
