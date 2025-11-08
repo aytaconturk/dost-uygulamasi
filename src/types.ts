@@ -100,3 +100,86 @@ export interface Step {
     response?: string;
     textAudio?: string;
   }
+
+  // Level 2 Step 1 - Reading Analysis API Types
+  export interface RecordingMetadata {
+    level: number;
+    sessionId: string;
+  }
+
+  export interface Level2Step1ReadingAnalysisRequest {
+    studentId: string;
+    originalText: string;
+    audioFile: string;
+    startTime: string;
+    endTime: string;
+    metadata: RecordingMetadata;
+  }
+
+  export interface ReadingDuration {
+    totalSeconds: number;
+    totalMinutes: number;
+  }
+
+  export interface WordCount {
+    original: number;
+    spoken: number;
+    correct: number;
+  }
+
+  export interface ReadingSpeed {
+    wordsPerMinute: number;
+    correctWordsPerMinute: number;
+  }
+
+  export interface PronunciationError {
+    expected: string;
+    actual: string;
+    position: number;
+  }
+
+  export interface Pronunciation {
+    accuracy: number;
+    errors: PronunciationError[];
+  }
+
+  export interface QualityRule {
+    score: number;
+    feedback: string;
+  }
+
+  export interface QualityRules {
+    speechRate: QualityRule;
+    correctWords: QualityRule;
+    punctuation: QualityRule;
+    expressiveness: QualityRule;
+  }
+
+  export interface GoalSuggestions {
+    increase5Percent: number;
+    increase7Percent: number;
+    increase10Percent: number;
+  }
+
+  export interface ReadingAnalysis {
+    duration: ReadingDuration;
+    wordCount: WordCount;
+    readingSpeed: ReadingSpeed;
+    pronunciation: Pronunciation;
+    qualityRules: QualityRules;
+    overallScore: number;
+    recommendations: string[];
+    goalSuggestions: GoalSuggestions;
+  }
+
+  export interface Level2Step1ReadingAnalysisResponseData {
+    studentId: string;
+    readingAnalysis: ReadingAnalysis;
+    transcript: string;
+    timestamp: string;
+  }
+
+  export interface Level2Step1ReadingAnalysisResponse {
+    success: boolean;
+    data: Level2Step1ReadingAnalysisResponseData;
+  }
