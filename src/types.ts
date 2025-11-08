@@ -98,4 +98,5 @@ export interface Step {
     message?: string;
     text?: string;
     response?: string;
+    textAudio?: string;
   }

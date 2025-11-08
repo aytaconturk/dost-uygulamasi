@@ -7,7 +7,7 @@ import type { Level1ObjectiveAnalysisResponse } from '../../types';
 export default function Step4() {
   const story = {
     id: 1,
-    title: 'Oturum 1: Kırıntıların Kahramanları',
+    title: 'Oturum 1: Kır��ntıların Kahramanları',
     description: 'Karıncalar hakkında',
     image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
   };
@@ -15,6 +15,7 @@ export default function Step4() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [phase, setPhase] = useState<'intro' | 'text' | 'objective'>('intro');
   const [objectiveText, setObjectiveText] = useState<string>('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
 
@@ -22,13 +23,18 @@ export default function Step4() {
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const navigate = useNavigate();
 
+  const hasCalledApi = useRef(false);
+
   useEffect(() => {
     const el = audioRef.current;
     const onEnded = () => {
       setPhase('text');
       setTimeout(() => {
-        setPhase('objective');
-        handleObjectiveAnalysis();
+        if (!hasCalledApi.current) {
+          hasCalledApi.current = true;
+          setPhase('objective');
+          handleObjectiveAnalysis();
+        }
       }, 600);
     };
     if (el) {
@@ -110,13 +116,21 @@ export default function Step4() {
   };
 
   const handleObjectiveAnalysis = async () => {
+    setIsAnalyzing(true);
     try {
       const response: Level1ObjectiveAnalysisResponse = await analyzeObjectiveForStep4({
         stepNum: 4,
         userId: '',
       });
 
-      const text = response.answer || response.message || response.text || response.response || '';
+      const text = 
+        response.answer || 
+        response.message || 
+        response.text || 
+        response.response ||
+        response.textAudio || 
+        '';
+
       setObjectiveText(text);
 
       if (response.audioBase64) {
@@ -132,6 +146,8 @@ export default function Step4() {
     } catch (e) {
       setObjectiveText('');
       setPhase('objective');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -169,21 +185,12 @@ export default function Step4() {
 
         {phase !== 'intro' && (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl shadow p-4">
-              <div className="text-base md:text-lg">{paragraphs.map((p, idx) => renderParagraph(p, idx))}</div>
-            </div>
-
-            {phase === 'objective' && audioDuration > 0 && (
-              <div className="space-y-1">
-                <div className="w-full bg-gray-200 rounded-full h-1">
-                  <div
-                    className="bg-blue-500 h-1 rounded-full transition-all duration-100"
-                    style={{ width: `${(audioProgress / audioDuration) * 100}%` }}
-                  />
+            {!objectiveText && (
+              <div className="bg-white rounded-xl shadow p-4">
+                <div className="p-4 mb-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-blue-700 font-medium">DOST okuma amaçını analiz ediyor...</p>
                 </div>
-                <p className="text-xs text-gray-500 text-center">
-                  {Math.floor(audioProgress)}s / {Math.floor(audioDuration)}s
-                </p>
+                <div className="text-base md:text-lg">{paragraphs.map((p, idx) => renderParagraph(p, idx))}</div>
               </div>
             )}
 
@@ -194,13 +201,27 @@ export default function Step4() {
               </div>
             )}
 
-            {phase === 'objective' && (
+            {phase === 'objective' && audioDuration > 0 && (
+              <div className="space-y-1">
+                <div className="w-full bg-gray-200 rounded-full h-1">
+                  <div
+                    className="bg-blue-500 h-1 rounded-full transition-all duration-100"
+                    style={{ width: `${(audioProgress / audioDuration) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  {Math.floor(audioProgress)}saniye / {Math.floor(audioDuration)}saniye
+                </p>
+              </div>
+            )}
+
+            {objectiveText && (
               <div className="pt-4 text-center">
                 <button
                   onClick={onClickTamamla}
                   className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-lg font-bold transition"
                 >
-                  Sonraki Adıma Geç
+                  So Adıma Geç
                 </button>
               </div>
             )}
