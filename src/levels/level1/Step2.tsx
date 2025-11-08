@@ -15,6 +15,7 @@ export default function Step2() {
   const [resumeUrl, setResumeUrl] = useState('');
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [showIntroText, setShowIntroText] = useState(true);
 
   const introAudio = '/src/assets/audios/level1/seviye-1-adim-2-fable.mp3';
   const story = {
@@ -142,9 +143,11 @@ export default function Step2() {
         response.message ||
         response.text ||
         response.response ||
+        response.textAudio ||
         '';
 
       setAnalysisText(text);
+      setShowIntroText(false);
       setResumeUrl(response.resumeUrl);
 
       if (response.audioBase64) {
@@ -180,6 +183,7 @@ export default function Step2() {
         response.message ||
         response.text ||
         response.response ||
+        response.textAudio ||
         '';
 
       setChildrenVoiceResponse(responseText);
@@ -234,6 +238,13 @@ export default function Step2() {
 
             <div className="lg:w-1/2 w-full">
               <div className="bg-white rounded-xl shadow-lg p-6">
+                {showIntroText && !analysisText && !isAnalyzing && (
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 mb-6">
+                    <h3 className="font-bold text-yellow-800 mb-2">🤖 DOST'un Notu:</h3>
+                    <p className="text-yellow-700">Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.</p>
+                  </div>
+                )}
+
                 {isAnalyzing && !analysisText && (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
                     <p className="text-blue-700 font-medium">DOST başlığı analiz ediyor...</p>

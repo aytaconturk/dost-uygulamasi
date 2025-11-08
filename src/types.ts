@@ -48,6 +48,7 @@ export interface Step {
     text?: string;
     response?: string;
     resumeUrl?: string;
+    textAudio?: string;
   }
 
   // Level 1 Step 2 - Title Analysis API Types
@@ -65,6 +66,7 @@ export interface Step {
     imageExplanation?: string;
     message?: string;
     text?: string;
+    textAudio?: string;
     response?: string;
   }
 
