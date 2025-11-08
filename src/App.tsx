@@ -18,16 +18,30 @@ import { setTeacher, setStudent } from './store/userSlice';
 import type { RootState, AppDispatch } from './store/store';
 
 const stories = [
-    { id: 1, title: 'Kırıntıların Kahramanları', description: 'Karıncalar hakkında', image: '/src/assets/images/story1.png', level: 1 },
-    { id: 2, title: 'Avcumun İçindeki Akıllı Kutu', description: 'Akıllı telefonlar hakkında', image: '/src/assets/images/story2.png', level: 2 },
-    { id: 3, title: 'Çöl Şekerlemesi', description: 'Hurma ağacı hakkında', image: '/src/assets/images/story3.png', level: 3 },
-    { id: 4, title: 'Turizmin İncisi', description: 'Akdeniz Bölgesi hakkında', image: '/src/assets/images/story4.png', level: 4 },
-    { id: 5, title: 'Çöl Gemisi', description: 'Develer hakkında', image: '/src/assets/images/story5.png', level: 5 },
-    { id: 6, title: 'Deniz Altı Krallığı', description: 'Balıklar hakkında', image: '/src/assets/images/story6.png', level: 6, locked: true },
-    { id: 7, title: 'Kayıp Ayakkabı', description: 'Fareler hakkında', image: '/src/assets/images/story7.png', level: 7, locked: true },
-    { id: 8, title: 'Karlı Dağlar', description: 'Tilki ve geyikler hakkında', image: '/src/assets/images/story8.png', level: 8, locked: true },
-    { id: 9, title: 'Uçan Bisiklet', description: 'Hayal gücüyle yolculuk', image: '/src/assets/images/story9.png', level: 9, locked: true },
-    { id: 10, title: 'Zaman Makinesi', description: 'Geleceğe yolculuk', image: '/src/assets/images/story10.png', level: 10, locked: true }
+    { id: 1, title: 'Kırıntıların Kahramanları', description: '', image: '/src/assets/images/story1.png', level: 1 },
+    { id: 2, title: 'Avucumun İçindeki Akıllı Kutu', description: '', image: '/src/assets/images/story2.png', level: 2 },
+    { id: 3, title: 'Çöl Şekerlemesi', description: '', image: '/src/assets/images/story3.png', level: 3 },
+    { id: 4, title: 'Turizmin İncisi', description: '', image: '/src/assets/images/story4.png', level: 4 },
+    { id: 5, title: 'Çöl Gemisi', description: '', image: '/src/assets/images/story5.png', level: 5 },
+    { id: 6, title: 'Hayal Gibi Gerçek', description: '', image: '/src/assets/images/story6.png', level: 1, locked: true },
+    { id: 7, title: 'Kaktüslerin Dikenli Yaşamı', description: '', image: '/src/assets/images/story7.png', level: 2, locked: true },
+    { id: 8, title: 'Dağların Diyarı', description: '', image: '/src/assets/images/story8.png', level: 3, locked: true },
+    { id: 9, title: 'Fındık Canavarları', description: '', image: '/src/assets/images/story9.png', level: 4, locked: true },
+    { id: 10, title: 'Kolumuzdaki Süper Kahraman', description: '', image: '/src/assets/images/story10.png', level: 5, locked: true },
+    { id: 11, title: 'Kırmızı Tatlı Boncuklar', description: '', image: '/src/assets/images/story11.png', level: 1, locked: true },
+    { id: 12, title: 'Ekonominin Kalbi', description: '', image: '/src/assets/images/story12.png', level: 2, locked: true },
+    { id: 13, title: 'Uzun Bacaklı Gezgin Kuş', description: '', image: '/src/assets/images/story13.png', level: 3, locked: true },
+    { id: 14, title: 'Metal Dostlar', description: '', image: '/src/assets/images/story14.png', level: 4, locked: true },
+    { id: 15, title: 'Küçük Avcılar', description: '', image: '/src/assets/images/story15.png', level: 5, locked: true },
+    { id: 16, title: 'Güzel Sahiller Diyarı', description: '', image: '/src/assets/images/story16.png', level: 1, locked: true },
+    { id: 17, title: 'Ormanların Akrobatı', description: '', image: '/src/assets/images/story17.png', level: 2, locked: true },
+    { id: 18, title: 'Hayal Et, Gerçekleştir', description: '', image: '/src/assets/images/story18.png', level: 3, locked: true },
+    { id: 19, title: 'Kırmızı Lezzetli Kalpler', description: '', image: '/src/assets/images/story19.png', level: 4, locked: true },
+    { id: 20, title: 'Hirçın Dalgalar', description: '', image: '/src/assets/images/story20.png', level: 5, locked: true },
+    { id: 21, title: 'Sekiz Kollu Balon Kafa', description: '', image: '/src/assets/images/story21.png', level: 1, locked: true },
+    { id: 22, title: 'Dokundukça Başlayan Maceralar', description: '', image: '/src/assets/images/story22.png', level: 2, locked: true },
+    { id: 23, title: 'Yaz Meyvelerinin Kralı', description: '', image: '/src/assets/images/story23.png', level: 3, locked: true },
+    { id: 24, title: 'Lezzet Diyarı', description: '', image: '/src/assets/images/story24.png', level: 4, locked: true }
 ];
 
 function CompletionRouter() {
