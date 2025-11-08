@@ -20,7 +20,7 @@ export default function Step1() {
   const [audioDuration, setAudioDuration] = useState(0);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
-  const introText = 'Görseli dikkatlice inceleyeceğiz ve hikayenin ne hakkında olabileceğini tahmin edeceğiz. Ne görüyorsun? Neler fark ettin?';
+  const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
 
   // Two visual states as requested
   const preImage = '/src/assets/images/story1.png';
@@ -219,15 +219,15 @@ export default function Step1() {
       <audio ref={audioRef} preload="auto" />
 
       {!started ? (
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-purple-800 mb-6 text-center max-w-3xl">
-            Görseli İnceleyerek Tahmin Yapalım! 🔍
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <h2 className="text-2xl font-semibold text-purple-800 mb-4 text-center max-w-2xl">
+            1. Adım: Metnin görselini inceleme ve tahminde bulunma
           </h2>
-          <p className="text-lg md:text-xl text-gray-700 mb-8 text-center max-w-2xl leading-relaxed">
+          <p className="text-lg text-gray-600 mb-6 text-center max-w-2xl">
             {introText}
           </p>
-          <button onClick={() => setStarted(true)} className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-10 py-4 rounded-full shadow-lg hover:shadow-xl hover:from-purple-700 hover:to-purple-800 transition text-xl font-bold">
-            Başla! 🎬
+          <button onClick={() => setStarted(true)} className="bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold">
+            Başla
           </button>
         </div>
       ) : (
@@ -237,46 +237,42 @@ export default function Step1() {
           transition={{ duration: 0.5, ease: 'easeOut' }}
           className="w-full"
         >
-          <div className="flex flex-col md:grid md:grid-cols-1 lg:grid-cols-2 items-start gap-6 md:gap-8 w-full">
+          <div className="flex flex-col lg:flex-row items-start gap-8">
             {/* Image Section */}
-            <div className={`${imageAnalysisText ? 'lg:col-span-1' : 'lg:col-span-2'} transition-all duration-500`}>
+            <div className={`${imageAnalysisText ? 'lg:w-1/2' : 'w-full'} transition-all duration-500`}>
               <div className="relative">
-                <img src={displayedImage} alt={story.title} className="w-full rounded-xl shadow-lg" />
+                <img src={displayedImage} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />
                 {isAnalyzing && (
                   <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
                     <div className="text-center text-white">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                      <p className="font-bold">DOST görseli inceliyor...</p>
+                      <p className="font-bold">DOST görseli analiz ediyor...</p>
                     </div>
                   </div>
                 )}
               </div>
               {/* If still analyzing, show right text panel below on mobile */}
               {!imageAnalysisText && (
-                <div className="mt-4 p-4 bg-gradient-to-r from-blue-100 to-blue-50 rounded-lg border-2 border-blue-300 lg:hidden shadow-sm">
-                  <p className="text-gray-800 mb-3 font-medium leading-relaxed">{introText}</p>
-                  <div className="text-blue-700 font-semibold flex items-center gap-2">
-                    <span className="animate-spin">⏳</span> DOST görseli inceliyor...
-                  </div>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 lg:hidden">
+                  <p className="text-gray-800 mb-3">{introText}</p>
+                  <div className="text-blue-700 font-medium">DOST görseli analiz ediyor...</div>
                 </div>
               )}
             </div>
 
             {/* Right panel */}
-            <div className="w-full">
+            <div className={`${imageAnalysisText ? 'lg:w-1/2' : 'lg:w-2/3'} w-full`}>
               {!imageAnalysisText ? (
                 // While analyzing: show intro + analyzing pill (as in screenshot 1)
                 <div className="hidden lg:block">
-                  <p className="text-gray-800 text-lg font-medium leading-relaxed">{introText}</p>
-                  <div className="mt-4 p-4 bg-gradient-to-r from-blue-100 to-blue-50 rounded-lg border-2 border-blue-300 shadow-sm">
-                    <p className="text-blue-700 font-semibold flex items-center gap-2">
-                      <span className="animate-spin">⏳</span> DOST görseli inceliyor...
-                    </p>
+                  <p className="text-gray-800 text-lg">{introText}</p>
+                  <div className="mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-blue-700 font-medium">DOST görseli analiz ediyor...</p>
                   </div>
                 </div>
               ) : (
                 // After analysis (screenshot 2)
-                <div className="w-full">
+                <div className="bg-white rounded-xl shadow-lg p-6">
                   {mascotState === 'speaking' && audioDuration > 0 && (
                     <div className="mb-4 space-y-1">
                       <div className="w-full bg-gray-200 rounded-full h-1">
@@ -290,32 +286,28 @@ export default function Step1() {
                       </p>
                     </div>
                   )}
-
                   {!childrenVoiceResponse && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border-2 border-blue-300 p-5 shadow-md">
-                        <h3 className="font-bold text-blue-900 mb-3 text-lg flex items-center gap-2">
-                          💭 DOST'un Gözlemi
-                        </h3>
-                        <p className="text-blue-800 text-base leading-relaxed">{imageAnalysisText}</p>
+                    <>
+                      <div className="mt-0 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Analizi:</h3>
+                        <p className="text-blue-700">{imageAnalysisText}</p>
                       </div>
 
-                      <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border-2 border-amber-400 p-5 shadow-md">
-                        <p className="text-amber-900 font-bold mb-2 text-lg flex items-center gap-2">
-                          ✏️ Senin Görevi
-                        </p>
-                        <p className="text-amber-800 text-base leading-relaxed">Görseli iyi iyi inceledikten sonra bana ne gördüğünü ve ne düşündüğünü anlat. Karıncalar hakkında ne biliyorsun?</p>
+                      <div className="bg-blue-50 rounded-lg border-l-4 border-blue-400 p-4 mt-6">
+                        <p className="text-blue-800 font-medium">Görev:</p>
+                        <p className="text-blue-700">Görseli inceleyerek hikayenin ne hakkında olabileceğini tahmin et. Neler gözlemliyorsun?</p>
                       </div>
-                    </div>
+                    </>
                   )}
 
                   {!childrenVoiceResponse && (
-                    <div className="mt-6 bg-gradient-to-r from-green-100 to-green-50 rounded-xl border-2 border-green-400 p-5 text-center shadow-md">
-                      <p className="mb-2 text-2xl font-bold text-green-700 animate-pulse">🎤 Hadi Sıra Sende!</p>
-                      <p className="text-green-700 font-medium">Mikrofona tıkla ve bana ne gördüğünü anlat</p>
+                    <div className="mt-6 text-center">
+                      <p className="mb-4 text-2xl font-bold text-green-700 animate-pulse">Hadi sıra sende!</p>
+                      <p className="text-lg text-green-600">Mikrofona tıklayarak cevabını ver</p>
                     </div>
                   )}
 
+                  {/* Keep current microphone component as-is */}
                   {!childrenVoiceResponse && (
                     <div className="mt-6">
                       <VoiceRecorder
@@ -329,17 +321,15 @@ export default function Step1() {
                         }}
                       />
                       {isProcessingVoice && (
-                        <p className="mt-4 text-center text-blue-600 font-semibold animate-pulse">⏳ DOST senin sözlerini dinliyor...</p>
+                        <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
                       )}
                     </div>
                   )}
 
                   {childrenVoiceResponse && (
-                    <div className="mt-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-400 p-6 shadow-md">
-                      <h3 className="font-bold text-green-900 mb-3 text-lg flex items-center gap-2">
-                        👏 DOST'un Yorumu
-                      </h3>
-                      <p className="text-green-800 text-base leading-relaxed">{childrenVoiceResponse}</p>
+                    <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                      <h3 className="font-bold text-green-800 mb-2">🗣️ DOST'un Yorumu:</h3>
+                      <p className="text-green-700 text-lg">{childrenVoiceResponse}</p>
                     </div>
                   )}
                 </div>
