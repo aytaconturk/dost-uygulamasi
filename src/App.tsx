@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { useParams } from 'react-router-dom';
 import StoryList from './components/StoryList';
 import StoryIntro from './components/StoryIntro';
 import ReadingScreen from './components/ReadingScreen';
@@ -7,7 +8,8 @@ import Header from './components/Header';
 import TeacherLogin from './components/TeacherLogin';
 import StudentSelector from './components/StudentSelector';
 import DiagnosticsPanel from './components/DiagnosticsPanel';
-import Completion from './levels/level1/Completion';
+import Level1Completion from './levels/level1/Completion';
+import Level2Completion from './levels/level2/Completion';
 import './index.css';
 import LevelRouter from './levels/LevelRouter';
 import { useEffect, useState } from 'react';
@@ -27,6 +29,15 @@ const stories = [
     { id: 9, title: 'Uçan Bisiklet', description: 'Hayal gücüyle yolculuk', image: '/src/assets/images/story9.png', level: 9, locked: true },
     { id: 10, title: 'Zaman Makinesi', description: 'Geleceğe yolculuk', image: '/src/assets/images/story10.png', level: 10, locked: true }
 ];
+
+function CompletionRouter() {
+  const { level } = useParams<{ level: string }>();
+
+  if (level === '2') {
+    return <Level2Completion />;
+  }
+  return <Level1Completion />;
+}
 
 export default function App() {
     const dispatch = useDispatch<AppDispatch>();
@@ -102,7 +113,7 @@ export default function App() {
                     <Routes>
                         <Route path="/" element={<StoryList stories={stories} />} />
                         <Route path="/story/:id" element={<StoryIntro stories={stories} />} />
-                        <Route path="/level/:level/completion" element={<Completion />} />
+                        <Route path="/level/:level/completion" element={<CompletionRouter />} />
                         <Route path="/level:level/step:step" element={<LevelRouter />} />
                         <Route path="/level/:level/step/:step" element={<LevelRouter />} />
                         <Route path="/story/:id/read" element={<ReadingScreen stories={stories} />} />

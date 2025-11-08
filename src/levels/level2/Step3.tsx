@@ -1,16 +1,127 @@
-import React from 'react';
+import { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { setSelectedGoal, setIsLoading } from '../../store/level2Slice';
+import { insertReadingGoal } from '../../lib/supabase';
+import type { RootState, AppDispatch } from '../../store/store';
 
-export default function Step3() {
+const STORY_ID = 2;
+
+export default function Level2Step3() {
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
+  
+  const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
+  const student = useSelector((state: RootState) => state.user.student);
+  const teacher = useSelector((state: RootState) => state.user.teacher);
+  const isLoading = useSelector((state: RootState) => state.level2.isLoading);
+  
+  const [selectedPercentage, setSelectedPercentage] = useState<number | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+
+  if (!analysisResult) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl text-gray-700 mb-4">Henüz okuma analizi sonucu yok.</p>
+          <button
+            onClick={() => navigate('/level/2/step/1')}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-bold"
+          >
+            Geri Dön
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const baseWpm = analysisResult.readingSpeed?.wordsPerMinute || 0;
+  
+  const goals = [
+    { percentage: 5, wpm: Math.ceil(baseWpm * 1.05), label: '%5 Artış' },
+    { percentage: 7, wpm: Math.ceil(baseWpm * 1.07), label: '%7 Artış' },
+    { percentage: 10, wpm: Math.ceil(baseWpm * 1.10), label: '%10 Artış' },
+  ];
+
+  const handleGoalSelect = async (percentage: number, wpm: number) => {
+    if (!student) return;
+
+    setSelectedPercentage(percentage);
+    dispatch(setIsLoading(true));
+
+    try {
+      // Save to Supabase
+      const result = await insertReadingGoal(
+        student.id,
+        STORY_ID,
+        2,
+        wpm,
+        percentage,
+        baseWpm,
+        teacher?.id
+      );
+
+      if (result.error) {
+        console.error('Supabase error:', result.error);
+      }
+
+      // Save to Redux
+      dispatch(setSelectedGoal({ goal: wpm, percentage }));
+
+      // Show feedback
+      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefime ulaşıp ulaşamadığına yönelik geri bildirim vereceğim.`;
+      setFeedbackText(feedback);
+      setShowFeedback(true);
+    } catch (err) {
+      console.error('Error saving goal:', err);
+    } finally {
+      dispatch(setIsLoading(false));
+    }
+  };
+
   return (
-    <div className="flex-1 flex flex-col items-center justify-center">
-      <div className="flex flex-col md:flex-row items-start justify-center gap-6 px-4 md:px-12 relative mt-0 max-w-4xl">
-        <div className="flex-shrink-0 mt-4">
-          <img src="https://cdn.builder.io/api/v1/image/assets%2F294eb74402d9433d884eb637d7d73164%2Fa37b5e72fdf5448394c8a29c4e05d123?format=webp&width=800" alt="Oturum 2: Avucumun İçindeki Akıllı Kutu" className="rounded-lg shadow-lg w-64 md:w-80" />
+    <div className="w-full mx-auto px-4">
+      <div className="flex flex-col gap-8">
+        <h2 className="text-3xl font-bold text-purple-800 text-center">3. Adım: Okuma hedefi belirleme</h2>
+
+        <div className="bg-gradient-to-r from-purple-100 to-purple-50 border-2 border-purple-300 rounded-xl p-6 text-center max-w-2xl mx-auto">
+          <h3 className="text-xl font-bold text-purple-900 mb-2">📊 Şu anki Okuma Hızın</h3>
+          <p className="text-4xl font-bold text-purple-600 mb-4">{baseWpm} sözcük/dakika</p>
+          <p className="text-gray-700">Şimdi bu okuma hedeflerinden birini seç ve gelecek okumalarında bu hedefi yakalamaya çalış!</p>
         </div>
-        <div className="text-lg text-gray-800 leading-relaxed max-w-xl">
-          <h2 className="text-2xl font-bold text-purple-800 mb-4 text-center">3. Adım: Okuma hedefi belirleme</h2>
-          <p className="mt-2 text-gray-800">Gelecek okumalarında ulaşman gereken okuma hızı hedefini belirleyelim.</p>
-        </div>
+
+        {!showFeedback ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto w-full">
+            {goals.map((goal) => (
+              <button
+                key={goal.percentage}
+                onClick={() => handleGoalSelect(goal.percentage, goal.wpm)}
+                disabled={isLoading || selectedPercentage !== null}
+                className={`p-6 rounded-xl border-4 transition-all font-bold text-lg cursor-pointer transform hover:scale-105 ${
+                  selectedPercentage === goal.percentage
+                    ? 'bg-amber-100 border-amber-600 text-amber-900 shadow-lg'
+                    : 'bg-white border-amber-400 hover:bg-amber-50 text-gray-800 hover:border-amber-600 hover:shadow-md'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <div className="text-3xl mb-2">{goal.label}</div>
+                <div className="text-2xl text-amber-600 font-bold">{goal.wpm}</div>
+                <div className="text-sm text-gray-600 mt-2">sözcük/dakika</div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-green-50 border-2 border-green-400 rounded-xl p-6 text-center max-w-2xl mx-auto">
+            <h4 className="font-bold text-green-900 mb-4 text-xl">✅ DOST'un Mesajı</h4>
+            <p className="text-gray-800 text-lg mb-6 whitespace-pre-line leading-relaxed">{feedbackText}</p>
+            <button
+              onClick={() => navigate('/level/2/step/4')}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
+            >
+              Devam Et →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

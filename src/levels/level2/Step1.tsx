@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { submitReadingAnalysis } from '../../lib/level2-api';
 import { getParagraphs } from '../../data/stories';
+import { setAnalysisResult } from '../../store/level2Slice';
 import type { Level2Step1ReadingAnalysisResponse } from '../../types';
-import type { RootState } from '../../store/store';
+import type { RootState, AppDispatch } from '../../store/store';
 
 const STORY_ID = 2;
 const TOTAL_SECONDS = 60;
@@ -23,6 +25,8 @@ export default function Level2Step1() {
     .join(' ');
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -332,113 +336,31 @@ export default function Level2Step1() {
 
             {!isProcessing && isUploading && <p className="text-gray-600">Analiz yapılıyor...</p>}
             {!isProcessing && analysis && (
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Overall Score - Full Width */}
-                <div className="md:col-span-2 lg:col-span-1 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <h4 className="font-bold text-blue-900 mb-2">Genel Puan</h4>
-                  <p className="text-3xl font-bold text-blue-600">{analysis.data?.readingAnalysis?.overallScore || 0}</p>
+              <div className="mt-6 flex flex-col items-center gap-4">
+                <div className="bg-green-50 border-2 border-green-400 rounded-xl p-6 text-center max-w-2xl">
+                  <h4 className="font-bold text-green-900 mb-2 text-xl">✅ Okuma Tamamlandı!</h4>
+                  <p className="text-gray-700 mb-4">Sonuçlarını görmek için devam et butonuna tıkla.</p>
+                  <button
+                    onClick={() => {
+                      if (analysis.data?.readingAnalysis) {
+                        const resultData = {
+                          ...analysis.data.readingAnalysis,
+                          transcript: analysis.data.transcript || ''
+                        };
+                        console.log('Step1: Dispatching analysis result:', resultData);
+                        dispatch(setAnalysisResult(resultData));
+                        setTimeout(() => {
+                          navigate('/level/2/step/2');
+                        }, 100);
+                      } else {
+                        console.error('No analysis data found');
+                      }
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
+                  >
+                    Devam Et →
+                  </button>
                 </div>
-
-                {/* Reading Speed */}
-                {analysis.data?.readingAnalysis?.readingSpeed && (
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <h4 className="font-bold text-green-900 mb-2">Okuma Hızı</h4>
-                    <p className="text-gray-700">Dakikadaki Sözcük: <span className="font-bold text-green-700">{analysis.data.readingAnalysis.readingSpeed.wordsPerMinute}</span></p>
-                    <p className="text-gray-700">Doğru Sözcük/Dakika: <span className="font-bold text-green-700">{analysis.data.readingAnalysis.readingSpeed.correctWordsPerMinute}</span></p>
-                  </div>
-                )}
-
-                {/* Word Count */}
-                {analysis.data?.readingAnalysis?.wordCount && (
-                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <h4 className="font-bold text-purple-900 mb-2">Sözcük Sayıları</h4>
-                    <p className="text-gray-700">Orijinal: <span className="font-bold">{analysis.data.readingAnalysis.wordCount.original}</span></p>
-                    <p className="text-gray-700">Okunan: <span className="font-bold">{analysis.data.readingAnalysis.wordCount.spoken}</span></p>
-                    <p className="text-gray-700">Doğru: <span className="font-bold text-green-700">{analysis.data.readingAnalysis.wordCount.correct}</span></p>
-                  </div>
-                )}
-
-                {/* Quality Rules - Full Width */}
-                {analysis.data?.readingAnalysis?.qualityRules && (
-                  <div className="md:col-span-2 lg:col-span-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <h4 className="font-bold text-orange-900 mb-3">Kalite Değerlendirmesi</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                      {Object.entries(analysis.data.readingAnalysis.qualityRules).map(([key, rule]) => (
-                        <div key={key} className="bg-white p-3 rounded border border-orange-100">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium text-gray-700 text-sm">{QUALITY_METRIC_LABELS[key] || key}</span>
-                            <span className="font-bold text-orange-600">{(rule as any).score}%</span>
-                          </div>
-                          <p className="text-xs text-gray-600">{(rule as any).feedback}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pronunciation */}
-                {analysis.data?.readingAnalysis?.pronunciation && (
-                  <div className="md:col-span-2 lg:col-span-2 p-4 bg-red-50 rounded-lg border border-red-200">
-                    <h4 className="font-bold text-red-900 mb-2">Telaffuz Doğruluğu</h4>
-                    <p className="text-gray-700 mb-3">Doğruluk: <span className="font-bold text-red-600">{analysis.data.readingAnalysis.pronunciation.accuracy}%</span></p>
-                    {analysis.data.readingAnalysis.pronunciation.errors.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Hatalar:</p>
-                        <div className="space-y-2">
-                          {analysis.data.readingAnalysis.pronunciation.errors.map((error, idx) => (
-                            <div key={idx} className="bg-white p-2 rounded text-sm border border-red-100">
-                              <p><span className="text-red-600 font-bold">{error.expected}</span> → <span className="text-blue-600 font-bold">{error.actual}</span></p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Recommendations */}
-                {analysis.data?.readingAnalysis?.recommendations && (
-                  <div className="md:col-span-2 lg:col-span-1 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                    <h4 className="font-bold text-indigo-900 mb-2">Öneriler</h4>
-                    <ul className="space-y-2">
-                      {analysis.data.readingAnalysis.recommendations.map((rec, idx) => (
-                        <li key={idx} className="text-gray-700 text-sm flex items-start">
-                          <span className="text-indigo-600 font-bold mr-2">•</span>
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Transcript - Full Width */}
-                {analysis.data?.transcript && (
-                  <div className="md:col-span-2 lg:col-span-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <h4 className="font-bold text-gray-900 mb-2">Transkript</h4>
-                    <p className="text-gray-700 italic text-sm">"{analysis.data.transcript}"</p>
-                  </div>
-                )}
-
-                {/* Goal Suggestions */}
-                {analysis.data?.readingAnalysis?.goalSuggestions && (
-                  <div className="md:col-span-2 lg:col-span-3 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <h4 className="font-bold text-yellow-900 mb-2">Hedef Öneriler (Dakika Başına Sözcük)</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center">
-                        <p className="text-sm text-gray-700">%5 artış için:</p>
-                        <p className="font-bold text-yellow-600 text-lg">{analysis.data.readingAnalysis.goalSuggestions.increase5Percent}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-gray-700">%7 artış için:</p>
-                        <p className="font-bold text-yellow-600 text-lg">{analysis.data.readingAnalysis.goalSuggestions.increase7Percent}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-gray-700">%10 artış için:</p>
-                        <p className="font-bold text-yellow-600 text-lg">{analysis.data.readingAnalysis.goalSuggestions.increase10Percent}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>

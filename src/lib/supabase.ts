@@ -130,3 +130,26 @@ export async function insertReadingLog(
       timestamp: new Date().toISOString(),
     });
 }
+
+export async function insertReadingGoal(
+  studentId: string,
+  storyId: number,
+  level: number,
+  selectedWpm: number,
+  increasePercentage: number,
+  baseWpm: number,
+  teacherId?: string
+) {
+  return supabase
+    .from('reading_goals')
+    .insert({
+      student_id: studentId,
+      teacher_id: teacherId || null,
+      story_id: storyId,
+      level,
+      selected_wpm: selectedWpm,
+      increase_percentage: increasePercentage,
+      base_wpm: baseWpm,
+      timestamp: new Date().toISOString(),
+    });
+}
