@@ -138,7 +138,13 @@ export default function Step3() {
         userId: '',
       });
 
-      const text = response.answer || response.message || response.text || response.response || '';
+      const text = 
+        response.answer || 
+        response.message || 
+        response.text || 
+        response.response || 
+        '';
+
       setAnalysisText(text);
       setResumeUrl(response.resumeUrl);
 
@@ -204,6 +210,7 @@ export default function Step3() {
         response.message ||
         response.text ||
         response.response ||
+        response.textAudio ||
         '';
 
       setChildrenVoiceResponse(responseText);
