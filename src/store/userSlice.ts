@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { Teacher, Student } from '../lib/supabase';
+import type { Teacher, Student } from '../lib/supabase-types';
 
 export type UserState = {
   teacher: Teacher | null;

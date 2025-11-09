@@ -106,7 +106,7 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                 ) : (
                                     <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">
                                         <div className="absolute -bottom-[28px] right-[2px] text-white text-xs font-bold leading-none">
-                                            {getCurrentLevel(story.id)}
+                                            {Math.min(getCurrentLevel(story.id), 5)}/5
                                         </div>
                                     </div>
                                 )}

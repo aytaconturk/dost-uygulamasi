@@ -1,0 +1,527 @@
+import { useEffect, useState } from 'react';
+import { supabase, getStories, createStory, updateStory, deleteStory } from '../lib/supabase';
+import type { Teacher, Student, ActivityLog } from '../lib/supabase-types';
+import { signOut } from '../lib/auth';
+
+type TabType = 'teachers' | 'students' | 'logs' | 'stories';
+
+export default function AdminPanel() {
+  const [activeTab, setActiveTab] = useState<TabType>('teachers');
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'teachers') {
+      fetchTeachers();
+    } else if (activeTab === 'students') {
+      fetchStudents();
+    } else if (activeTab === 'logs') {
+      fetchActivityLogs();
+    }
+  }, [activeTab]);
+
+  // Note: Stories tab has its own fetch logic within StoriesTab component
+
+  const fetchTeachers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*, users(email)')
+        .order('created_at', { ascending: false });
+
+      if (!error) {
+        setTeachers(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching teachers:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*, users(email), teachers(first_name, last_name)')
+        .order('created_at', { ascending: false });
+
+      if (!error) {
+        setStudents(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchActivityLogs = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (!error) {
+        setLogs(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching logs:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    window.location.reload();
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Admin Paneli</h1>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+          >
+            Çıkış Yap
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 flex gap-8">
+          {(['teachers', 'students', 'logs', 'stories'] as TabType[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`py-4 px-2 font-semibold transition-colors ${
+                activeTab === tab
+                  ? 'border-b-2 border-purple-600 text-purple-600'
+                  : 'text-gray-600 hover:text-purple-600'
+              }`}
+            >
+              {tab === 'teachers' && 'Öğretmenler'}
+              {tab === 'students' && 'Öğrenciler'}
+              {tab === 'logs' && 'Aktivite Günlükleri'}
+              {tab === 'stories' && 'Hikayeler'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">Yükleniyor...</p>
+          </div>
+        ) : activeTab === 'teachers' ? (
+          <TeachersTab teachers={teachers} />
+        ) : activeTab === 'students' ? (
+          <StudentsTab students={students} />
+        ) : activeTab === 'logs' ? (
+          <LogsTab logs={logs} />
+        ) : (
+          <StoriesTab />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TeachersTab({ teachers }: { teachers: any[] }) {
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Ad Soyad
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Email
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Okul
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Oluşturulma Tarihi
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {teachers.map((teacher) => (
+            <tr key={teacher.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                {teacher.first_name} {teacher.last_name}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {teacher.users?.email}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {teacher.school_name || '-'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {new Date(teacher.created_at).toLocaleDateString('tr-TR')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {teachers.length === 0 && (
+        <div className="text-center py-8 text-gray-600">Öğretmen bulunamadı</div>
+      )}
+    </div>
+  );
+}
+
+function StudentsTab({ students }: { students: any[] }) {
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Ad Soyad
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Email
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Öğretmen
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Oluşturulma Tarihi
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {students.map((student) => (
+            <tr key={student.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                {student.first_name} {student.last_name}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {student.users?.email}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {student.teachers?.first_name} {student.teachers?.last_name}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {new Date(student.created_at).toLocaleDateString('tr-TR')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {students.length === 0 && (
+        <div className="text-center py-8 text-gray-600">Öğrenci bulunamadı</div>
+      )}
+    </div>
+  );
+}
+
+function LogsTab({ logs }: { logs: ActivityLog[] }) {
+  return (
+    <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Aktivite Tipi
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Hikaye
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Seviye
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Adım
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Zaman
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Hata
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {logs.map((log) => (
+            <tr key={log.id} className="hover:bg-gray-50">
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                  {log.activity_type}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {log.story_id || '-'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {log.level_id || '-'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {log.step_number || '-'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                {new Date(log.timestamp).toLocaleString('tr-TR')}
+              </td>
+              <td className="px-6 py-4 text-sm text-red-600">
+                {log.error_message ? (
+                  <span className="truncate max-w-xs">{log.error_message}</span>
+                ) : (
+                  '-'
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {logs.length === 0 && (
+        <div className="text-center py-8 text-gray-600">Aktivite kaydı bulunamadı</div>
+      )}
+    </div>
+  );
+}
+
+function StoriesTab() {
+  const [stories, setStories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState({
+    id: '',
+    title: '',
+    description: '',
+    image: '',
+    locked: false,
+  });
+  const [error, setError] = useState('');
+
+  const fetchStories = async () => {
+    setLoading(true);
+    try {
+      const { data, error: err } = await getStories();
+      if (err) throw err;
+      setStories(data || []);
+    } catch (err) {
+      console.error('Error fetching stories:', err);
+      setError('Hikayeler yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      if (editingId) {
+        await updateStory(editingId, {
+          title: formData.title,
+          description: formData.description,
+          image: formData.image,
+          locked: formData.locked,
+        });
+      } else {
+        await createStory(
+          parseInt(formData.id),
+          formData.title,
+          formData.description,
+          formData.image,
+          formData.locked
+        );
+      }
+
+      setFormData({ id: '', title: '', description: '', image: '', locked: false });
+      setShowForm(false);
+      setEditingId(null);
+      await fetchStories();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'İşlem başarısız oldu';
+      setError(message);
+    }
+  };
+
+  const handleEdit = (story: any) => {
+    setFormData({
+      id: story.id.toString(),
+      title: story.title,
+      description: story.description || '',
+      image: story.image || '',
+      locked: story.locked || false,
+    });
+    setEditingId(story.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Bu hikayeyi silmek istediğinize emin misiniz?')) return;
+
+    try {
+      await deleteStory(id);
+      await fetchStories();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Silme işlemi başarısız oldu';
+      setError(message);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Yükleniyor...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <button
+        onClick={() => {
+          setShowForm(!showForm);
+          setEditingId(null);
+          setFormData({ id: '', title: '', description: '', image: '', level: '1', locked: false });
+          setError('');
+        }}
+        className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+      >
+        {showForm ? 'İptal' : '+ Yeni Hikaye Ekle'}
+      </button>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
+        </div>
+      )}
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-4">
+          <h3 className="text-lg font-bold text-purple-800">
+            {editingId ? 'Hikayeyi Düzenle' : 'Yeni Hikaye Ekle'}
+          </h3>
+
+          {!editingId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hikaye ID
+              </label>
+              <input
+                type="number"
+                required
+                value={formData.id}
+                onChange={(e) => setFormData({ ...formData, id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Başlık</label>
+            <input
+              type="text"
+              required
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              rows={3}
+            />
+          </div>
+
+          <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Görsel URL</label>
+          <input
+            type="text"
+            value={formData.image}
+            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+
+        <div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.locked}
+                onChange={(e) => setFormData({ ...formData, locked: e.target.checked })}
+              />
+              <span className="text-sm font-medium text-gray-700">Kilitli</span>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            {editingId ? 'Güncelle' : 'Ekle'}
+          </button>
+        </form>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {stories.map((story) => (
+          <div key={story.id} className="bg-white rounded-lg shadow overflow-hidden">
+            {story.image && (
+              <img
+                src={story.image}
+                alt={story.title}
+                className="w-full h-40 object-cover"
+              />
+            )}
+            <div className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-lg font-bold text-purple-800 flex-1">{story.title}</h3>
+                {story.locked && (
+                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                    Kilitli
+                  </span>
+                )}
+              </div>
+              <p className="text-gray-600 text-sm mb-3">{story.description}</p>
+              <div className="text-xs text-gray-500 mb-3">
+                Seviye: {story.level}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(story)}
+                  className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                >
+                  Düzenle
+                </button>
+                <button
+                  onClick={() => handleDelete(story.id)}
+                  className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                >
+                  Sil
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

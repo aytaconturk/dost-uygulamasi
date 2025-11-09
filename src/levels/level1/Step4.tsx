@@ -215,7 +215,7 @@ export default function Step4() {
               </div>
             )}
 
-            {objectiveText && (
+            {!objectiveText && (
               <div className="pt-4 text-center">
                 <button
                   onClick={onClickTamamla}

@@ -54,9 +54,13 @@ export default function StudentSelector({ onStudentSelected }: Props) {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teacher || !newStudentFirstName || !newStudentLastName) return;
+    if (!teacher || !newStudentFirstName || !newStudentLastName) {
+      setLocalError('Lütfen tüm alanları doldurunuz');
+      return;
+    }
 
     setLocalLoading(true);
+    setLocalError('');
     try {
       console.log('[StudentSelector] Adding new student:', { newStudentFirstName, newStudentLastName });
       const { data, error: insertError } = await supabase
