@@ -183,7 +183,30 @@ export async function signIn(email: string, password: string) {
     // Get role-specific data
     let roleData: Teacher | Student | null = null;
 
-    if (userData.role === 'teacher') {
+    if (userData.role === 'admin') {
+      // Admin users need a teacher record for login to work
+      // Try to load teacher data if it exists
+      const { data: teacherData } = await supabase
+        .from('teachers')
+        .select('*')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (teacherData) {
+        roleData = teacherData;
+      } else {
+        // Create teacher record for admin if missing
+        const userMetadata = data.user.user_metadata || {};
+        const { data: newTeacher } = await supabase.from('teachers').insert({
+          user_id: data.user.id,
+          first_name: userMetadata.first_name || 'Admin',
+          last_name: userMetadata.last_name || 'DOST',
+          school_name: userMetadata.school_name || 'Sistem Yöneticisi',
+        }).select().single();
+
+        roleData = newTeacher;
+      }
+    } else if (userData.role === 'teacher') {
       const { data: teacherData } = await supabase
         .from('teachers')
         .select('*')
@@ -233,7 +256,7 @@ export async function signIn(email: string, password: string) {
       role: userData.role as UserRole,
     };
 
-    if (userData.role === 'teacher' && roleData) {
+    if ((userData.role === 'admin' || userData.role === 'teacher') && roleData) {
       authUser.teacher = roleData as Teacher;
     } else if (userData.role === 'user' && roleData) {
       authUser.student = roleData as Student;
@@ -270,7 +293,29 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
   let roleData: Teacher | Student | null = null;
 
-  if (userData.role === 'teacher') {
+  if (userData.role === 'admin') {
+    // Admin users need a teacher record for login to work
+    // Try to load teacher data if it exists
+    const { data: teacherData } = await supabase
+      .from('teachers')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (teacherData) {
+      roleData = teacherData;
+    } else {
+      // Create teacher record for admin if missing
+      const { data: newTeacher } = await supabase.from('teachers').insert({
+        user_id: user.id,
+        first_name: 'Admin',
+        last_name: 'DOST',
+        school_name: 'Sistem Yöneticisi',
+      }).select().single();
+
+      roleData = newTeacher;
+    }
+  } else if (userData.role === 'teacher') {
     const { data: teacherData } = await supabase
       .from('teachers')
       .select('*')
@@ -292,7 +337,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     role: userData.role as UserRole,
   };
 
-  if (userData.role === 'teacher' && roleData) {
+  if ((userData.role === 'admin' || userData.role === 'teacher') && roleData) {
     authUser.teacher = roleData as Teacher;
   } else if (userData.role === 'user' && roleData) {
     authUser.student = roleData as Student;

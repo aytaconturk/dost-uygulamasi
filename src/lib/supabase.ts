@@ -12,6 +12,8 @@ export type {
   ActivityLog,
   ReadingProgress,
   ReadingLog,
+  TextSegment,
+  StoryParagraph,
 } from './supabase-types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -74,6 +76,38 @@ export async function deleteStory(id: number) {
     .from('stories')
     .delete()
     .eq('id', id);
+}
+
+// ===== STORY PARAGRAPHS =====
+
+export async function getStoryParagraphs(storyId: number) {
+  return supabase
+    .from('story_paragraphs')
+    .select('*')
+    .eq('story_id', storyId)
+    .order('paragraph_index', { ascending: true });
+}
+
+export async function insertStoryParagraphs(
+  storyId: number,
+  paragraphs: Array<{ paragraph_index: number; text_segments: any[] }>
+) {
+  const data = paragraphs.map(p => ({
+    story_id: storyId,
+    paragraph_index: p.paragraph_index,
+    text_segments: p.text_segments,
+  }));
+
+  return supabase
+    .from('story_paragraphs')
+    .insert(data);
+}
+
+export async function deleteStoryParagraphs(storyId: number) {
+  return supabase
+    .from('story_paragraphs')
+    .delete()
+    .eq('story_id', storyId);
 }
 
 // ===== USER MANAGEMENT =====

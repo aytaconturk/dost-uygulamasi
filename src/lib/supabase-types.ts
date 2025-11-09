@@ -99,3 +99,17 @@ export type ReadingLog = {
   total_words: number;
   timestamp: string;
 };
+
+export type TextSegment = {
+  text: string;
+  bold?: boolean;
+};
+
+export type StoryParagraph = {
+  id: string;
+  story_id: number;
+  paragraph_index: number;
+  text_segments: TextSegment[];
+  created_at: string;
+  updated_at: string;
+};

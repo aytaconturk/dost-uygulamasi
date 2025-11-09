@@ -80,8 +80,8 @@ export default function Step1() {
     try {
       const u = (await import('../../lib/user')).getUser();
       const { getFirstThreeParagraphFirstSentences, getFullText } = await import('../../data/stories');
-      const ilkUcParagraf = getFirstThreeParagraphFirstSentences(story.id);
-      const metin = getFullText(story.id);
+      const ilkUcParagraf = await getFirstThreeParagraphFirstSentences(story.id);
+      const metin = await getFullText(story.id);
 
       const response: Level1ImageAnalysisResponse = await analyzeStoryImage({
         imageUrl: postImage,

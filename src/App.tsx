@@ -7,6 +7,7 @@ import ReadingScreen from './components/ReadingScreen';
 import Header from './components/Header';
 import TeacherLogin from './components/TeacherLogin';
 import StudentSelector from './components/StudentSelector';
+import AdminPanel from './components/AdminPanel';
 import DiagnosticsPanel from './components/DiagnosticsPanel';
 import Level1Completion from './levels/level1/Completion';
 import Level2Completion from './levels/level2/Completion';
@@ -14,7 +15,7 @@ import './index.css';
 import LevelRouter from './levels/LevelRouter';
 import { useEffect, useState } from 'react';
 import { applyTypography } from './lib/settings';
-import { setTeacher, setStudent } from './store/userSlice';
+import { setRole, setTeacher, setStudent } from './store/userSlice';
 import type { RootState, AppDispatch } from './store/store';
 import { getStories } from './lib/supabase';
 
@@ -37,6 +38,7 @@ function CompletionRouter() {
 
 export default function App() {
     const dispatch = useDispatch<AppDispatch>();
+    const role = useSelector((state: RootState) => state.user.role);
     const teacher = useSelector((state: RootState) => state.user.teacher);
     const student = useSelector((state: RootState) => state.user.student);
     const [showStudentSelector, setShowStudentSelector] = useState(false);
@@ -66,8 +68,18 @@ export default function App() {
 
     // Restore session from localStorage on app mount
     useEffect(() => {
+        const savedRole = localStorage.getItem('dost_role');
         const savedTeacher = localStorage.getItem('dost_teacher');
         const savedStudent = localStorage.getItem('dost_student');
+
+        if (savedRole) {
+            try {
+                dispatch(setRole(JSON.parse(savedRole)));
+            } catch (err) {
+                console.error('Failed to restore role:', err);
+                localStorage.removeItem('dost_role');
+            }
+        }
 
         if (savedTeacher) {
             try {
@@ -107,6 +119,14 @@ export default function App() {
 
     if (!sessionLoaded || storiesLoading) {
         return null;
+    }
+
+    if (!role) {
+        return <TeacherLogin onLoginSuccess={() => setShowStudentSelector(true)} />;
+    }
+
+    if (role === 'admin') {
+        return <AdminPanel />;
     }
 
     if (!teacher) {

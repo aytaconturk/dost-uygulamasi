@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { supabase, getStories, createStory, updateStory, deleteStory } from '../lib/supabase';
 import type { Teacher, Student, ActivityLog } from '../lib/supabase-types';
 import { signOut } from '../lib/auth';
+import { clearUser } from '../store/userSlice';
+import type { AppDispatch } from '../store/store';
 
 type TabType = 'teachers' | 'students' | 'logs' | 'stories';
 
 export default function AdminPanel() {
+  const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('teachers');
   const [teachers, setTeachers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -80,8 +84,22 @@ export default function AdminPanel() {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    window.location.reload();
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+
+    // Clear Redux state
+    dispatch(clearUser());
+
+    // Clear localStorage
+    localStorage.removeItem('dost_role');
+    localStorage.removeItem('dost_teacher');
+    localStorage.removeItem('dost_student');
+
+    // Redirect to home
+    window.location.href = '/';
   };
 
   return (
@@ -501,9 +519,6 @@ function StoriesTab() {
                 )}
               </div>
               <p className="text-gray-600 text-sm mb-3">{story.description}</p>
-              <div className="text-xs text-gray-500 mb-3">
-                Seviye: {story.level}
-              </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleEdit(story)}

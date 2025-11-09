@@ -1,8 +1,9 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { Teacher, Student } from '../lib/supabase-types';
+import type { Teacher, Student, UserRole } from '../lib/supabase-types';
 
 export type UserState = {
+  role: UserRole | null;
   teacher: Teacher | null;
   student: Student | null;
   isLoading: boolean;
@@ -10,6 +11,7 @@ export type UserState = {
 };
 
 const initialState: UserState = {
+  role: null,
   teacher: null,
   student: null,
   isLoading: false,
@@ -20,6 +22,10 @@ export const userSlice = createSlice({
   name: 'user',
   initialState,
   reducers: {
+    setRole: (state, action: PayloadAction<UserRole | null>) => {
+      state.role = action.payload;
+      state.error = null;
+    },
     setTeacher: (state, action: PayloadAction<Teacher | null>) => {
       state.teacher = action.payload;
       state.error = null;
@@ -35,6 +41,7 @@ export const userSlice = createSlice({
       state.error = action.payload;
     },
     clearUser: (state) => {
+      state.role = null;
       state.teacher = null;
       state.student = null;
       state.error = null;
@@ -42,5 +49,5 @@ export const userSlice = createSlice({
   },
 });
 
-export const { setTeacher, setStudent, setLoading, setError, clearUser } = userSlice.actions;
+export const { setRole, setTeacher, setStudent, setLoading, setError, clearUser } = userSlice.actions;
 export default userSlice.reducer;

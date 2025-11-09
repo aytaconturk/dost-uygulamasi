@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { setTeacher, setError, setLoading } from '../store/userSlice';
+import { setRole, setTeacher, setError, setLoading } from '../store/userSlice';
 import { signIn, signUp } from '../lib/auth';
 import type { AppDispatch } from '../store/store';
 
@@ -42,9 +42,13 @@ export default function TeacherLogin({ onLoginSuccess }: Props) {
         return;
       }
 
-      if (authUser?.teacher) {
-        dispatch(setTeacher(authUser.teacher));
-        localStorage.setItem('dost_teacher', JSON.stringify(authUser.teacher));
+      if (authUser?.teacher || authUser?.role === 'admin') {
+        dispatch(setRole(authUser.role));
+        localStorage.setItem('dost_role', JSON.stringify(authUser.role));
+        if (authUser.teacher) {
+          dispatch(setTeacher(authUser.teacher));
+          localStorage.setItem('dost_teacher', JSON.stringify(authUser.teacher));
+        }
         onLoginSuccess();
       } else {
         setLocalError('Öğretmen hesabı bulunamadı');
@@ -103,6 +107,8 @@ export default function TeacherLogin({ onLoginSuccess }: Props) {
       }
 
       if (authUser?.teacher) {
+        dispatch(setRole(authUser.role));
+        localStorage.setItem('dost_role', JSON.stringify(authUser.role));
         dispatch(setTeacher(authUser.teacher));
         localStorage.setItem('dost_teacher', JSON.stringify(authUser.teacher));
         onLoginSuccess();

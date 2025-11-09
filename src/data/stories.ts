@@ -1,3 +1,5 @@
+import { getStoryParagraphs } from '../lib/supabase';
+
 export type TextSegment = { text: string; bold?: boolean };
 export type Paragraph = TextSegment[]; // supports bold spans
 
@@ -7,11 +9,11 @@ export type StoryCategory =
   | 'Elektronik araçlarla ilgili metinler'
   | 'Coğrafi Bölgelerle İlgili ilgili metinler';
 
-// Map storyId -> array of paragraphs
-const STORIES: Record<number, Paragraph[]> = {
+// Fallback hardcoded stories for initial load (will be replaced by Supabase data)
+const FALLBACK_STORIES: Record<number, Paragraph[]> = {
   1: [
     [
-      { text: '“Karınca gibi çalışkan” ne demek? Sen hiç karınca yuvası gördün mü? Karıncaların yaşamı nasıldır? Haydi, bu soruların cevaplarını birlikte öğrenelim!' }
+      { text: '"Karınca gibi çalışkan" ne demek? Sen hiç karınca yuvası gördün mü? Karıncaların yaşamı nasıldır? Haydi, bu soruların cevaplarını birlikte öğrenelim!' }
     ],
     [
       { text: 'Karıncaların yaşayışlarıyla başlayalım. ' },
@@ -32,7 +34,7 @@ const STORIES: Record<number, Paragraph[]> = {
       { text: ' ' },
       { text: 'Ayakları altı tanedir.', bold: true },
       { text: ' ' },
-      { text: '��ki tane anteni vardır.', bold: true },
+      { text: 'İki tane anteni vardır.', bold: true },
       { text: ' ' },
       { text: 'Bazı karıncalar kanatlıdır.', bold: true }
     ],
@@ -242,8 +244,33 @@ const STORY_CATEGORIES: Record<number, StoryCategory> = {
   5: 'Hayvanlarla ilgili metinler',
 };
 
-export const getParagraphs = (storyId: number): Paragraph[] => STORIES[storyId] || [];
-export const getStoryCategory = (storyId: number): StoryCategory | null => STORY_CATEGORIES[storyId] || null;
+// Cache for fetched paragraphs
+const paragraphCache: Map<number, Paragraph[]> = new Map();
+
+export const getParagraphs = async (storyId: number): Promise<Paragraph[]> => {
+  if (paragraphCache.has(storyId)) {
+    return paragraphCache.get(storyId) || [];
+  }
+
+  const { data, error } = await getStoryParagraphs(storyId);
+  
+  if (error || !data) {
+    console.warn(`Failed to fetch paragraphs for story ${storyId}, using fallback data`);
+    const fallback = FALLBACK_STORIES[storyId] || [];
+    paragraphCache.set(storyId, fallback);
+    return fallback;
+  }
+
+  const paragraphs: Paragraph[] = data
+    .sort((a, b) => a.paragraph_index - b.paragraph_index)
+    .map((p) => p.text_segments as TextSegment[]);
+
+  paragraphCache.set(storyId, paragraphs);
+  return paragraphs;
+};
+
+export const getStoryCategory = (storyId: number): StoryCategory | null =>
+  STORY_CATEGORIES[storyId] || null;
 
 export type ComprehensionQuestion = {
   question: string;
@@ -283,24 +310,30 @@ const COMPREHENSION_QUESTIONS: ComprehensionQuestions = {
   ]
 };
 
-export const getComprehensionQuestions = (storyId: number): ComprehensionQuestion[] => {
+export const getComprehensionQuestions = (
+  storyId: number
+): ComprehensionQuestion[] => {
   return COMPREHENSION_QUESTIONS[storyId] || [];
 };
 
-export const paragraphToPlain = (p: Paragraph) => p.map(s => s.text).join('');
+export const paragraphToPlain = (p: Paragraph) =>
+  p.map((s) => s.text).join('');
 
 export const getFirstSentence = (text: string): string => {
   const match = text.match(/[^.!?\n]+[.!?]?/);
   return match ? match[0].trim() : text.trim();
 };
 
-export const getFirstThreeParagraphFirstSentences = (storyId: number): string[] => {
-  const paras = getParagraphs(storyId);
+export const getFirstThreeParagraphFirstSentences = async (
+  storyId: number
+): Promise<string[]> => {
+  const paras = await getParagraphs(storyId);
   const firstThree = paras.slice(0, 3).map(paragraphToPlain);
   return firstThree.map(getFirstSentence).filter(Boolean);
 };
 
-export const getFullText = (storyId: number): string => {
-  const paras = getParagraphs(storyId).map(paragraphToPlain);
-  return paras.join('\n\n');
+export const getFullText = async (storyId: number): Promise<string> => {
+  const paras = await getParagraphs(storyId);
+  const plainTexts = paras.map(paragraphToPlain);
+  return plainTexts.join('\n\n');
 };
