@@ -3,6 +3,8 @@ import { getParagraphs, type Paragraph } from '../../data/stories';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { analyzeObjectiveForStep4 } from '../../lib/level1-api';
 import type { Level1ObjectiveAnalysisResponse } from '../../types';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store/store';
 
 export default function Step4() {
   const story = {
@@ -20,6 +22,8 @@ export default function Step4() {
   const [audioDuration, setAudioDuration] = useState(0);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
   const [searchParams] = useSearchParams();
+
+  const currentStudent = useSelector((state: RootState) => state.user.student);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-4-fable.mp3';
   const navigate = useNavigate();
@@ -124,7 +128,7 @@ export default function Step4() {
     try {
       const response: Level1ObjectiveAnalysisResponse = await analyzeObjectiveForStep4({
         stepNum: 4,
-        userId: '',
+        userId: currentStudent?.id || '',
       });
 
       const text = 

@@ -6,6 +6,8 @@ import { getRecordingDuration } from '../../components/SidebarSettings';
 import { motion } from 'framer-motion';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Level1ImageAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store/store';
 
 export default function Step1() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -18,6 +20,8 @@ export default function Step1() {
   const [resumeUrl, setResumeUrl] = useState('');
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+
+  const currentStudent = useSelector((state: RootState) => state.user.student);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
   const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
@@ -87,8 +91,8 @@ export default function Step1() {
         imageUrl: postImage,
         stepNum: 1,
         storyTitle: story.title,
-        userId: u?.userId || '',
-        userName: u ? `${u.firstName} ${u.lastName}`.trim() : '',
+        userId: currentStudent?.id || '',
+        userName: currentStudent?.first_name + " " + currentStudent?.last_name,
         ilkUcParagraf,
         metin,
       });

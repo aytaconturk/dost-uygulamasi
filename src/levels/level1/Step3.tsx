@@ -9,6 +9,8 @@ import {
   type Paragraph,
 } from '../../data/stories';
 import type { Level1SentencesAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store/store';
 
 export default function Step3() {
   const story = {
@@ -27,6 +29,8 @@ export default function Step3() {
   const [audioDuration, setAudioDuration] = useState(0);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
   const [firstSentences, setFirstSentences] = useState<string[]>([]);
+
+  const currentStudent = useSelector((state: RootState) => state.user.student);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-3-fable.mp3';
 
@@ -145,7 +149,7 @@ export default function Step3() {
     try {
       const response: Level1SentencesAnalysisResponse = await analyzeSentencesForStep3({
         stepNum: 3,
-        userId: '',
+        userId: currentStudent?.id || '',
       });
 
       const text = 

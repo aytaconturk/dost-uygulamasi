@@ -3,6 +3,8 @@ import { getRecordingDuration } from '../../components/SidebarSettings';
 import { analyzeTitleForStep2, submitChildrenVoice } from '../../lib/level1-api';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Level1TitleAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store/store';
 
 export default function Step2() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -16,6 +18,7 @@ export default function Step2() {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [showIntroText, setShowIntroText] = useState(true);
+  const currentStudent = useSelector((state: RootState) => state.user.student);
 
   const introAudio = '/src/assets/audios/level1/seviye-1-adim-2-fable.mp3';
   const story = {
@@ -134,7 +137,7 @@ export default function Step2() {
     try {
       const response: Level1TitleAnalysisResponse = await analyzeTitleForStep2({
         stepNum: 2,
-        userId: '',
+        userId: currentStudent?.id || '',
       });
 
       const text =
