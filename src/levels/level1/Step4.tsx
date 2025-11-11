@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getParagraphs, type Paragraph } from '../../data/stories';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { analyzeObjectiveForStep4 } from '../../lib/level1-api';
 import type { Level1ObjectiveAnalysisResponse } from '../../types';
 
@@ -18,24 +18,28 @@ export default function Step4() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
+  const [searchParams] = useSearchParams();
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-4-fable.mp3';
-  const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const navigate = useNavigate();
 
-  const hasCalledApi = useRef(false);
+  const apiCallStarted = useRef(false);
+
+  useEffect(() => {
+    const paras = getParagraphs(story.id);
+    setParagraphs(paras);
+  }, [story.id]);
 
   useEffect(() => {
     const el = audioRef.current;
     const onEnded = () => {
       setPhase('text');
-      setTimeout(() => {
-        if (!hasCalledApi.current) {
-          hasCalledApi.current = true;
-          setPhase('objective');
-          handleObjectiveAnalysis();
-        }
-      }, 600);
+      if (!apiCallStarted.current) {
+        apiCallStarted.current = true;
+        setPhase('objective');
+        handleObjectiveAnalysis();
+      }
     };
     if (el) {
       el.src = stepAudio;
@@ -165,7 +169,8 @@ export default function Step4() {
     try {
       window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
     } catch {}
-    navigate('/level/1/completion');
+    const storyId = searchParams.get('storyId') || '1';
+    navigate(`/level/1/completion?storyId=${storyId}`);
   };
 
   return (

@@ -99,10 +99,9 @@ export default function Level1Steps() {
         image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png'
     };
 
-    // Intro playback for steps except step 2 (step 2 handled on Start click)
+    // Intro playback and trigger analysis after intro audio ends
     useEffect(() => {
         if (!stepStarted || imageAnalysisText) return;
-        if (currentStep === 1) return;
         if (audioRef.current) {
             audioRef.current.src = steps[currentStep].audio;
             setMascotState('speaking');
@@ -111,6 +110,8 @@ export default function Level1Steps() {
                     setMascotState('listening');
                     if (currentStep === 0) {
                         handleImageAnalysis();
+                    } else if (currentStep === 1) {
+                        handleStep2Analysis();
                     } else if (currentStep === 2) {
                         handleStep3Analysis();
                     }
@@ -143,8 +144,8 @@ export default function Level1Steps() {
             const { getFirstThreeParagraphFirstSentences, getFullText } = await import('../data/stories');
             const u = getUser();
             const stepNum = currentStep + 1;
-            const ilkUcParagraf = getFirstThreeParagraphFirstSentences(story.id);
-            const metin = getFullText(story.id);
+            const ilkUcParagraf = await getFirstThreeParagraphFirstSentences(story.id);
+            const metin = await getFullText(story.id);
             const response = await axios.post(
                 `${getApiBase()}/dost/level1`,
                 {
@@ -218,7 +219,7 @@ export default function Level1Steps() {
         
         const tryMime = async (mime: string) => {
             const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
-            console.log('🎵 Denenen MIME:', mime, 'Src başlangıcı:', src.substring(0, 100));
+            console.log('🎵 Denenen MIME:', mime, 'Src başlang��cı:', src.substring(0, 100));
             audioRef.current!.src = src;
             setMascotState('speaking');
             await audioRef.current!.play();
@@ -251,6 +252,48 @@ export default function Level1Steps() {
         }
     };
 
+    // Step 2 analysis
+    const handleStep2Analysis = async () => {
+        setIsAnalyzing(true);
+        try {
+            const u = getUser();
+            const response = await axios.post(
+                `${getApiBase()}/dost/level1/step2`,
+                {
+                    stepNum: 2,
+                    userId: u?.userId || ''
+                },
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+
+            console.log('🔄 Step2 Response:', response.data);
+
+            if (getApiEnv() === 'test') {
+                setN8nStep2Resp(response.data);
+            }
+
+            const text = response.data.imageExplanation || response.data.message || 'DOST başlıktan tahminini paylaştı.';
+            setImageAnalysisText(text);
+            setResumeUrl(response.data?.resumeUrl || '');
+
+            const audioBase64 = response.data?.audioBase64 as string | undefined;
+            if (audioBase64 && audioBase64.length > 100) {
+                console.log('���� Step2 n8n sesini çalıyor...');
+                await playAudioFromBase64(audioBase64);
+            } else {
+                console.log('🗣️ Step2 TTS kullanıyor...');
+                speakText(text);
+            }
+        } catch (e) {
+            console.error('❌ Step2 API hatası:', e);
+            const fallback = 'Başlığa göre metinin karıncaların özellikleri hakkında olduğunu düşünüyorum.';
+            setImageAnalysisText(fallback);
+            speakText(fallback);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     // Step 3 analysis
     const handleStep3Analysis = async () => {
         setIsAnalyzing(true);
@@ -263,32 +306,32 @@ export default function Level1Steps() {
             const u = getUser();
             const response = await axios.post(
                 `${getApiBase()}/dost/level1/step3`,
-                { 
-                    title: story.title, 
-                    firstSentences, 
+                {
+                    title: story.title,
+                    firstSentences,
                     step: 3,
                     userId: u?.userId || ''
                 },
                 { headers: { 'Content-Type': 'application/json' } }
             );
-            
+
             console.log('🔄 Step3 Response:', response.data);
-            
+
             // Debug için kaydet (test ortamında görüntülenecek)
             if (getApiEnv() === 'test') {
                 setN8nStep3Resp(response.data);
             }
-            
+
             // n8n response yapısına göre metni al: { title, answer, audioBase64, resumeUrl }
             const text = response.data.answer || response.data.message || response.data.text || response.data.response || 'Bu cümlelerden yola çıkarak metnin karıncaların özellikleri ve yaşamları hakkında bilgi verdiğini söyleyebiliriz.';
             setImageAnalysisText(text);
-            
+
             // n8n'den gelen resumeUrl'i kaydet
             if (response.data?.resumeUrl) {
                 console.log('🔗 Step3 resumeUrl alındı:', response.data.resumeUrl);
                 setResumeUrl(response.data.resumeUrl);
             }
-            
+
             // n8n'den gelen audioBase64'ü çal veya TTS kullan
             const audioBase64 = response.data?.audioBase64 as string | undefined;
             if (audioBase64 && audioBase64.length > 100) {
@@ -403,7 +446,7 @@ export default function Level1Steps() {
                     }
                 } else {
                     // Ses yoksa metni konuş
-                    console.log('🗣️ n8n sesinden TTS\'e geçiliyor... (audioBase64 length:', audioBase64?.length || 0, ')');
+                    console.log('��️ n8n sesinden TTS\'e geçiliyor... (audioBase64 length:', audioBase64?.length || 0, ')');
                     const finalText = responseText || 'Mükemmel! Ses kaydın çok net ve anlaşılır.';
                     setChildrenVoiceResponse(finalText);
                     speakText(finalText);
@@ -601,34 +644,8 @@ export default function Level1Steps() {
                         {steps[currentStep].text}
                     </p>
                     <button
-                        onClick={async () => {
-                            // Enter step view immediately
+                        onClick={() => {
                             setStepStarted(true);
-
-                            if (currentStep === 1) {
-                                try {
-                                    setIsAnalyzing(true);
-                                    const u = getUser();
-                                    const res = await axios.post(`${getApiBase()}/dost/level1/step2`, { stepNum: 2, userId: u?.userId || '' }, { headers: { 'Content-Type': 'application/json' } });
-                                    const audioBase64: string = res.data?.audioBase64 || '';
-                                    const nextResumeUrl: string = res.data?.resumeUrl || '';
-                                    if (getApiEnv() === 'test') {
-                                        setN8nStep2Resp(res.data);
-                                    }
-                                    // Store for later child voice submission
-                                    setResumeUrl(nextResumeUrl);
-                                    setStoredAudioBase64(audioBase64);
-                                    // Play DOST audio
-                                    await playAudioFromBase64(audioBase64);
-                                    // Mark analysis text so that task is shown
-                                    setImageAnalysisText(res.data?.imageExplanation || res.data?.message || 'DOST başlıktan tahminini paylaştı.');
-                                } catch (e) {
-                                    console.error('Step2 API hatası:', e);
-                                    setImageAnalysisText('DOST şu an yanıt veremedi. Tekrar dener misin?');
-                                } finally {
-                                    setIsAnalyzing(false);
-                                }
-                            }
                         }}
                         className="bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
                     >
@@ -800,7 +817,7 @@ export default function Level1Steps() {
                                 <div className="lg:w-2/3 w-full bg-white rounded-xl shadow p-4 leading-relaxed text-gray-800">
                                     <p>“Karınca gibi çalışkan” ne demek? Sen hiç karınca yuvası gördün mü? Karıncaların yaşamı nasıldır? Haydi, bu soruların cevaplarını birlikte öğrenelim!</p>
                                     <p className="mt-3">
-                                        Karıncaların yaşayışlarıyla başlayalım. <strong>Karıncalar çok çalışkan hayvanlardır.</strong> Onlar oldukça hızlı hareket eder. <strong>Küçük gruplar hâlinde yuvalarda yaşar.</strong> Minik dostlarımız bir ekip olarak çalışır, işbirliğine önem verir. Karıncaları her yerde görebilirsin. Mutfakta, ağaç köklerinde, taşların ve toprağın altında... Buralara yuva yaparlar.
+                                        Karıncaların yaşayışlarıyla başlayalım. <strong>Karıncalar çok çal��şkan hayvanlardır.</strong> Onlar oldukça hızlı hareket eder. <strong>Küçük gruplar hâlinde yuvalarda yaşar.</strong> Minik dostlarımız bir ekip olarak çalışır, işbirliğine önem verir. Karıncaları her yerde görebilirsin. Mutfakta, ağaç köklerinde, taşların ve toprağın altında... Buralara yuva yaparlar.
                                     </p>
                                     <p className="mt-3">
                                         Şimdi bir karıncanın şekli nasıldır, bunu öğrenelim? <strong>Kocaman bir başı, uzun bir gövdesi vardır.</strong> Karıncalar genellikle siyah, kahverengi ya da kırmızı renktedir. Ayakları altı tanedir. <strong>İki tane anteni vardır.</strong> Bazı karıncalar kanatlıdır.
@@ -812,7 +829,7 @@ export default function Level1Steps() {
                                         Peki, onlar nasıl çoğalır? Şimdi bunun cevabına bakalım. <strong>Karıncalar, yumurtlayarak çoğalır.</strong> <strong>Kraliçe karınca yılda 50 milyon yumurta yapabilir.</strong> Bu bir kova kumdan bile daha fazladır. İnanılmaz değil mi?
                                     </p>
                                     <p className="mt-3">
-                                        Karıncaların çevreye olan etkilerini hiç düşündün mü? Küçük karıncalar, doğaya büyük faydalar sağlar. <strong>Onlar toprakları havalandırır.</strong> Ağaçlara zarar veren böcekleri yer. <strong>Tıpkı bir postacı gibi bitkilerin tohumunu dağıtır.</strong> Bu canlılar, bazen zararlı da olabilir. Bazen insanları ısırır. Bu durum kaşıntı yapabilir. Bazen de tifüs ve verem gibi hastalıkları yayabilir. Küçük dostlarımızı artık çok iyi biliyorsun. Onlara bugün bir küp şeker ısmarlamaya ne dersin?
+                                        Karıncaların çevreye olan etkilerini hiç düşündün mü? Küçük karıncalar, doğaya büyük faydalar sağlar. <strong>Onlar toprakları havalandırır.</strong> Ağaçlara zarar veren böcekleri yer. <strong>Tıpkı bir postacı gibi bitkilerin tohumunu dağıtır.</strong> Bu canlılar, bazen zararlı da olabilir. Bazen insanları ısırır. Bu durum kaşıntı yapabilir. Bazen de tifüs ve verem gibi hastalıkları yayabilir. Küçük dostlarım��zı artık çok iyi biliyorsun. Onlara bugün bir küp şeker ısmarlamaya ne dersin?
                                     </p>
 
                                     {/* Analiz çıktısı */}

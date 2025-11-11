@@ -156,7 +156,7 @@ const FALLBACK_STORIES: Record<number, Paragraph[]> = {
     ],
     [
       { text: 'Son olarak hurmanın çevreye etkisine bakalım. ' },
-      { text: 'Hurma ağacının yaprak ve gövdesiyle çeşitli eşyalar yapılır.', bold: true },
+      { text: 'Hurma ağacının yaprak ve gövdesiyle çeşitli eşyalar yap��lır.', bold: true },
       { text: ' Hurma meyvesi çok faydalıdır; en önemli yararlarından biri ', },
       { text: 'kemikleri güçlendirmesidir.', bold: true },
       { text: ' Hurma meyvesi ise, beynimizin ve kalbimizin sağlığı için çok faydalıdır.', bold: true },
@@ -247,13 +247,23 @@ const STORY_CATEGORIES: Record<number, StoryCategory> = {
 // Cache for fetched paragraphs
 const paragraphCache: Map<number, Paragraph[]> = new Map();
 
-export const getParagraphs = async (storyId: number): Promise<Paragraph[]> => {
+export const getParagraphs = (storyId: number): Paragraph[] => {
+  if (paragraphCache.has(storyId)) {
+    return paragraphCache.get(storyId) || [];
+  }
+
+  const fallback = FALLBACK_STORIES[storyId] || [];
+  paragraphCache.set(storyId, fallback);
+  return fallback;
+};
+
+export const getParagraphsAsync = async (storyId: number): Promise<Paragraph[]> => {
   if (paragraphCache.has(storyId)) {
     return paragraphCache.get(storyId) || [];
   }
 
   const { data, error } = await getStoryParagraphs(storyId);
-  
+
   if (error || !data) {
     console.warn(`Failed to fetch paragraphs for story ${storyId}, using fallback data`);
     const fallback = FALLBACK_STORIES[storyId] || [];
@@ -327,13 +337,13 @@ export const getFirstSentence = (text: string): string => {
 export const getFirstThreeParagraphFirstSentences = async (
   storyId: number
 ): Promise<string[]> => {
-  const paras = await getParagraphs(storyId);
+  const paras = await getParagraphsAsync(storyId);
   const firstThree = paras.slice(0, 3).map(paragraphToPlain);
   return firstThree.map(getFirstSentence).filter(Boolean);
 };
 
 export const getFullText = async (storyId: number): Promise<string> => {
-  const paras = await getParagraphs(storyId);
+  const paras = await getParagraphsAsync(storyId);
   const plainTexts = paras.map(paragraphToPlain);
   return plainTexts.join('\n\n');
 };

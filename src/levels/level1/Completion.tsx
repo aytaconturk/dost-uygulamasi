@@ -1,11 +1,21 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { awardPoints, updateStudentProgressStep } from '../../lib/supabase';
+import { calculatePointsForLevel } from '../../lib/points';
+import PointsAnimation from '../../components/PointsAnimation';
+import type { RootState } from '../../store/store';
 
 export default function Completion() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [completedCards, setCompletedCards] = useState<boolean[]>([false, false, false, false]);
+  const [showPointsAnimation, setShowPointsAnimation] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const [hasAwardedPoints, setHasAwardedPoints] = useState(false);
+  const student = useSelector((state: RootState) => state.user.student);
   const completionAudio = '/src/assets/audios/level1/seviye-1-tamamlandi.mp3';
 
   const steps = [
@@ -76,16 +86,63 @@ export default function Completion() {
     };
   }, []);
 
+  // Award points after cards are shown
+  useEffect(() => {
+    if (hasAwardedPoints || !student) return;
+
+    const awardPointsTimeout = setTimeout(async () => {
+      setHasAwardedPoints(true);
+      try {
+        const storyId = Number(searchParams.get('storyId')) || 1;
+        const levelNumber = 1;
+        const points = calculatePointsForLevel(levelNumber, 4); // 4 steps in level 1
+
+        console.log('🎉 Completing level 1...', { studentId: student.id, storyId, levelNumber, points });
+
+        // Award points
+        const { error: pointsError, data: pointsData } = await awardPoints(
+          student.id,
+          storyId,
+          points,
+          'Seviye 1 tamamlandı'
+        );
+
+        if (pointsError) {
+          console.error('❌ Points error:', pointsError);
+        } else {
+          console.log('✅ Points awarded:', pointsData);
+          setEarnedPoints(points);
+          setShowPointsAnimation(true);
+        }
+
+        // Update progress to level 2
+        const progressResult = await updateStudentProgressStep(student.id, storyId, 2, 1);
+        console.log('📊 Progress updated:', progressResult);
+
+        if (progressResult.error) {
+          console.error('❌ Progress update error:', progressResult.error);
+        }
+      } catch (err) {
+        console.error('Error awarding points or updating progress:', err);
+      }
+    }, 2300); // After last card appears
+
+    return () => {
+      clearTimeout(awardPointsTimeout);
+    };
+  }, [student, hasAwardedPoints]);
+
   const handleComplete = () => {
     try {
       window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
     } catch {}
-    navigate('/level/1/step/5');
+    navigate('/story/1');
   };
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8">
       <audio ref={audioRef} preload="auto" />
+      <PointsAnimation show={showPointsAnimation} points={earnedPoints} />
 
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-purple-800 mb-2">1. Seviye Özeti</h1>

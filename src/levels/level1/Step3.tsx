@@ -25,13 +25,23 @@ export default function Step3() {
   const [resumeUrl, setResumeUrl] = useState<string>('');
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
+  const [firstSentences, setFirstSentences] = useState<string[]>([]);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-3-fable.mp3';
 
-  const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
-  const firstSentences = useMemo(() => getFirstThreeParagraphFirstSentences(story.id), [story.id]);
+  useEffect(() => {
+    const loadData = async () => {
+      const paras = getParagraphs(story.id);
+      setParagraphs(paras);
+      const sentences = await getFirstThreeParagraphFirstSentences(story.id);
+      setFirstSentences(sentences);
+    };
+    loadData();
+  }, [story.id]);
 
   const firstSentenceLengths = useMemo(() => {
+    if (!paragraphs || paragraphs.length === 0) return [];
     return paragraphs.map((p, idx) => {
       const plain = paragraphToPlain(p);
       if (idx < 3) {
