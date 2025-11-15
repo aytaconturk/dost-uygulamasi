@@ -174,7 +174,7 @@ export interface Step {
 
   export interface Level2Step1ReadingAnalysisResponseData {
     studentId: string;
-    readingAnalysis: ReadingAnalysis;
+    analysis: ReadingAnalysis;
     transcript: string;
     timestamp: string;
   }
@@ -182,4 +182,22 @@ export interface Step {
   export interface Level2Step1ReadingAnalysisResponse {
     success: boolean;
     data: Level2Step1ReadingAnalysisResponseData;
+  }
+
+  // Level 2 Step 3 - Reading Goal API Types
+  export interface Level2Step3GoalSelectionRequest {
+    studentId: string;
+    storyId: number;
+    level: number;
+    step: number;
+    targetWpm: number;
+    percentage: number;
+    baseWpm: number;
+  }
+
+  export interface Level2Step3GoalSelectionResponse {
+    audioBase64: string;
+    message?: string;
+    text?: string;
+    response?: string;
   }

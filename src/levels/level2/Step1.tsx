@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { submitReadingAnalysis } from '../../lib/level2-api';
@@ -45,9 +45,51 @@ export default function Level2Step1() {
   const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
   const [timeUp, setTimeUp] = useState(false);
   const [beeped60, setBeeped60] = useState(false);
+  const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
 
   const paragraphs = getParagraphs(story.id);
   const displayTitle = story.title;
+
+  // Play intro audio on component mount
+  useEffect(() => {
+    const playIntroAudio = async () => {
+      try {
+        if (audioRef.current) {
+          audioRef.current.src = '/src/assets/audios/level2/seviye-2-adim-1.mp3';
+          audioRef.current.play().then(() => {
+            audioRef.current!.addEventListener('ended', () => {
+              setIntroAudioPlaying(false);
+            }, { once: true });
+          }).catch(() => {
+            // If autoplay fails, show the button anyway
+            setIntroAudioPlaying(false);
+          });
+        }
+      } catch (err) {
+        console.error('Error playing intro audio:', err);
+        setIntroAudioPlaying(false);
+      }
+    };
+
+    playIntroAudio();
+
+    const stopAll = () => {
+      try {
+        audioRef.current?.pause();
+      } catch {}
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+
+    return () => {
+      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+      } catch {}
+    };
+  }, []);
 
   const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -63,7 +105,36 @@ export default function Level2Step1() {
     });
   };
 
+  const playBeep = async () => {
+    return new Promise<void>((resolve) => {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 1000; // 1000Hz beep
+      oscillator.type = 'sine';
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+
+      setTimeout(resolve, 100);
+    });
+  };
+
   const handleStart = async () => {
+    // Play beep first
+    try {
+      await playBeep();
+    } catch (err) {
+      console.error('Error playing beep:', err);
+    }
+
     setStarted(true);
     setReading(true);
     setCountdownStartTime(Date.now());
@@ -99,106 +170,67 @@ export default function Level2Step1() {
       const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
       const remaining = Math.max(0, TOTAL_SECONDS - elapsed);
       setTimeLeft(remaining);
+
       if (remaining === 60 && !beeped60) {
         setBeeped60(true);
-        if (audioRef.current) {
-          audioRef.current.src = '/src/assets/audios/sira-sende-mikrofon.mp3';
-          audioRef.current.play().catch(() => {});
-        }
       }
+
       if (remaining === 0) {
-        setTimeUp(true);
-        clearInterval(interval);
-        // Call handleFinish when time is up
         handleFinish();
       }
     }, 100);
+
     return () => clearInterval(interval);
   }, [reading, countdownStartTime, beeped60]);
-
-  useEffect(() => {
-    return () => {
-      // Cleanup on unmount: stop recording and release streams
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   const handleFinish = async () => {
     setReading(false);
     setIsProcessing(true);
 
-    const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
-    const wordsRead = selectedWordIndex !== null ? selectedWordIndex + 1 : 0;
-    const wpm = elapsed > 0 ? Math.round((wordsRead / elapsed) * 60) : 0;
-    const wordsPerSecond = elapsed > 0 ? wordsRead / elapsed : 0;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
 
-    setResult({ wordsRead, wpm, wordsPerSecond });
+      const stopPromise = new Promise<void>((resolve) => {
+        mediaRecorderRef.current!.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+          resolve();
+        };
+      });
 
-    // Stop audio recording and wait for all chunks to be collected
-    let audioBlob: Blob | null = null;
+      await stopPromise;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+    }
 
     try {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        // Wait for the stop event to ensure all chunks are collected
-        audioBlob = await new Promise((resolve, reject) => {
-          const handleStop = () => {
-            mediaRecorderRef.current?.removeEventListener('stop', handleStop);
-            // Create blob from all collected chunks
-            const blob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-            resolve(blob);
-          };
+      const audioBlob = new Blob(audioChunksRef.current, {
+        type: 'audio/webm;codecs=opus',
+      });
+      const base64Audio = await blobToBase64(audioBlob);
+      const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
+      const wordsRead = Math.ceil((storyText.split(/\s+/).length * elapsed) / TOTAL_SECONDS);
+      const wpm = Math.ceil((wordsRead / elapsed) * 60);
 
-          const handleError = (error: Event) => {
-            mediaRecorderRef.current?.removeEventListener('error', handleError);
-            reject(new Error('Recording error'));
-          };
+      const response: any = await submitReadingAnalysis({
+        audioBase64: base64Audio,
+        text: storyText,
+        recordingStartTime: recordingStartTime,
+        recordingEndTime: new Date().toISOString(),
+        selectedWordCount: selectedWordIndex ? selectedWordIndex + 1 : wordsRead,
+        userId: currentStudent?.id || '',
+      });
 
-          mediaRecorderRef.current.addEventListener('stop', handleStop);
-          mediaRecorderRef.current.addEventListener('error', handleError);
+      setResult({ wordsRead, wpm, wordsPerSecond: wpm / 60 });
 
-          // Stop the recording
-          mediaRecorderRef.current.stop();
-        });
+      if (getApiEnv() === 'test') {
+        console.log('Step1 Analysis Response:', response);
       }
 
-      // Stop the microphone stream
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-
-      setIsUploading(true);
-
-      const studentId = currentStudent?.id || currentStudent?.first_name || 'unknown';
-      const sessionId = `session_${Date.now()}`;
-      const recordingEndTime = new Date().toISOString();
-
-      // Only upload if we have audio
-      if (audioBlob && audioBlob.size > 0) {
-        const audioBase64 = await blobToBase64(audioBlob);
-
-        const response = await submitReadingAnalysis({
-          studentId,
-          originalText: storyText,
-          audioFile: audioBase64,
-          startTime: recordingStartTime,
-          endTime: recordingEndTime,
-          metadata: {
-            level: 2,
-            sessionId,
-          },
-        });
-
-        if (response.success && response.data) {
-          setAnalysis(response);
-        }
-      } else {
-        console.log('No audio recorded');
-      }
+      setAnalysis(response);
     } catch (error) {
       console.log('Error during recording or upload:', error);
     } finally {
@@ -230,6 +262,10 @@ export default function Level2Step1() {
 
   const introText = 'Şimdi ikinci seviyeye geçiyoruz. Bu seviyede metni ilk kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basarsanız metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde oku.';
 
+  const getApiEnv = () => {
+    return localStorage.getItem('api_env') || 'production';
+  };
+
   return (
     <div className="w-full mx-auto px-4">
       <audio ref={audioRef} preload="auto" />
@@ -242,7 +278,14 @@ export default function Level2Step1() {
             <p className="text-gray-800 text-lg">{introText}</p>
           </div>
           <div className="flex justify-center">
-            <button onClick={handleStart} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+            {introAudioPlaying ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
+                <p className="text-gray-600">Ses çalınıyor...</p>
+              </div>
+            ) : (
+              <button onClick={handleStart} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+            )}
           </div>
         </div>
       )}
@@ -342,10 +385,35 @@ export default function Level2Step1() {
                   <p className="text-gray-700 mb-4">Sonuçlarını görmek için devam et butonuna tıkla.</p>
                   <button
                     onClick={() => {
-                      if (analysis.data?.readingAnalysis) {
+                      // Handle both response formats: {data: {analysis}} and {output: {analysis}}
+                      const analysisData = analysis.data?.analysis || analysis.output?.analysis || analysis.analysis;
+                      const transcript = analysis.data?.transcript || analysis.output?.transcript || analysis.transcript || '';
+
+                      if (analysisData) {
                         const resultData = {
-                          ...analysis.data.readingAnalysis,
-                          transcript: analysis.data.transcript || ''
+                          ...analysisData,
+                          transcript: transcript,
+                          readingSpeed: {
+                            wordsPerMinute: analysisData.wordsPerMinute || 0,
+                            correctWordsPerMinute: analysisData.correctWordsPerMinute || 0,
+                          },
+                          wordCount: {
+                            original: analysisData.originalWordCount || 0,
+                            spoken: analysisData.spokenWordCount || 0,
+                            correct: analysisData.correctWordCount || 0,
+                          },
+                          pronunciation: {
+                            accuracy: analysisData.pronunciationAccuracy || 0,
+                            errors: analysisData.errors || [],
+                          },
+                          qualityRules: {
+                            speechRate: analysisData.speechRate || { score: 0, feedback: '' },
+                            correctWords: analysisData.correctWords || { score: 0, feedback: '' },
+                            punctuation: analysisData.punctuation || { score: 0, feedback: '' },
+                            expressiveness: analysisData.expressiveness || { score: 0, feedback: '' },
+                          },
+                          overallScore: analysisData.overallScore || analysisData.wordsPerMinute || 0,
+                          recommendations: analysisData.recommendations || [],
                         };
                         console.log('Step1: Dispatching analysis result:', resultData);
                         dispatch(setAnalysisResult(resultData));
@@ -353,7 +421,7 @@ export default function Level2Step1() {
                           navigate('/level/2/step/2');
                         }, 100);
                       } else {
-                        console.error('No analysis data found');
+                        console.error('No analysis data found in response:', analysis);
                       }
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"

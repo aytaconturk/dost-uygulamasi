@@ -206,47 +206,219 @@ function TeachersTab({ teachers }: { teachers: any[] }) {
 }
 
 function StudentsTab({ students }: { students: any[] }) {
+  const [showLevelEditor, setShowLevelEditor] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [selectedStory, setSelectedStory] = useState<string>('');
+  const [newLevel, setNewLevel] = useState<string>('1');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [stories, setStories] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (showLevelEditor) {
+      fetchStoriesForEditor();
+    }
+  }, [showLevelEditor]);
+
+  const fetchStoriesForEditor = async () => {
+    try {
+      const { data, error: err } = await getStories();
+      if (err) throw err;
+      setStories(data || []);
+    } catch (err) {
+      console.error('Error fetching stories:', err);
+      setError('Hikayeler yüklenemedi');
+    }
+  };
+
+  const handleUpdateLevel = async () => {
+    if (!selectedStudent || !selectedStory || !newLevel) {
+      setError('Lütfen tüm alanları doldurunuz');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const { data: existingProgress, error: fetchError } = await supabase
+        .from('student_progress')
+        .select('id')
+        .eq('student_id', selectedStudent)
+        .eq('story_id', parseInt(selectedStory))
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      if (!existingProgress) {
+        // Initialize progress if it doesn't exist
+        const { error: initError } = await supabase
+          .from('student_progress')
+          .insert({
+            student_id: selectedStudent,
+            story_id: parseInt(selectedStory),
+            current_level: parseInt(newLevel),
+            current_step: 1,
+          });
+
+        if (initError) throw initError;
+      } else {
+        // Update existing progress
+        const { error: updateError } = await supabase
+          .from('student_progress')
+          .update({
+            current_level: parseInt(newLevel),
+            current_step: 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingProgress.id);
+
+        if (updateError) throw updateError;
+      }
+
+      setSuccess(`Seviye başarıyla güncellendi: Seviye ${newLevel}`);
+      setSelectedStudent('');
+      setSelectedStory('');
+      setNewLevel('1');
+      setTimeout(() => {
+        setShowLevelEditor(false);
+      }, 1500);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Güncelleme başarısız oldu';
+      setError(message);
+      console.error('Error updating level:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Ad Soyad
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Email
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Öğretmen
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Oluşturulma Tarihi
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {students.map((student) => (
-            <tr key={student.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {student.first_name} {student.last_name}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                {student.users?.email}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                {student.teachers?.first_name} {student.teachers?.last_name}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                {new Date(student.created_at).toLocaleDateString('tr-TR')}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {students.length === 0 && (
-        <div className="text-center py-8 text-gray-600">Öğrenci bulunamadı</div>
+    <div className="space-y-6">
+      <button
+        onClick={() => setShowLevelEditor(!showLevelEditor)}
+        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+      >
+        {showLevelEditor ? 'İptal' : '⚙️ Seviye Düzenle'}
+      </button>
+
+      {showLevelEditor && (
+        <div className="bg-white rounded-lg shadow p-6 space-y-4 border-2 border-blue-200">
+          <h3 className="text-lg font-bold text-blue-800">Öğrenci Seviyesi Düzenle</h3>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+              ✅ {success}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Öğrenci</label>
+            <select
+              value={selectedStudent}
+              onChange={(e) => setSelectedStudent(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">-- Seçiniz --</option>
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {student.first_name} {student.last_name} ({student.users?.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hikaye</label>
+            <select
+              value={selectedStory}
+              onChange={(e) => setSelectedStory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="">-- Seçiniz --</option>
+              {stories.map((story) => (
+                <option key={story.id} value={story.id}>
+                  {story.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Seviye</label>
+            <select
+              value={newLevel}
+              onChange={(e) => setNewLevel(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleUpdateLevel}
+            disabled={loading || !selectedStudent || !selectedStory}
+            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg transition-colors font-medium"
+          >
+            {loading ? 'Güncelleniyor...' : 'Seviyeyi Güncelle'}
+          </button>
+        </div>
       )}
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Ad Soyad
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Öğretmen
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Oluşturulma Tarihi
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {students.map((student) => (
+              <tr key={student.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {student.first_name} {student.last_name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {student.users?.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {student.teachers?.first_name} {student.teachers?.last_name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {new Date(student.created_at).toLocaleDateString('tr-TR')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {students.length === 0 && (
+          <div className="text-center py-8 text-gray-600">Öğrenci bulunamadı</div>
+        )}
+      </div>
     </div>
   );
 }

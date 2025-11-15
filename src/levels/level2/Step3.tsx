@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { setSelectedGoal, setIsLoading } from '../../store/level2Slice';
 import { insertReadingGoal } from '../../lib/supabase';
+import { submitReadingGoalSelection } from '../../lib/level2-api';
 import type { RootState, AppDispatch } from '../../store/store';
 
 const STORY_ID = 2;
@@ -10,15 +11,37 @@ const STORY_ID = 2;
 export default function Level2Step3() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
   const teacher = useSelector((state: RootState) => state.user.teacher);
   const isLoading = useSelector((state: RootState) => state.level2.isLoading);
-  
+
   const [selectedPercentage, setSelectedPercentage] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  useEffect(() => {
+    const stopAll = () => {
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+        } catch {}
+      }
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+    return () => {
+      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        } catch {}
+      }
+    };
+  }, []);
 
   if (!analysisResult) {
     return (
@@ -44,13 +67,49 @@ export default function Level2Step3() {
     { percentage: 10, wpm: Math.ceil(baseWpm * 1.10), label: '%10 Artış' },
   ];
 
+  const playAudioFromBase64 = async (base64: string): Promise<void> => {
+    if (!audioRef.current || !base64) throw new Error('no audio');
+
+    const tryMime = async (mime: string) => {
+      const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
+      audioRef.current!.src = src;
+
+      await audioRef.current?.play();
+      await new Promise<void>((resolve) => {
+        audioRef.current?.addEventListener('ended', () => resolve(), { once: true });
+      });
+    };
+
+    try {
+      await tryMime('audio/mpeg');
+    } catch {
+      try {
+        await tryMime('audio/webm;codecs=opus');
+      } catch {
+        await tryMime('audio/wav');
+      }
+    }
+  };
+
   const handleGoalSelect = async (percentage: number, wpm: number) => {
     if (!student) return;
 
     setSelectedPercentage(percentage);
     dispatch(setIsLoading(true));
+    setIsPlayingAudio(true);
 
     try {
+      // Call API to get audio feedback
+      const apiResponse = await submitReadingGoalSelection({
+        studentId: student.id,
+        storyId: STORY_ID,
+        level: 2,
+        step: 3,
+        targetWpm: wpm,
+        percentage: percentage,
+        baseWpm: baseWpm,
+      });
+
       // Save to Supabase
       const result = await insertReadingGoal(
         student.id,
@@ -70,18 +129,30 @@ export default function Level2Step3() {
       dispatch(setSelectedGoal({ goal: wpm, percentage }));
 
       // Show feedback
-      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefime ulaşıp ulaşamadığına yönelik geri bildirim vereceğim.`;
+      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefime ulaşıp ula��amadığına yönelik geri bildirim vereceğim.`;
       setFeedbackText(feedback);
       setShowFeedback(true);
+
+      // Play audio if available
+      if (apiResponse.audioBase64) {
+        try {
+          await playAudioFromBase64(apiResponse.audioBase64);
+        } catch (err) {
+          console.error('Error playing audio:', err);
+        }
+      }
     } catch (err) {
-      console.error('Error saving goal:', err);
+      console.error('Error in handleGoalSelect:', err);
+      setShowFeedback(true);
     } finally {
       dispatch(setIsLoading(false));
+      setIsPlayingAudio(false);
     }
   };
 
   return (
     <div className="w-full mx-auto px-4">
+      <audio ref={audioRef} preload="auto" />
       <div className="flex flex-col gap-8">
         <h2 className="text-3xl font-bold text-purple-800 text-center">3. Adım: Okuma hedefi belirleme</h2>
 
