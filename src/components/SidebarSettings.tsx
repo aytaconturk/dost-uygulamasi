@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getApiBase, getApiEnv, setApiEnv, type ApiEnv } from '../lib/api';
+import { getApiBase, getApiEnv, setApiEnv, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
 
 const RECORDING_DURATION_KEY = 'voice_recording_duration_ms';
@@ -26,10 +26,12 @@ interface Props {
 
 export default function SidebarSettings({ open, onClose }: Props) {
   const [env, setEnv] = useState<ApiEnv>(getApiEnv());
+  const [appMode, setAppModeState] = useState<AppMode>(getAppMode());
   const [recordingDuration, setRecordingDurationState] = useState<number>(getRecordingDuration());
 
   useEffect(() => {
     setEnv(getApiEnv());
+    setAppModeState(getAppMode());
     setRecordingDurationState(getRecordingDuration());
   }, [open]);
 
@@ -37,6 +39,12 @@ export default function SidebarSettings({ open, onClose }: Props) {
     const next = (e.target.value as ApiEnv);
     setEnv(next);
     setApiEnv(next);
+  };
+
+  const handleAppModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = (e.target.value as AppMode);
+    setAppModeState(next);
+    setAppMode(next);
   };
 
   const handleRecordingDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,6 +72,19 @@ export default function SidebarSettings({ open, onClose }: Props) {
               </select>
               <div className="mt-3 text-xs text-gray-600 break-all">
                 Aktif temel adres: <span className="font-semibold text-[#512DA8]">{getApiBase()}</span>
+              </div>
+            </div>
+
+            <hr className="my-4" />
+
+            <div className="mt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Çalışma Modu</label>
+              <select value={appMode} onChange={handleAppModeChange} className="w-full border border-gray-300 rounded-lg p-2">
+                <option value="dev">Dev (Hızlı Test Modu)</option>
+                <option value="prod">Prod (Normal Çalışma)</option>
+              </select>
+              <div className="mt-2 text-xs text-gray-600">
+                {appMode === 'dev' ? '🔧 Dev: Sesleri atlayabilir, adımları hızlı geçebilirsiniz' : '📚 Prod: Normal ders akışı, tüm sesler oynatılır'}
               </div>
             </div>
 

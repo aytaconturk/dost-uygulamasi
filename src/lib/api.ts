@@ -1,6 +1,8 @@
 export type ApiEnv = 'test' | 'product';
+export type AppMode = 'dev' | 'prod';
 
 const COOKIE_NAME = 'api_env';
+const APP_MODE_KEY = 'app_mode';
 
 const getCookie = (name: string) => {
   if (typeof document === 'undefined') return null;
@@ -27,4 +29,19 @@ export const getApiBase = () => {
   const root = getRoot().replace(/\/$/, '');
   const env = getApiEnv();
   return env === 'product' ? `${root}/webhook` : `${root}/webhook-test`;
+};
+
+export const getAppMode = (): AppMode => {
+  try {
+    const stored = localStorage.getItem(APP_MODE_KEY) as AppMode | null;
+    return stored === 'prod' ? 'prod' : 'dev';
+  } catch {
+    return 'dev';
+  }
+};
+
+export const setAppMode = (mode: AppMode) => {
+  try {
+    localStorage.setItem(APP_MODE_KEY, mode);
+  } catch {}
 };
