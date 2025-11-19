@@ -25,34 +25,35 @@ export default function StoryIntro({ stories }: Props) {
 
   const story = stories.find((s) => s.id === Number(id));
 
-  useEffect(() => {
-    const loadProgress = async () => {
-      if (!student || !story) return;
+  const loadProgress = async () => {
+    if (!student || !story) return;
 
-      try {
-        const { data: progress, error: queryError } = await getStudentProgressByStory(
-          student.id,
-          story.id
-        );
+    try {
+      const { data: progress, error: queryError } = await getStudentProgressByStory(
+        student.id,
+        story.id
+      );
 
-        if (queryError && queryError.code !== 'PGRST116') {
-          console.warn('Progress query error:', queryError);
-        }
-
-        if (progress) {
-          setCurrentLevel(progress.current_level || 1);
-        } else {
-          const { error: initError } = await initializeStudentProgress(student.id, story.id);
-          if (initError) {
-            console.error('Initialize progress error:', initError);
-          }
-          setCurrentLevel(1);
-        }
-      } catch (err) {
-        console.error('Error loading progress:', err);
+      if (queryError && queryError.code !== 'PGRST116') {
+        console.warn('Progress query error:', queryError);
       }
-    };
 
+      if (progress) {
+        console.log('Loaded progress:', progress);
+        setCurrentLevel(progress.current_level || 1);
+      } else {
+        const { error: initError } = await initializeStudentProgress(student.id, story.id);
+        if (initError) {
+          console.error('Initialize progress error:', initError);
+        }
+        setCurrentLevel(1);
+      }
+    } catch (err) {
+      console.error('Error loading progress:', err);
+    }
+  };
+
+  useEffect(() => {
     loadProgress();
   }, [student, story]);
 
@@ -106,12 +107,21 @@ export default function StoryIntro({ stories }: Props) {
         >
           {loading ? 'Yükleniyor...' : 'Başla'}
         </button>
-        <button
-          onClick={() => navigate('/')}
-          className="block cursor-pointer mt-4 text-sm underline text-gray-500 hover:text-gray-700"
-        >
-          ← Geri dön
-        </button>
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => navigate('/')}
+            className="text-sm underline text-gray-500 hover:text-gray-700"
+          >
+            ← Geri dön
+          </button>
+          <button
+            onClick={loadProgress}
+            className="text-sm underline text-blue-500 hover:text-blue-700"
+            title="Seviyeyi yeniden yükle"
+          >
+            🔄 Yenile
+          </button>
+        </div>
       </div>
     </div>
   );

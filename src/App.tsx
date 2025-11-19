@@ -18,6 +18,11 @@ import { applyTypography } from './lib/settings';
 import { setRole, setTeacher, setStudent } from './store/userSlice';
 import type { RootState, AppDispatch } from './store/store';
 import { getStories } from './lib/supabase';
+import story1Image from './assets/images/story1.png';
+import story2Image from './assets/images/story2.png';
+import story3Image from './assets/images/story3.png';
+import story4Image from './assets/images/story4.png';
+import story5Image from './assets/images/story5.png';
 
 type Story = {
   id: number;
@@ -26,6 +31,45 @@ type Story = {
   image: string;
   locked?: boolean;
 };
+
+// Fallback stories when Supabase is not available
+const FALLBACK_STORIES: Story[] = [
+  {
+    id: 1,
+    title: 'Kırıntıların Kahramanları',
+    description: 'Karıncaların yaşamı, fiziksel özellikleri ve çevreye etkileri hakkında bilgi edinin.',
+    image: story1Image,
+    locked: false
+  },
+  {
+    id: 2,
+    title: 'Avucumun İçindeki Akıllı Kutu',
+    description: 'Akıllı telefonların kullanım amaçları, çalışma prensipleri ve üretim süreçleri.',
+    image: story2Image,
+    locked: false
+  },
+  {
+    id: 3,
+    title: 'Hurma Ağacı',
+    description: 'Hurma ağacının yetişme koşulları, görünümü ve çevreye etkileri hakkında bilgiler.',
+    image: story3Image,
+    locked: false
+  },
+  {
+    id: 4,
+    title: 'Akdeniz Bölgesi',
+    description: 'Akdeniz Bölgesi\'nin iklimi, bitki örtüsü, yeryüzü şekilleri ve ekonomik faaliyetleri.',
+    image: story4Image,
+    locked: false
+  },
+  {
+    id: 5,
+    title: 'Çöl Gemisi',
+    description: 'Develerin yaşam koşulları, fiziksel özellikleri, beslenme ve çoğalma şekilleri.',
+    image: story5Image,
+    locked: false
+  }
+];
 
 function CompletionRouter() {
   const { level } = useParams<{ level: string }>();
@@ -55,10 +99,18 @@ export default function App() {
             try {
                 const { data, error } = await getStories();
                 if (error) throw error;
-                setStories(data || []);
+                // If we got data from Supabase, use it
+                if (data && data.length > 0) {
+                    setStories(data);
+                } else {
+                    // If no data from Supabase, use fallback
+                    console.warn('No stories from Supabase, using fallback data');
+                    setStories(FALLBACK_STORIES);
+                }
             } catch (err) {
-                console.error('Failed to fetch stories:', err);
-                setStories([]);
+                console.error('Failed to fetch stories from Supabase, using fallback data:', err);
+                // Use fallback stories when Supabase is not available
+                setStories(FALLBACK_STORIES);
             } finally {
                 setStoriesLoading(false);
             }

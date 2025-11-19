@@ -9,27 +9,28 @@ export function useReadingProgress() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchProgress = async () => {
     if (!student) {
       setLoading(false);
       return;
     }
 
-    const fetchProgress = async () => {
-      try {
-        const { data, error: queryError } = await getStudentProgress(student.id);
-        if (queryError) throw queryError;
-        setProgress(data || []);
-        setError(null);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Progress yüklenemedi';
-        setError(message);
-        console.error(message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    try {
+      setLoading(true);
+      const { data, error: queryError } = await getStudentProgress(student.id);
+      if (queryError) throw queryError;
+      setProgress(data || []);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Progress yüklenemedi';
+      setError(message);
+      console.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProgress();
   }, [student]);
 
@@ -53,5 +54,6 @@ export function useReadingProgress() {
     getStoryProgress,
     getCurrentLevel,
     isStoryCompleted,
+    refresh: fetchProgress,
   };
 }

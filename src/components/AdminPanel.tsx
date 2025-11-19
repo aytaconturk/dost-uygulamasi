@@ -214,12 +214,22 @@ function StudentsTab({ students }: { students: any[] }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [stories, setStories] = useState<any[]>([]);
+  const [studentProgress, setStudentProgress] = useState<any[]>([]);
+  const [loadingProgress, setLoadingProgress] = useState(false);
 
   useEffect(() => {
     if (showLevelEditor) {
       fetchStoriesForEditor();
     }
   }, [showLevelEditor]);
+
+  useEffect(() => {
+    if (selectedStudent) {
+      fetchStudentProgress();
+    } else {
+      setStudentProgress([]);
+    }
+  }, [selectedStudent]);
 
   const fetchStoriesForEditor = async () => {
     try {
@@ -229,6 +239,27 @@ function StudentsTab({ students }: { students: any[] }) {
     } catch (err) {
       console.error('Error fetching stories:', err);
       setError('Hikayeler yüklenemedi');
+    }
+  };
+
+  const fetchStudentProgress = async () => {
+    if (!selectedStudent) return;
+    
+    setLoadingProgress(true);
+    try {
+      const { data, error: err } = await supabase
+        .from('student_progress')
+        .select('*')
+        .eq('student_id', selectedStudent)
+        .order('story_id', { ascending: true });
+
+      if (err) throw err;
+      setStudentProgress(data || []);
+    } catch (err) {
+      console.error('Error fetching student progress:', err);
+      setStudentProgress([]);
+    } finally {
+      setLoadingProgress(false);
     }
   };
 
@@ -243,14 +274,23 @@ function StudentsTab({ students }: { students: any[] }) {
     setSuccess('');
 
     try {
+      console.log('Updating level:', {
+        student_id: selectedStudent,
+        story_id: parseInt(selectedStory),
+        new_level: parseInt(newLevel)
+      });
+
       const { data: existingProgress, error: fetchError } = await supabase
         .from('student_progress')
-        .select('id')
+        .select('id, current_level')
         .eq('student_id', selectedStudent)
         .eq('story_id', parseInt(selectedStory))
         .single();
 
+      console.log('Existing progress:', existingProgress, 'Error:', fetchError);
+
       if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Fetch error:', fetchError);
         throw fetchError;
       }
 
@@ -263,6 +303,9 @@ function StudentsTab({ students }: { students: any[] }) {
             story_id: parseInt(selectedStory),
             current_level: parseInt(newLevel),
             current_step: 1,
+            completed_levels: [],
+            is_completed: false,
+            points: 0,
           });
 
         if (initError) throw initError;
@@ -275,18 +318,41 @@ function StudentsTab({ students }: { students: any[] }) {
             current_step: 1,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', existingProgress.id);
+          .eq('id', existingProgress.id)
+          .select();
 
         if (updateError) throw updateError;
       }
 
-      setSuccess(`Seviye başarıyla güncellendi: Seviye ${newLevel}`);
-      setSelectedStudent('');
-      setSelectedStory('');
-      setNewLevel('1');
+      // Verify the update was successful
+      const { data: verifyProgress, error: verifyError } = await supabase
+        .from('student_progress')
+        .select('current_level')
+        .eq('student_id', selectedStudent)
+        .eq('story_id', parseInt(selectedStory))
+        .single();
+
+      if (verifyError) {
+        console.error('Verification error:', verifyError);
+        throw new Error('Güncelleme doğrulanamadı');
+      }
+
+      if (verifyProgress?.current_level !== parseInt(newLevel)) {
+        throw new Error('Güncelleme başarısız oldu - seviye değişmedi');
+      }
+
+      setSuccess(`Seviye başarıyla güncellendi: Seviye ${newLevel}. Lütfen öğrenci giriş yaptığında sayfayı yenilesin.`);
+      console.log('Level update successful:', verifyProgress);
+      
+      // Refresh progress after update
+      await fetchStudentProgress();
+      
+      // Clear form after a delay
       setTimeout(() => {
-        setShowLevelEditor(false);
-      }, 1500);
+        setSelectedStory('');
+        setNewLevel('1');
+        setSuccess('');
+      }, 3000);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Güncelleme başarısız oldu';
       setError(message);
@@ -337,21 +403,55 @@ function StudentsTab({ students }: { students: any[] }) {
             </select>
           </div>
 
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Hikaye</label>
             <select
               value={selectedStory}
-              onChange={(e) => setSelectedStory(e.target.value)}
+              onChange={(e) => {
+                setSelectedStory(e.target.value);
+                // Auto-fill current level when story is selected
+                if (selectedStudent && e.target.value) {
+                  const progress = studentProgress.find(
+                    p => p.story_id === parseInt(e.target.value)
+                  );
+                  if (progress) {
+                    setNewLevel(progress.current_level.toString());
+                  } else {
+                    setNewLevel('1');
+                  }
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
               <option value="">-- Seçiniz --</option>
-              {stories.map((story) => (
-                <option key={story.id} value={story.id}>
-                  {story.title}
-                </option>
-              ))}
+              {stories.map((story) => {
+                const progress = studentProgress.find(p => p.story_id === story.id);
+                const currentLevel = progress ? progress.current_level : null;
+                return (
+                  <option key={story.id} value={story.id}>
+                    {story.title} {currentLevel ? `(Mevcut: Seviye ${currentLevel})` : '(Başlanmamış)'}
+                  </option>
+                );
+              })}
             </select>
           </div>
+
+          {selectedStory && selectedStudent && (
+            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+              <p className="text-sm text-blue-800">
+                {(() => {
+                  const progress = studentProgress.find(
+                    p => p.story_id === parseInt(selectedStory)
+                  );
+                  if (progress) {
+                    return `Mevcut Seviye: ${progress.current_level}`;
+                  }
+                  return 'Bu hikayede henüz ilerleme kaydı yok.';
+                })()}
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Seviye</label>
@@ -375,6 +475,88 @@ function StudentsTab({ students }: { students: any[] }) {
           >
             {loading ? 'Güncelleniyor...' : 'Seviyeyi Güncelle'}
           </button>
+        </div>
+      )}
+
+      {selectedStudent && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800">
+              {students.find(s => s.id === selectedStudent)?.first_name}{' '}
+              {students.find(s => s.id === selectedStudent)?.last_name} - Mevcut Seviyeler
+            </h3>
+          </div>
+          {loadingProgress ? (
+            <div className="p-8 text-center text-gray-500">Yükleniyor...</div>
+          ) : studentProgress.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              Bu öğrencinin henüz hiçbir hikayede ilerleme kaydı yok.
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hikaye
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Mevcut Seviye
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Mevcut Adım
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tamamlanan Seviyeler
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Puan
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Durum
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {studentProgress.map((progress) => {
+                  const story = stories.find(s => s.id === progress.story_id);
+                  return (
+                    <tr key={progress.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {story?.title || `Hikaye ${progress.story_id}`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded font-semibold">
+                          Seviye {progress.current_level}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        Adım {progress.current_step}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {Array.isArray(progress.completed_levels) && progress.completed_levels.length > 0
+                          ? progress.completed_levels.join(', ')
+                          : 'Yok'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {progress.points || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {progress.is_completed ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                            Tamamlandı
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+                            Devam Ediyor
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
