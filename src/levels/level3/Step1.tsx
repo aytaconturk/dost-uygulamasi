@@ -1,16 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getParagraphs, paragraphToPlain, type Paragraph } from '../../data/stories';
+import { getAppMode } from '../../lib/api';
 
 export default function L3Step1() {
   const story = { id: 3, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [started, setStarted] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const appMode = getAppMode();
 
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
 
   useEffect(() => {
+    // Play intro audio on mount
+    const el = audioRef.current;
+    if (el) {
+      try {
+        el.src = '/src/assets/audios/level3/seviye-3-adim-1.mp3';
+        (el as any).playsInline = true;
+        el.muted = false;
+        el.play().catch(() => {});
+        el.addEventListener('ended', () => setIntroAudioPlaying(false), { once: true });
+      } catch {}
+    }
     return () => { try { window.speechSynthesis.cancel(); } catch {} };
   }, []);
 
@@ -27,21 +41,16 @@ export default function L3Step1() {
   };
 
   const startFlow = async () => {
-    setStarted(true);
-    // play provided audio if exists else TTS
+    // Stop intro audio if still playing
     const el = audioRef.current;
-    let played = false;
-    if (el) {
-      try {
-        el.src = '/src/assets/audios/level3/seviye-3-adim-1.mp3';
-        // @ts-ignore
-        el.playsInline = true; el.muted = false;
-        await el.play();
-        el.addEventListener('ended', () => readParagraph(0), { once: true });
-        played = true;
-      } catch {}
+    if (el && introAudioPlaying) {
+      el.pause();
+      el.currentTime = 0;
+      setIntroAudioPlaying(false);
     }
-    if (!played) readParagraph(0);
+
+    setStarted(true);
+    readParagraph(0);
   };
 
   const playSiraSendeAudio = async () => {
@@ -74,7 +83,23 @@ export default function L3Step1() {
       <div className="flex flex-col items-center justify-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-purple-800">1. Adım: Model okuma ve İkinci okuma</h2>
         {!started && (
-          <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+          <>
+            <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mb-4">
+              <p className="text-gray-700 text-left leading-relaxed">
+                {instruction}
+              </p>
+            </div>
+            <div className="flex justify-center">
+              {appMode === 'prod' && introAudioPlaying ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
+                  <p className="text-gray-600">Ses çalınıyor...</p>
+                </div>
+              ) : (
+                <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+              )}
+            </div>
+          </>
         )}
       </div>
 

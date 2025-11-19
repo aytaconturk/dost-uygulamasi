@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { submitReadingAnalysis } from '../../lib/level2-api';
 import { getParagraphs } from '../../data/stories';
 import { setAnalysisResult } from '../../store/level2Slice';
+import { getAppMode } from '../../lib/api';
 import type { Level2Step1ReadingAnalysisResponse } from '../../types';
 import type { RootState, AppDispatch } from '../../store/store';
 
@@ -16,6 +17,10 @@ const QUALITY_METRIC_LABELS: Record<string, string> = {
   correctWords: 'Doğru Sözcükler',
   punctuation: 'Noktalama',
   expressiveness: 'İfadeli Okuma',
+};
+
+const getApiEnv = () => {
+  return localStorage.getItem('api_env') || 'production';
 };
 
 export default function Level2Step1() {
@@ -49,6 +54,7 @@ export default function Level2Step1() {
 
   const paragraphs = getParagraphs(story.id);
   const displayTitle = story.title;
+  const appMode = getAppMode();
 
   // Play intro audio on component mount
   useEffect(() => {
@@ -128,6 +134,12 @@ export default function Level2Step1() {
   };
 
   const handleStart = async () => {
+    // In dev mode, always stop audio. In prod mode, only if playing
+    if (audioRef.current && (appMode === 'dev' || introAudioPlaying)) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIntroAudioPlaying(false);
+    }
     // Play beep first
     try {
       await playBeep();
@@ -262,10 +274,6 @@ export default function Level2Step1() {
 
   const introText = 'Şimdi ikinci seviyeye geçiyoruz. Bu seviyede metni ilk kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basarsanız metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde oku.';
 
-  const getApiEnv = () => {
-    return localStorage.getItem('api_env') || 'production';
-  };
-
   return (
     <div className="w-full mx-auto px-4">
       <audio ref={audioRef} preload="auto" />
@@ -278,7 +286,7 @@ export default function Level2Step1() {
             <p className="text-gray-800 text-lg">{introText}</p>
           </div>
           <div className="flex justify-center">
-            {introAudioPlaying ? (
+            {appMode === 'prod' && introAudioPlaying ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
                 <p className="text-gray-600">Ses çalınıyor...</p>
@@ -307,7 +315,6 @@ export default function Level2Step1() {
             <div className="hidden lg:sticky lg:top-0 lg:w-1/4 lg:flex flex-col items-center justify-start p-4 h-screen overflow-y-auto flex-shrink-0">
               <img src="https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story2.png" alt={displayTitle} className="w-full max-w-xs rounded-xl shadow-lg" />
               <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{displayTitle}</h2>
-              <div className="mt-2 text-center text-gray-600 text-sm">{beeped60 ? '60. saniye: Son sözcüğü işaretle' : 'Okumaya devam et'}</div>
             </div>
 
             {/* Center text */}
@@ -351,7 +358,6 @@ export default function Level2Step1() {
                 {!isProcessing && (
                   <button onClick={handleFinish} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow">Bitir</button>
                 )}
-                {beeped60 && !isProcessing && <div className="text-sm text-orange-700 bg-orange-50 border-l-4 border-orange-400 px-3 py-2 rounded">Bip sesinden sonra son okuduğun sözcüğü işaretlemeyi unutma.</div>}
               </div>
             </div>
           </div>
@@ -385,9 +391,14 @@ export default function Level2Step1() {
                   <p className="text-gray-700 mb-4">Sonuçlarını görmek için devam et butonuna tıkla.</p>
                   <button
                     onClick={() => {
-                      // Handle both response formats: {data: {analysis}} and {output: {analysis}}
-                      const analysisData = analysis.data?.analysis || analysis.output?.analysis || analysis.analysis;
-                      const transcript = analysis.data?.transcript || analysis.output?.transcript || analysis.transcript || '';
+                      console.log('Devam Et clicked. Full analysis response:', analysis);
+                      // API returns 'output' not 'data'
+                      const responseData = (analysis as any)?.output || (analysis as any)?.data;
+                      const analysisData = responseData?.analysis;
+                      const transcript = responseData?.transcript || '';
+
+                      console.log('Extracted analysisData:', analysisData);
+                      console.log('Extracted transcript:', transcript);
 
                       if (analysisData) {
                         const resultData = {
@@ -422,6 +433,7 @@ export default function Level2Step1() {
                         }, 100);
                       } else {
                         console.error('No analysis data found in response:', analysis);
+                        alert('Analiz verisi bulunamadı. Lütfen tekrar deneyin.');
                       }
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"

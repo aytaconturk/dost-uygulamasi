@@ -65,8 +65,7 @@ export default function Step3() {
     };
     if (el) {
       el.src = stepAudio;
-      // @ts-ignore
-      el.playsInline = true;
+      (el as any).playsInline = true;
       el.muted = false;
       el.play()
         .then(() => {
@@ -147,24 +146,24 @@ export default function Step3() {
   const runDostAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      const response: Level1SentencesAnalysisResponse = await analyzeSentencesForStep3({
+      const response = await analyzeSentencesForStep3({
         stepNum: 3,
         userId: currentStudent?.id || '',
       });
 
-      const text = 
-        response.answer || 
-        response.message || 
-        response.text || 
-        response.response || 
+      const text =
+        (response as any).answer ||
+        (response as any).message ||
+        (response as any).text ||
+        (response as any).response ||
         '';
 
       setAnalysisText(text);
-      setResumeUrl(response.resumeUrl);
+      setResumeUrl((response as any).resumeUrl || '');
 
-      if (response.audioBase64) {
+      if ((response as any).audioBase64) {
         try {
-          await playAudioFromBase64(response.audioBase64);
+          await playAudioFromBase64((response as any).audioBase64);
           setPhase('student');
         } catch {
           setPhase('student');
@@ -184,26 +183,24 @@ export default function Step3() {
     const shouldHighlight = (phase === 'dost' && idx < 3) || (phase === 'student' && idx >= 3);
     const firstBoldIdx = p.findIndex((seg) => seg.bold);
 
-    const parts: JSX.Element[] = [];
-    p.forEach((seg, i) => {
-      const base = seg.bold ? 'font-bold' : undefined;
-      if (shouldHighlight && i === firstBoldIdx) {
-        parts.push(
-          <span key={i} className={`rounded px-1 bg-yellow-300 ${base || ''}`}>
-            {seg.text}
-          </span>
-        );
-      } else {
-        parts.push(
-          <span key={i} className={base}>
-            {seg.text}
-          </span>
-        );
-      }
-    });
     return (
       <p key={idx} className="mt-3 leading-relaxed text-gray-800">
-        {parts}
+        {p.map((seg, i) => {
+          const base = seg.bold ? 'font-bold' : undefined;
+          if (shouldHighlight && i === firstBoldIdx) {
+            return (
+              <span key={i} className={`rounded px-1 bg-yellow-300 ${base || ''}`}>
+                {seg.text}
+              </span>
+            );
+          } else {
+            return (
+              <span key={i} className={base}>
+                {seg.text}
+              </span>
+            );
+          }
+        })}
       </p>
     );
   };
@@ -211,7 +208,7 @@ export default function Step3() {
   const handleVoiceSubmit = async (audioBlob: Blob) => {
     setIsProcessingVoice(true);
     try {
-      const response: Level1ChildrenVoiceResponse = await submitChildrenVoice(
+      const response = await submitChildrenVoice(
         audioBlob,
         resumeUrl,
         story.title,
@@ -220,18 +217,18 @@ export default function Step3() {
       );
 
       const responseText =
-        response.respodKidVoice ||
-        response.message ||
-        response.text ||
-        response.response ||
-        response.textAudio ||
+        (response as any).respodKidVoice ||
+        (response as any).message ||
+        (response as any).text ||
+        (response as any).response ||
+        (response as any).textAudio ||
         '';
 
       setChildrenVoiceResponse(responseText);
 
-      if (response.audioBase64) {
+      if ((response as any).audioBase64) {
         try {
-          await playAudioFromBase64(response.audioBase64);
+          await playAudioFromBase64((response as any).audioBase64);
         } catch (e) {
           // audio failed, but keep response visible
         }
