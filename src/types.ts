@@ -201,3 +201,19 @@ export interface Step {
     text?: string;
     response?: string;
   }
+
+  // Level 3 Step 1 - Paragraph Reading API Types
+  export interface Level3Step1ParagraphRequest {
+    userId: string;
+    paragraphText: string;
+    audioBase64: string;
+    paragraphNo: number;
+    storyId: number;
+  }
+
+  export interface Level3Step1ParagraphResponse {
+    audioBase64: string;
+    text: string;
+    message?: string;
+    response?: string;
+  }
