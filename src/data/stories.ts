@@ -347,3 +347,13 @@ export const getFullText = async (storyId: number): Promise<string> => {
   const plainTexts = paras.map(paragraphToPlain);
   return plainTexts.join('\n\n');
 };
+
+export const getParagraphCount = (storyId: number): number => {
+  const paragraphs = getParagraphs(storyId);
+  return paragraphs.length;
+};
+
+export const getParagraphCountAsync = async (storyId: number): Promise<number> => {
+  const paragraphs = await getParagraphsAsync(storyId);
+  return paragraphs.length;
+};
