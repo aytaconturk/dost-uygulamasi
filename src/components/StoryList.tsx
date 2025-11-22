@@ -89,7 +89,7 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                     ) : (
                         <Link
                             key={story.id}
-                            to={getCurrentLevel(story.id) === 1 ? `/story/${story.id}` : `/level/${getCurrentLevel(story.id)}/step/1`}
+                            to={getCurrentLevel(story.id) === 1 ? `/story/${story.id}` : `/level/${getCurrentLevel(story.id)}/step/1?storyId=${story.id}`}
                             className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md hover:scale-105 transition-transform"
                         >
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">

@@ -1,6 +1,6 @@
 // React 19: no default import required
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import StepLayout from './components/StepLayout';
 import Step1 from './level1/Step1';
@@ -72,6 +72,7 @@ const LEVEL5_TITLES = [
 export default function LevelRouter() {
   const navigate = useNavigate();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
 
   const levelStr = params.level || '1';
@@ -85,7 +86,10 @@ export default function LevelRouter() {
 
   const goToStep = (s: number) => {
     stopAllMedia();
-    navigate(`/level/${level}/step/${s}`);
+    // Preserve query parameters (like storyId)
+    const queryString = searchParams.toString();
+    const url = queryString ? `/level/${level}/step/${s}?${queryString}` : `/level/${level}/step/${s}`;
+    navigate(url);
   };
 
   const onPrev = () => {
