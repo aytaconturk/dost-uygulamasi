@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { getParagraphs, paragraphToPlain } from '../../data/stories';
 import { insertReadingLog } from '../../lib/supabase';
 import type { RootState } from '../../store/store';
+import { getAppMode } from '../../lib/api';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -30,6 +31,8 @@ export default function L3Step2() {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
   const [highlightedWordIdx, setHighlightedWordIdx] = useState<number | null>(null);
+  const [introAudioEnded, setIntroAudioEnded] = useState(false);
+  const appMode = getAppMode();
 
   useEffect(() => { try { localStorage.setItem('level3_target_wpm', String(targetWPM)); } catch {} }, [targetWPM]);
 
@@ -50,11 +53,26 @@ export default function L3Step2() {
           // @ts-ignore
           audioRef.current.playsInline = true;
           audioRef.current.muted = false;
+          
+          // Listen for audio end
+          const handleEnded = () => {
+            setIntroAudioEnded(true);
+            setIsAudioPlaying(false);
+          };
+          audioRef.current.addEventListener('ended', handleEnded, { once: true });
+          
+          // Listen for audio play
+          const handlePlay = () => {
+            setIsAudioPlaying(true);
+          };
+          audioRef.current.addEventListener('play', handlePlay, { once: true });
+          
           await audioRef.current.play();
           setIntroAudioPlayed(true);
         } catch (err) {
           console.error('Failed to play intro audio:', err);
           setIntroAudioPlayed(true);
+          setIntroAudioEnded(true);
         }
       };
       playIntroAudio();
@@ -72,6 +90,14 @@ export default function L3Step2() {
   };
 
   const startCountdown = async () => {
+    // Stop intro audio if still playing
+    if (audioRef.current && isAudioPlaying && phase === 'intro') {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsAudioPlaying(false);
+      setIntroAudioEnded(true);
+    }
+    
     setPhase('countdown');
     setCount(3);
     const id = setInterval(() => {
@@ -167,7 +193,14 @@ export default function L3Step2() {
           <div className="bg-white rounded-xl shadow p-5 w-full">
             <p className="text-gray-800 mb-6">Şimdi hedefine ulaşıp ulaşmadığını değerlendirmek için metni üçüncü kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni yine bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basar basmaz metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde metni oku. Okuman bitince "Bitir" butonuna bas.</p>
           </div>
-          <button onClick={startCountdown} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+          {(appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
+            <button 
+              onClick={startCountdown} 
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+            >
+              Başla
+            </button>
+          )}
         </div>
       )}
 
