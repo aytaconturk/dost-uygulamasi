@@ -2,13 +2,14 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useParams } from 'react-router-dom';
 import StoryList from './components/StoryList';
-import StoryIntro from './components/StoryIntro';
+import LevelIntro from './components/LevelIntro';
 import ReadingScreen from './components/ReadingScreen';
 import Header from './components/Header';
 import TeacherLogin from './components/TeacherLogin';
 import StudentSelector from './components/StudentSelector';
 import AdminPanel from './components/AdminPanel';
 import DiagnosticsPanel from './components/DiagnosticsPanel';
+import PractitionerInfoScreen from './components/PractitionerInfoScreen';
 import Level1Completion from './levels/level1/Completion';
 import Level2Completion from './levels/level2/Completion';
 import './index.css';
@@ -87,6 +88,7 @@ export default function App() {
     const student = useSelector((state: RootState) => state.user.student);
     const [showStudentSelector, setShowStudentSelector] = useState(false);
     const [showDiagnostics, setShowDiagnostics] = useState(false);
+    const [showPractitionerInfo, setShowPractitionerInfo] = useState(false);
     const [sessionLoaded, setSessionLoaded] = useState(false);
     const [stories, setStories] = useState<Story[]>([]);
     const [storiesLoading, setStoriesLoading] = useState(true);
@@ -186,7 +188,28 @@ export default function App() {
     }
 
     if (!student) {
-        return <StudentSelector onStudentSelected={() => {}} />;
+        return <StudentSelector onStudentSelected={() => setShowPractitionerInfo(true)} />;
+    }
+
+    // Show practitioner info screen if not skipped
+    if (showPractitionerInfo) {
+        const handlePractitionerContinue = (practitionerName: string) => {
+            // Save practitioner info (can be saved to Supabase later)
+            localStorage.setItem('dost_practitioner', practitionerName);
+            setShowPractitionerInfo(false);
+        };
+
+        const handlePractitionerSkip = () => {
+            localStorage.removeItem('dost_practitioner');
+            setShowPractitionerInfo(false);
+        };
+
+        return (
+            <PractitionerInfoScreen
+                onContinue={handlePractitionerContinue}
+                onSkip={handlePractitionerSkip}
+            />
+        );
     }
 
     return (
@@ -199,7 +222,7 @@ export default function App() {
                 <div className="mx-auto w-full max-w-screen-xl px-4 py-6 md:px-8 md:py-10">
                     <Routes>
                         <Route path="/" element={<StoryList stories={stories} />} />
-                        <Route path="/story/:id" element={<StoryIntro stories={stories} />} />
+                        <Route path="/level/:level/intro" element={<LevelIntro />} />
                         <Route path="/level/:level/completion" element={<CompletionRouter />} />
                         <Route path="/level:level/step:step" element={<LevelRouter />} />
                         <Route path="/level/:level/step/:step" element={<LevelRouter />} />

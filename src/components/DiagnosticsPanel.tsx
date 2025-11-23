@@ -37,16 +37,16 @@ export default function DiagnosticsPanel() {
         logs.push(`✓ Students table exists. Found ${studentsCount || 0} students`);
       }
 
-      // Test 4: Try to query reading_progress table
-      logs.push('Testing: Querying reading_progress table...');
+      // Test 4: Try to query student_progress table
+      logs.push('Testing: Querying student_progress table...');
       const { error: progressError, count: progressCount } = await supabase
-        .from('reading_progress')
+        .from('student_progress')
         .select('*', { count: 'exact' });
 
       if (progressError) {
-        logs.push(`✗ Reading_progress table error: ${progressError.message}`);
+        logs.push(`✗ Student_progress table error: ${progressError.message}`);
       } else {
-        logs.push(`✓ Reading_progress table exists. Found ${progressCount || 0} records`);
+        logs.push(`✓ Student_progress table exists. Found ${progressCount || 0} records`);
       }
 
       // Test 5: Try to query reading_logs table

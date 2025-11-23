@@ -24,9 +24,21 @@ import L5Step1 from './level5/Step1';
 import L5Step2 from './level5/Step2';
 import L5Step3 from './level5/Step3';
 import { stopAllMedia } from '../lib/media';
-import { getApiEnv } from '../lib/api';
-import { updateStudentProgressStep } from '../lib/supabase';
+import { getApiEnv, getAppMode } from '../lib/api';
+import { 
+  updateStudentProgressStep, 
+  createSession, 
+  getActiveSession,
+  markStepStarted,
+  isStepCompleted,
+  markStepCompleted,
+  logStudentAction,
+  completeStory,
+  endSession,
+  getStoryById
+} from '../lib/supabase';
 import type { RootState } from '../store/store';
+import { StepProvider } from '../contexts/StepContext';
 
 const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 5,
@@ -79,10 +91,97 @@ export default function LevelRouter() {
   const stepStr = params.step || '1';
   const level = Number(levelStr);
   const step = Number(stepStr);
+  const storyId = Number(searchParams.get('storyId')) || level; // storyId varsa onu kullan, yoksa level'ı kullan
 
   const totalSteps = LEVEL_STEPS_COUNT[level] || 1;
 
   const [isSaving, setIsSaving] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [stepCompleted, setStepCompleted] = useState(false);
+  const [isCheckingCompletion, setIsCheckingCompletion] = useState(true);
+  const [storyTitle, setStoryTitle] = useState<string>('');
+  const appMode = getAppMode();
+
+  // Fetch story title
+  useEffect(() => {
+    const fetchStoryTitle = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (!error && data) {
+          setStoryTitle(data.title);
+        } else {
+          // Fallback to FALLBACK_STORIES if Supabase fails
+          const FALLBACK_STORIES: Record<number, string> = {
+            1: 'Kırıntıların Kahramanları',
+            2: 'Avucumun İçindeki Akıllı Kutu',
+            3: 'Hurma Ağacı',
+            4: 'Akdeniz Bölgesi',
+            5: 'Çöl Gemisi',
+          };
+          setStoryTitle(FALLBACK_STORIES[storyId] || `Oturum ${storyId}`);
+        }
+      } catch (err) {
+        console.error('Error fetching story title:', err);
+        setStoryTitle(`Oturum ${storyId}`);
+      }
+    };
+
+    if (storyId) {
+      fetchStoryTitle();
+    }
+  }, [storyId]);
+
+  // Initialize session and check step completion on mount/change
+  useEffect(() => {
+    if (!student) return;
+
+    let isMounted = true;
+
+    const initializeSession = async () => {
+      try {
+        // Get or create active session
+        const { data: activeSession } = await getActiveSession(student.id, storyId);
+        
+        let currentSessionId = sessionId;
+        
+        if (activeSession) {
+          currentSessionId = activeSession.id;
+          if (isMounted) setSessionId(activeSession.id);
+        } else if (!sessionId) {
+          // Create new session only if we don't have one
+          const { data: newSession, error } = await createSession(student.id, storyId);
+          if (!error && newSession) {
+            currentSessionId = newSession.id;
+            if (isMounted) setSessionId(newSession.id);
+            await logStudentAction(newSession.id, student.id, 'session_started', storyId, level, step);
+          }
+        } else {
+          currentSessionId = sessionId;
+        }
+
+        // Mark step as started
+        if (currentSessionId) {
+          await markStepStarted(currentSessionId, student.id, storyId, level, step);
+        }
+
+        // Check if step is completed
+        const completed = await isStepCompleted(student.id, storyId, level, step, currentSessionId);
+        if (isMounted) {
+          setStepCompleted(completed);
+          setIsCheckingCompletion(false);
+        }
+      } catch (err) {
+        console.error('Error initializing session:', err);
+        if (isMounted) setIsCheckingCompletion(false);
+      }
+    };
+
+    initializeSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [student?.id, storyId, level, step]); // sessionId'i dependency'den çıkardık
 
   const goToStep = (s: number) => {
     stopAllMedia();
@@ -90,6 +189,9 @@ export default function LevelRouter() {
     const queryString = searchParams.toString();
     const url = queryString ? `/level/${level}/step/${s}?${queryString}` : `/level/${level}/step/${s}`;
     navigate(url);
+    // Reset completion status when navigating
+    setStepCompleted(false);
+    setIsCheckingCompletion(true);
   };
 
   const onPrev = () => {
@@ -99,18 +201,89 @@ export default function LevelRouter() {
   const onNext = async () => {
     if (!student) return;
 
+    // In prod mode, check if step is completed
+    if (appMode === 'prod' && !stepCompleted) {
+      alert('Bu adımı tamamlamadan bir sonraki adıma geçemezsiniz.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const storyId = level;
-      await updateStudentProgressStep(student.id, storyId, level, step);
+      // If this is the last step of the level, complete the level and move to next level
+      if (step === totalSteps) {
+        const nextLevel = level + 1;
+        if (nextLevel <= 5) {
+          // Complete current level and move to next level
+          await updateStudentProgressStep(student.id, storyId, nextLevel, 1, level);
+          
+          // Log level completion
+          if (sessionId) {
+            await logStudentAction(sessionId, student.id, 'level_completed', storyId, level, step, {
+              completed_level: level,
+              next_level: nextLevel
+            });
+          }
+          
+          // Navigate to next level intro screen
+          navigate(`/level/${nextLevel}/intro?storyId=${storyId}`);
+        } else {
+          // All levels completed, go to dashboard
+          await updateStudentProgressStep(student.id, storyId, level, step);
+          navigate('/');
+        }
+      } else {
+        // Not last step, just move to next step
+        // Update progress to next step (step + 1)
+        const nextStep = step + 1;
+        await updateStudentProgressStep(student.id, storyId, level, nextStep);
+        
+        // Log action
+        if (sessionId) {
+          await logStudentAction(sessionId, student.id, 'step_navigation', storyId, level, step, {
+            from_step: step,
+            to_step: nextStep
+          });
+        }
+        
+        goToStep(nextStep);
+      }
     } catch (err) {
       console.error('Error saving progress:', err);
     } finally {
       setIsSaving(false);
     }
+  };
 
-    if (step < totalSteps) {
-      goToStep(step + 1);
+  // Function to mark step as completed (called by step components)
+  const handleStepCompleted = async (completionData?: any) => {
+    if (!student || !sessionId) return;
+
+    try {
+      const { error } = await markStepCompleted(
+        sessionId,
+        student.id,
+        storyId,
+        level,
+        step,
+        completionData
+      );
+
+      if (!error) {
+        setStepCompleted(true);
+        await logStudentAction(sessionId, student.id, 'step_completed', storyId, level, step, completionData);
+        
+        // If story is completed (level 5, step 3), mark story as completed
+        if (completionData?.storyCompleted && level === 5 && step === 3) {
+          const { error: completeError } = await completeStory(student.id, storyId);
+          if (!completeError) {
+            // End session
+            await endSession(sessionId);
+            await logStudentAction(sessionId, student.id, 'story_completed', storyId, level, step);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error marking step completed:', err);
     }
   };
 
@@ -183,21 +356,37 @@ export default function LevelRouter() {
     );
   };
 
+  // In prod mode, disable next button if step is not completed
+  const canProceed = appMode === 'dev' || stepCompleted || isCheckingCompletion;
+
   return (
-    <StepLayout
-      currentStep={step}
-      totalSteps={totalSteps}
-      onPrev={onPrev}
-      onNext={onNext}
-      hideNext={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
-      hideFooter={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
+    <StepProvider
+      sessionId={sessionId}
+      storyId={storyId}
+      level={level}
+      step={step}
+      onStepCompleted={handleStepCompleted}
     >
-      {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
-      {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}
-      {level === 3 ? renderLevelChecklist(LEVEL3_TITLES) : null}
-      {level === 4 ? renderLevelChecklist(LEVEL4_TITLES) : null}
-      {level === 5 ? renderLevelChecklist(LEVEL5_TITLES) : null}
-      {content}
-    </StepLayout>
+      <StepLayout
+        currentStep={step}
+        totalSteps={totalSteps}
+        onPrev={onPrev}
+        onNext={onNext}
+        hideNext={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
+        hideFooter={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
+        disableNext={!canProceed}
+        stepCompleted={stepCompleted}
+        onStepCompleted={handleStepCompleted}
+        storyTitle={storyTitle}
+        level={level}
+      >
+        {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
+        {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}
+        {level === 3 ? renderLevelChecklist(LEVEL3_TITLES) : null}
+        {level === 4 ? renderLevelChecklist(LEVEL4_TITLES) : null}
+        {level === 5 ? renderLevelChecklist(LEVEL5_TITLES) : null}
+        {content}
+      </StepLayout>
+    </StepProvider>
   );
 }

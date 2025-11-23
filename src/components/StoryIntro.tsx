@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getStudentProgressByStory, initializeStudentProgress, logActivity } from '../lib/supabase';
 import type { RootState } from '../store/store';
+import StrategyIntroVideo from './StrategyIntroVideo';
+import { getAppMode } from '../lib/api';
 
 interface Story {
   id: number;
@@ -22,6 +24,7 @@ export default function StoryIntro({ stories }: Props) {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showStrategyVideo, setShowStrategyVideo] = useState(false);
 
   const story = stories.find((s) => s.id === Number(id));
 
@@ -53,11 +56,18 @@ export default function StoryIntro({ stories }: Props) {
     }
   };
 
-  useEffect(() => {
-    loadProgress();
-  }, [student, story]);
+  const handleStrategyVideoComplete = () => {
+    localStorage.setItem('dost_strategy_video_seen', 'true');
+    setShowStrategyVideo(false);
+  };
 
-  if (!story) return <p>Hikaye bulunamadı</p>;
+  const handleStrategyVideoSkip = () => {
+    // Only allow skip if not mandatory (story id > 3)
+    if (story && story.id > 3) {
+      localStorage.setItem('dost_strategy_video_seen', 'true');
+      setShowStrategyVideo(false);
+    }
+  };
 
   const handleStart = async () => {
     if (!student) {
@@ -68,11 +78,12 @@ export default function StoryIntro({ stories }: Props) {
     try {
       setLoading(true);
       await logActivity(student.id, 'story_started', {
-        story_id: story.id,
+        story_id: story!.id,
         level_id: currentLevel,
       });
 
-      navigate(`/level/${currentLevel}/step/1?storyId=${story.id}`);
+      // Navigate to level intro screen instead of directly to step 1
+      navigate(`/level/${currentLevel}/intro?storyId=${story!.id}`);
     } catch (err) {
       setError('Hata oluştu');
       console.error(err);
@@ -81,15 +92,48 @@ export default function StoryIntro({ stories }: Props) {
     }
   };
 
+  useEffect(() => {
+    loadProgress();
+    
+    // Check if strategy video should be shown
+    // Only show in prod mode, only for level 1, and only for first 3 stories or if not seen before
+    if (story) {
+      const appMode = getAppMode();
+      const hasSeenStrategyVideo = localStorage.getItem('dost_strategy_video_seen') === 'true';
+      
+      // Don't show video in dev mode
+      if (appMode === 'dev') {
+        setShowStrategyVideo(false);
+        return;
+      }
+      
+      // Only show video if current level is 1
+      // First 3 stories (id: 1, 2, 3) require strategy video
+      // After that, check if user has seen it before
+      const shouldShowVideo = currentLevel === 1 && (story.id <= 3 || !hasSeenStrategyVideo);
+      setShowStrategyVideo(shouldShowVideo);
+    }
+  }, [student, story, currentLevel]);
+
+  if (!story) return <p>Hikaye bulunamadı</p>;
+
   return (
-    <div className="max-w-5xl mx-auto mt-5 grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white bg-opacity-90 rounded-xl p-6 shadow-xl">
+    <>
+      {/* Strategy Video Popup - Only shown if conditions are met */}
+      {showStrategyVideo && story && (
+        <StrategyIntroVideo
+          storyId={story.id}
+          onComplete={handleStrategyVideoComplete}
+          onSkip={handleStrategyVideoSkip}
+        />
+      )}
+      
+      {/* Main Story Intro Content */}
+      <div className="max-w-5xl mx-auto mt-5 grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white bg-opacity-90 rounded-xl p-6 shadow-xl">
       <img src={story.image} alt={story.title} className="w-full rounded-xl" />
       <div>
         <h2 className="text-3xl font-bold mb-4">{story.title}</h2>
         <div className="flex flex-wrap gap-2 text-sm mb-4">
-          <span className="bg-purple-200 text-purple-700 px-3 py-1 rounded-full">
-            Seviye {currentLevel}
-          </span>
           <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full">Düzeyli Okuma</span>
         </div>
         <p className="text-sm text-gray-600 mb-4">Yazar: DOST AI • Yayın: Yapay Zeka Kitaplığı</p>
@@ -124,5 +168,6 @@ export default function StoryIntro({ stories }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }
