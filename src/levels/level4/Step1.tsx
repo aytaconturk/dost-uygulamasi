@@ -3,6 +3,7 @@ import { getSchema } from '../../data/schemas';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getAppMode } from '../../lib/api';
 
 const STORY_ID = 3;
 
@@ -11,15 +12,91 @@ export default function L4Step1() {
   const [started, setStarted] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
   const [playedAudio, setPlayedAudio] = useState(false);
+  const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const { onStepCompleted } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
   const schema = useMemo(() => getSchema(STORY_ID), []);
+  const appMode = getAppMode();
+
+  const instruction = 'Şimdi dördüncü seviyeye geçiyoruz. Bu seviyede okuma öncesinde metni gözden geçirirken yaptığımız tahminlerimiz ve belirlediğimiz okuma amacımız doğru muymuş? Bunları düşünerek şemada yer alan bilgileri numara sırasına göre oku.';
 
   useEffect(() => {
-    return () => { try { window.speechSynthesis.cancel(); } catch {} };
+    // Play intro audio on component mount
+    const playIntroAudio = () => {
+      const el = audioRef.current;
+      if (!el) {
+        // Retry if audio element not ready yet
+        setTimeout(playIntroAudio, 100);
+        return;
+      }
+
+      console.log('🎵 Setting up intro audio:', '/audios/level4/seviye-4-adim-1.mp3');
+      el.src = '/audios/level4/seviye-4-adim-1.mp3';
+      (el as any).playsInline = true;
+      el.muted = false;
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
+      
+      // Wait for audio to be ready
+      const handleCanPlay = () => {
+        console.log('✅ Audio can play, readyState:', el.readyState);
+        el.play().then(() => {
+          console.log('✅ Intro audio started playing');
+          setIntroAudioPlaying(true);
+        }).catch((err) => {
+          console.error('❌ Error playing intro audio:', err);
+          setIntroAudioPlaying(false);
+        });
+      };
+
+      const handleEnded = () => {
+        console.log('✅ Intro audio finished');
+        setIntroAudioPlaying(false);
+      };
+
+      const handleError = (e: Event) => {
+        console.error('❌ Intro audio error:', e, el.error);
+        setIntroAudioPlaying(false);
+      };
+
+      el.addEventListener('canplay', handleCanPlay, { once: true });
+      el.addEventListener('ended', handleEnded, { once: true });
+      el.addEventListener('error', handleError, { once: true });
+
+      // If already loaded, play immediately
+      if (el.readyState >= 2) {
+        console.log('✅ Audio already loaded, playing immediately');
+        handleCanPlay();
+      } else {
+        // Load the audio
+        el.load();
+      }
+    };
+
+    // Start after a small delay to ensure audio element is mounted and hook has applied playback rate
+    const timeoutId = setTimeout(playIntroAudio, 200);
+
+    const stopAll = () => {
+      try {
+        audioRef.current?.pause();
+      } catch {}
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+      try { 
+        window.speechSynthesis.cancel(); 
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+      } catch {} 
+    };
   }, []);
 
   const playAudio = async (audioPath: string) => {
@@ -37,6 +114,14 @@ export default function L4Step1() {
   };
 
   const startFlow = async () => {
+    // Stop intro audio if still playing
+    const el = audioRef.current;
+    if (el && introAudioPlaying) {
+      el.pause();
+      el.currentTime = 0;
+      setIntroAudioPlaying(false);
+    }
+
     setStarted(true);
     setPlayedAudio(false);
     await playAudio('/src/assets/audios/level4/level4-step1-intro.mp3');
@@ -71,7 +156,28 @@ export default function L4Step1() {
       <div className="flex flex-col items-center justify-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-purple-800">1. Adım: Dolu Şema Üzerinden Beyin Fırtınası ve Yorum</h2>
         {!started && (
-          <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+          <>
+            <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mb-4">
+              <p className="text-gray-700 text-left leading-relaxed">
+                {instruction}
+              </p>
+            </div>
+            <div className="flex justify-center">
+              {appMode === 'prod' && introAudioPlaying ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
+                  <p className="text-gray-600">Ses çalınıyor...</p>
+                </div>
+              ) : (
+                <button 
+                  onClick={startFlow} 
+                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+                >
+                  Başla
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
 
