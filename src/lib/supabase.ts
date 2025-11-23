@@ -34,6 +34,14 @@ export async function getStories() {
     .order('id', { ascending: true });
 }
 
+export async function getStoryById(storyId: number) {
+  return supabase
+    .from('stories')
+    .select('*')
+    .eq('id', storyId)
+    .single();
+}
+
 export async function createStory(
   id: number,
   title: string,
@@ -278,10 +286,29 @@ export async function updateStudentProgress(
   currentStep: number,
   completedLevel?: number
 ) {
-  const { data: existing } = await getStudentProgressByStory(
-    studentId,
-    storyId
-  );
+  // Fetch latest data to get most recent points (with retry to ensure we get latest)
+  let existing;
+  let fetchError;
+  
+  // Retry fetching to ensure we get the latest data (in case awardPoints just updated)
+  for (let i = 0; i < 3; i++) {
+    const result = await getStudentProgressByStory(studentId, storyId);
+    existing = result.data;
+    fetchError = result.error;
+    
+    if (existing || (fetchError && fetchError.code === 'PGRST116')) {
+      break;
+    }
+    
+    // Wait a bit before retry
+    if (i < 2) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  if (fetchError && fetchError.code !== 'PGRST116') {
+    console.error('Error fetching progress:', fetchError);
+  }
 
   if (!existing) {
     return await initializeStudentProgress(studentId, storyId);
@@ -295,21 +322,64 @@ export async function updateStudentProgress(
     completedLevels.push(completedLevel);
   }
 
-  return supabase
+  console.log('Updating progress:', {
+    studentId,
+    storyId,
+    currentLevel,
+    currentStep,
+    completedLevel,
+    existingPoints: existing.points || 0,
+    completedLevels
+  });
+
+  // Update progress (preserve existing points to avoid overwriting)
+  // Note: We don't use .select() here because RLS might block RETURNING clause
+  const updateResult = await supabase
     .from('student_progress')
     .update({
       current_level: currentLevel,
       current_step: currentStep,
       completed_levels: completedLevels,
+      points: existing.points || 0, // Preserve existing points
       updated_at: new Date().toISOString(),
     })
-    .eq('id', existing.id)
-    .select()
-    .single();
+    .eq('id', existing.id);
+
+  if (updateResult.error) {
+    console.error('❌ Failed to update progress:', updateResult.error);
+    return { error: updateResult.error, data: null };
+  }
+
+  console.log('✅ Progress update executed (checking result...)');
+
+  // Wait a bit to ensure database consistency, then fetch updated data
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  // Fetch updated data separately to avoid RLS issues
+  const { data: updatedData, error: fetchError2 } = await getStudentProgressByStory(studentId, storyId);
+  
+  if (fetchError2) {
+    console.error('⚠️ Failed to fetch updated progress:', fetchError2);
+    // Return success anyway since update succeeded, with merged data
+    return { 
+      error: null, 
+      data: { 
+        ...existing, 
+        current_level: currentLevel, 
+        current_step: currentStep,
+        completed_levels: completedLevels,
+        points: existing.points || 0
+      } 
+    };
+  }
+
+  console.log('✅ Progress updated successfully:', updatedData);
+  return { error: null, data: updatedData };
 }
 
 export async function completeStory(studentId: string, storyId: number) {
-  return supabase
+  // Update without .single() to avoid RLS issues
+  const updateResult = await supabase
     .from('student_progress')
     .update({
       is_completed: true,
@@ -317,9 +387,15 @@ export async function completeStory(studentId: string, storyId: number) {
       updated_at: new Date().toISOString(),
     })
     .eq('student_id', studentId)
-    .eq('story_id', storyId)
-    .select()
-    .single();
+    .eq('story_id', storyId);
+
+  if (updateResult.error) {
+    return { error: updateResult.error, data: null };
+  }
+
+  // Fetch updated data separately
+  const { data: updatedData } = await getStudentProgressByStory(studentId, storyId);
+  return { error: null, data: updatedData };
 }
 
 export async function awardPoints(
@@ -328,35 +404,74 @@ export async function awardPoints(
   pointsToAdd: number,
   reason?: string
 ) {
-  const { data: progress } = await getStudentProgressByStory(studentId, storyId);
+  let { data: progress, error: progressError } = await getStudentProgressByStory(studentId, storyId);
+
+  // If progress doesn't exist, initialize it
+  if (!progress && progressError?.code === 'PGRST116') {
+    console.log('Progress not found, initializing...');
+    const initResult = await initializeStudentProgress(studentId, storyId);
+    if (initResult.error) {
+      return { error: initResult.error, data: null };
+    }
+    progress = initResult.data;
+  }
 
   if (!progress) {
-    return { error: new Error('Progress not found'), data: null };
+    return { error: new Error('Progress not found and could not be initialized'), data: null };
   }
 
   const newPoints = (progress.points || 0) + pointsToAdd;
 
+  console.log('Awarding points:', { 
+    studentId, 
+    storyId, 
+    currentPoints: progress.points || 0, 
+    pointsToAdd, 
+    newPoints 
+  });
+
+  // Update points (without .select() to avoid RLS issues with UPDATE ... RETURNING)
   const updateResult = await supabase
     .from('student_progress')
     .update({
       points: newPoints,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', progress.id)
-    .select()
-    .single();
+    .eq('id', progress.id);
 
-  if (!updateResult.error) {
+  if (updateResult.error) {
+    console.error('❌ Failed to update points:', updateResult.error);
+    return { error: updateResult.error, data: null };
+  }
+
+  console.log('✅ Points update executed (checking result...)');
+
+  // Insert into points_history
+  try {
     await supabase.from('points_history').insert({
       student_id: studentId,
       story_id: storyId,
-      level_number: progress.current_level,
+      level_number: progress.current_level || 1,
       points_earned: pointsToAdd,
       reason: reason || 'Level tamamlandı',
     });
+    console.log('✅ Points history recorded');
+  } catch (historyError) {
+    console.error('⚠️ Failed to record points history:', historyError);
+    // Don't fail the whole operation if history insert fails
   }
 
-  return updateResult;
+  // Fetch updated data separately to avoid RLS issues with .single()
+  const { data: updatedData, error: fetchError } = await getStudentProgressByStory(studentId, storyId);
+  
+  if (fetchError) {
+    console.error('⚠️ Failed to fetch updated progress:', fetchError);
+    // Return success anyway since update succeeded
+    return { error: null, data: { ...progress, points: newPoints } };
+  }
+
+  console.log('✅ Points updated successfully:', updatedData);
+  return { error: null, data: updatedData };
 }
 
 // ===== ACTIVITY LOGGING =====
@@ -476,7 +591,8 @@ export async function updateStudentProgressStep(
   studentId: string,
   storyId: number,
   currentLevel: number,
-  currentStep: number
+  currentStep: number,
+  completedLevel?: number
 ) {
   try {
     const { data: existing, error: fetchError } = await getStudentProgressByStory(
@@ -493,17 +609,39 @@ export async function updateStudentProgressStep(
       return await initializeStudentProgress(studentId, storyId);
     }
 
+    // If completedLevel is provided, use updateStudentProgress to handle completed_levels
+    if (completedLevel !== undefined) {
+      return await updateStudentProgress(studentId, storyId, currentLevel, currentStep, completedLevel);
+    }
+
     console.log('Updating progress for student:', studentId, 'story:', storyId);
-    return supabase
+    
+    // Update progress (without .single() to avoid RLS issues)
+    const updateResult = await supabase
       .from('student_progress')
       .update({
         current_level: currentLevel,
         current_step: currentStep,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', existing.id)
-      .select()
-      .single();
+      .eq('id', existing.id);
+
+    if (updateResult.error) {
+      console.error('❌ Failed to update progress:', updateResult.error);
+      return { error: updateResult.error, data: null };
+    }
+
+    // Fetch updated data separately to avoid RLS issues with .single()
+    const { data: updatedData, error: fetchError2 } = await getStudentProgressByStory(studentId, storyId);
+    
+    if (fetchError2) {
+      console.error('⚠️ Failed to fetch updated progress:', fetchError2);
+      // Return success anyway since update succeeded
+      return { error: null, data: { ...existing, current_level: currentLevel, current_step: currentStep } };
+    }
+
+    console.log('✅ Progress updated successfully:', updatedData);
+    return { error: null, data: updatedData };
   } catch (err) {
     console.error('Error in updateStudentProgressStep:', err);
     return { error: err, data: null };
@@ -558,4 +696,308 @@ export async function insertReadingGoal(
     base_wpm: baseWpm,
     timestamp: new Date().toISOString(),
   });
+}
+
+// ===== SESSION MANAGEMENT =====
+
+export async function createSession(
+  studentId: string,
+  storyId: number
+) {
+  return supabase
+    .from('sessions')
+    .insert({
+      student_id: studentId,
+      story_id: storyId,
+      started_at: new Date().toISOString(),
+      is_active: true,
+    })
+    .select()
+    .single();
+}
+
+export async function endSession(sessionId: string) {
+  return supabase
+    .from('sessions')
+    .update({
+      ended_at: new Date().toISOString(),
+      is_active: false,
+    })
+    .eq('id', sessionId)
+    .select()
+    .single();
+}
+
+export async function getActiveSession(studentId: string, storyId: number) {
+  return supabase
+    .from('sessions')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('story_id', storyId)
+    .eq('is_active', true)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .single();
+}
+
+export async function updateSessionCompletedLevels(
+  sessionId: string,
+  completedLevels: number[]
+) {
+  return supabase
+    .from('sessions')
+    .update({
+      completed_levels: completedLevels,
+    })
+    .eq('id', sessionId);
+}
+
+// ===== STEP COMPLETIONS =====
+
+export async function markStepCompleted(
+  sessionId: string | null,
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number,
+  completionData?: any
+) {
+  return supabase
+    .from('step_completions')
+    .upsert({
+      session_id: sessionId,
+      student_id: studentId,
+      story_id: storyId,
+      level,
+      step,
+      is_completed: true,
+      completion_data: completionData || {},
+      completed_at: new Date().toISOString(),
+    }, {
+      onConflict: 'student_id,story_id,level,step,session_id',
+    })
+    .select()
+    .single();
+}
+
+export async function markStepStarted(
+  sessionId: string | null,
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number
+) {
+  return supabase
+    .from('step_completions')
+    .upsert({
+      session_id: sessionId,
+      student_id: studentId,
+      story_id: storyId,
+      level,
+      step,
+      is_completed: false,
+      started_at: new Date().toISOString(),
+    }, {
+      onConflict: 'student_id,story_id,level,step,session_id',
+    })
+    .select()
+    .single();
+}
+
+export async function isStepCompleted(
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number,
+  sessionId?: string | null
+): Promise<boolean> {
+  let query = supabase
+    .from('step_completions')
+    .select('is_completed')
+    .eq('student_id', studentId)
+    .eq('story_id', storyId)
+    .eq('level', level)
+    .eq('step', step);
+
+  if (sessionId) {
+    query = query.eq('session_id', sessionId);
+  }
+
+  const { data, error } = await query.single();
+
+  if (error || !data) return false;
+  return data.is_completed === true;
+}
+
+// ===== API LOGS =====
+
+export async function logApiCall(
+  sessionId: string | null,
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number,
+  apiEndpoint: string,
+  requestMethod: string,
+  requestBody?: any,
+  requestHeaders?: any,
+  responseStatus?: number,
+  responseBody?: any,
+  responseTimeMs?: number,
+  errorMessage?: string
+) {
+  return supabase
+    .from('api_logs')
+    .insert({
+      session_id: sessionId,
+      student_id: studentId,
+      story_id: storyId,
+      level,
+      step,
+      api_endpoint: apiEndpoint,
+      request_method: requestMethod,
+      request_body: requestBody || null,
+      request_headers: requestHeaders || null,
+      response_status: responseStatus || null,
+      response_body: responseBody || null,
+      response_time_ms: responseTimeMs || null,
+      error_message: errorMessage || null,
+      timestamp: new Date().toISOString(),
+    });
+}
+
+// ===== AUDIO RECORDINGS =====
+
+export async function saveAudioRecording(
+  sessionId: string | null,
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number,
+  recordingType: 'student_voice' | 'api_response',
+  filePath?: string,
+  fileSizeBytes?: number,
+  durationSeconds?: number,
+  mimeType?: string,
+  base64Data?: string,
+  metadata?: any
+) {
+  return supabase
+    .from('audio_recordings')
+    .insert({
+      session_id: sessionId,
+      student_id: studentId,
+      story_id: storyId,
+      level,
+      step,
+      recording_type: recordingType,
+      file_path: filePath || null,
+      file_size_bytes: fileSizeBytes || null,
+      duration_seconds: durationSeconds || null,
+      mime_type: mimeType || null,
+      base64_data: base64Data || null,
+      metadata: metadata || {},
+    });
+}
+
+// ===== SCORES =====
+
+export async function saveScore(
+  sessionId: string | null,
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number | null,
+  scoreType: string,
+  points: number,
+  maxPoints?: number,
+  scoreData?: any
+) {
+  return supabase
+    .from('scores')
+    .insert({
+      session_id: sessionId,
+      student_id: studentId,
+      story_id: storyId,
+      level,
+      step: step || null,
+      score_type: scoreType,
+      points,
+      max_points: maxPoints || null,
+      score_data: scoreData || {},
+    });
+}
+
+// ===== STUDENT ACTIONS =====
+
+export async function logStudentAction(
+  sessionId: string | null,
+  studentId: string,
+  actionType: string,
+  storyId?: number,
+  level?: number,
+  step?: number,
+  actionData?: any
+) {
+  return supabase
+    .from('student_actions')
+    .insert({
+      session_id: sessionId,
+      student_id: studentId,
+      story_id: storyId || null,
+      level: level || null,
+      step: step || null,
+      action_type: actionType,
+      action_data: actionData || {},
+      timestamp: new Date().toISOString(),
+    });
+}
+
+// ===== READING GOALS HELPERS =====
+
+export async function getLatestReadingGoal(
+  studentId: string,
+  storyId: number,
+  level: number
+) {
+  const { data, error } = await supabase
+    .from('reading_goals')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('story_id', storyId)
+    .eq('level', level)
+    .order('timestamp', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) return null;
+  return data.selected_wpm;
+}
+
+// ===== STEP COMPLETION DATA HELPERS =====
+
+export async function getStepCompletionData(
+  studentId: string,
+  storyId: number,
+  level: number,
+  step: number,
+  sessionId?: string | null
+) {
+  let query = supabase
+    .from('step_completions')
+    .select('completion_data')
+    .eq('student_id', studentId)
+    .eq('story_id', storyId)
+    .eq('level', level)
+    .eq('step', step)
+    .eq('is_completed', true);
+
+  if (sessionId) {
+    query = query.eq('session_id', sessionId);
+  }
+
+  const { data, error } = await query.order('completed_at', { ascending: false }).limit(1).single();
+
+  if (error || !data) return null;
+  return data.completion_data;
 }
