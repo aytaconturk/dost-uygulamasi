@@ -209,6 +209,7 @@ export interface Step {
     paragrafText: string;
     audioBase64: string;
     isLatestParagraf: boolean;
+    paragrafNo: number;
   }
 
   export interface Level3Step1ParagraphRequest {
@@ -224,4 +225,12 @@ export interface Step {
     text: string;
     message?: string;
     response?: string;
+  }
+
+  // New Level 3 Step 1 Response Interface
+  export interface Level3Step1Response {
+    audioBase64: string;
+    resumeUrl: string;
+    textAudio?: string;
+    title?: string;
   }

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getParagraphsAsync, paragraphToPlain, getParagraphCountAsync } from '../../data/stories';
 import { getAppMode } from '../../lib/api';
-import { submitParagraphReading } from '../../lib/level3-api';
+import { submitParagraphReading, getResumeResponse } from '../../lib/level3-api';
 import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Paragraph } from '../../data/stories';
@@ -27,9 +27,11 @@ export default function L3Step1() {
   const [paragraphCount, setParagraphCount] = useState(0);
   const [storyId, setStoryId] = useState<number | null>(null);
   const [isPlayingModelAudio, setIsPlayingModelAudio] = useState(false);
+  const [isPlayingSiraSende, setIsPlayingSiraSende] = useState(false);
   const [isWaitingForRecording, setIsWaitingForRecording] = useState(false);
   const [isProcessingResponse, setIsProcessingResponse] = useState(false);
   const [apiResponseText, setApiResponseText] = useState<string>('');
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [allParagraphsCompleted, setAllParagraphsCompleted] = useState(false);
   const [completedParagraphs, setCompletedParagraphs] = useState<Set<number>>(new Set());
@@ -175,6 +177,46 @@ export default function L3Step1() {
     });
   };
 
+  const playSiraSendeAudio = async (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const el = audioRef.current;
+      if (!el) {
+        reject(new Error('Audio element not found'));
+        return;
+      }
+
+      try {
+        setIsPlayingSiraSende(true);
+        el.src = '/audios/sira-sende-mikrofon.mp3';
+        (el as any).playsInline = true;
+        el.muted = false;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
+        
+        el.onended = () => {
+          setIsPlayingSiraSende(false);
+          resolve();
+        };
+        
+        el.onerror = () => {
+          console.warn('Sıra sende audio not found, continuing...');
+          setIsPlayingSiraSende(false);
+          resolve(); // Continue even if audio doesn't exist
+        };
+        
+        el.play().catch((err) => {
+          console.warn('Error playing sira sende audio:', err);
+          setIsPlayingSiraSende(false);
+          resolve(); // Continue even if play fails
+        });
+      } catch (err) {
+        console.warn('Error setting up sira sende audio:', err);
+        setIsPlayingSiraSende(false);
+        resolve(); // Continue even if setup fails
+      }
+    });
+  };
+
   const playResponseAudio = async (audioBase64: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       const el = audioRef.current;
@@ -239,17 +281,80 @@ export default function L3Step1() {
       const paragraphText = paragraphToPlain(paragraphs[currentParagraphIdx]);
       const audioBase64 = await blobToBase64(audioBlob);
       
-      // Check if this is the last paragraph
-      const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
+      let response;
+      
+      // First paragraph: use submitParagraphReading
+      // Other paragraphs: use resumeUrl
+      if (currentParagraphIdx === 0) {
+        // Check if this is the last paragraph
+        const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
-      const response = await submitParagraphReading({
-        studentId: student.id,
-        paragrafText: paragraphText,
-        audioBase64: audioBase64,
-        isLatestParagraf: isLatestParagraf,
-      });
+        const requestData = {
+          studentId: student.id,
+          paragrafText: paragraphText,
+          audioBase64: audioBase64,
+          isLatestParagraf: isLatestParagraf,
+          paragrafNo: currentParagraphIdx + 1, // 1-based index
+        };
 
-      setApiResponseText(response.text || response.message || '');
+        // Log request without full audioBase64
+        const requestForLog = {
+          ...requestData,
+          audioBase64: `${audioBase64.substring(0, 50)}... (${audioBase64.length} chars)`
+        };
+
+        console.log('📤 API Request Details:');
+        console.log('  - Endpoint: POST /dost/level3/step1');
+        console.log('  - Request Body:', JSON.stringify(requestForLog, null, 2));
+
+        response = await submitParagraphReading(requestData);
+
+        // Log response without full audioBase64
+        const responseForLog = {
+          ...response,
+          audioBase64: response.audioBase64 ? `${response.audioBase64.substring(0, 50)}... (${response.audioBase64.length} chars)` : response.audioBase64
+        };
+
+        console.log('📥 API Response Details:');
+        console.log('  - Endpoint: POST /dost/level3/step1');
+        console.log('  - Response:', JSON.stringify(responseForLog, null, 2));
+      } else {
+        // Use resumeUrl for subsequent paragraphs
+        if (!resumeUrl) {
+          throw new Error('Resume URL not available');
+        }
+        
+        console.log('📤 API Request Details:');
+        console.log('  - Endpoint: GET (resumeUrl)');
+        console.log('  - URL:', resumeUrl);
+        console.log('  - Paragraf No:', currentParagraphIdx + 1);
+
+        response = await getResumeResponse(resumeUrl);
+
+        // Log response without full audioBase64
+        const responseForLog = {
+          ...response,
+          audioBase64: response.audioBase64 ? `${response.audioBase64.substring(0, 50)}... (${response.audioBase64.length} chars)` : response.audioBase64
+        };
+
+        console.log('📥 API Response Details:');
+        console.log('  - Endpoint: GET (resumeUrl)');
+        console.log('  - URL:', resumeUrl);
+        console.log('  - Response:', JSON.stringify(responseForLog, null, 2));
+      }
+      
+      // Update resumeUrl from response for next paragraphs
+      if (response.resumeUrl) {
+        setResumeUrl(response.resumeUrl);
+      }
+
+      // Show textAudio if available (optional)
+      if (response.textAudio) {
+        setApiResponseText(response.textAudio);
+      }
+
+      // Mark current paragraph as completed
+      setCompletedParagraphs(prev => new Set([...prev, currentParagraphIdx]));
 
       // Play response audio if available
       if (response.audioBase64) {
@@ -260,19 +365,29 @@ export default function L3Step1() {
         }
       }
 
-      // Mark current paragraph as completed
-      setCompletedParagraphs(prev => new Set([...prev, currentParagraphIdx]));
-
-      // Move to next paragraph
+      // Move to next paragraph after response audio finishes
       if (currentParagraphIdx < paragraphs.length - 1) {
-        setCurrentParagraphIdx(currentParagraphIdx + 1);
-        // Start next paragraph flow
+        const nextIdx = currentParagraphIdx + 1;
+        setCurrentParagraphIdx(nextIdx);
+        // Clear response text and reset states before moving to next paragraph
+        setApiResponseText('');
+        setIsProcessingResponse(false);
+        setIsPlayingResponse(false);
+        // Start next paragraph flow with explicit index
         setTimeout(() => {
-          processNextParagraph();
-        }, 1000);
+          processNextParagraph(nextIdx);
+        }, 500);
       } else {
         // All paragraphs completed
         setAllParagraphsCompleted(true);
+        
+        // Mark step as completed
+        if (onStepCompleted) {
+          await onStepCompleted({
+            totalParagraphs: paragraphs.length,
+            completedParagraphs: completedParagraphs.size + 1
+          });
+        }
       }
     } catch (err) {
       console.error('Error submitting paragraph reading:', err);
@@ -284,10 +399,11 @@ export default function L3Step1() {
 
       // Move to next paragraph
       if (currentParagraphIdx < paragraphs.length - 1) {
-        setCurrentParagraphIdx(currentParagraphIdx + 1);
-        // Start next paragraph flow
+        const nextIdx = currentParagraphIdx + 1;
+        setCurrentParagraphIdx(nextIdx);
+        // Start next paragraph flow with explicit index
         setTimeout(() => {
-          processNextParagraph();
+          processNextParagraph(nextIdx);
         }, 1000);
       } else {
         // All paragraphs completed
@@ -306,23 +422,42 @@ export default function L3Step1() {
     }
   };
 
-  const processNextParagraph = async () => {
-    if (currentParagraphIdx >= paragraphs.length) {
+  const processNextParagraph = async (paragraphIdx?: number) => {
+    const idx = paragraphIdx !== undefined ? paragraphIdx : currentParagraphIdx;
+    
+    if (idx >= paragraphs.length) {
       setAllParagraphsCompleted(true);
       return;
     }
 
+    // Clear previous response text and reset states when moving to next paragraph
+    setApiResponseText('');
+    setIsWaitingForRecording(false);
+    setIsProcessingResponse(false);
+    setIsPlayingResponse(false);
+    setIsPlayingSiraSende(false);
+
     // Play model audio for current paragraph
     setIsPlayingModelAudio(true);
     try {
-      await playModelAudio(currentParagraphIdx + 1);
+      await playModelAudio(idx + 1);
     } catch (err) {
       console.error('Error playing model audio:', err);
     } finally {
       setIsPlayingModelAudio(false);
     }
 
-    // Wait for student recording
+    // Play "Şimdi sıra sende" audio
+    try {
+      await playSiraSendeAudio();
+    } catch (err) {
+      console.error('Error playing sira sende audio:', err);
+    } finally {
+      // Ensure isPlayingSiraSende is false after audio finishes
+      setIsPlayingSiraSende(false);
+    }
+
+    // Wait for student recording (activate microphone after sira sende audio)
     setIsWaitingForRecording(true);
   };
 
@@ -343,9 +478,12 @@ export default function L3Step1() {
     setStarted(true);
     setCurrentParagraphIdx(0);
     setAllParagraphsCompleted(false);
+    setCompletedParagraphs(new Set()); // Reset completed paragraphs
+    setResumeUrl(null); // Reset resumeUrl for new flow
+    setApiResponseText(''); // Reset response text
     
     // Start first paragraph
-    await processNextParagraph();
+    await processNextParagraph(0);
   };
 
   if (!storyId) {
@@ -416,15 +554,19 @@ export default function L3Step1() {
             </div>
           </div>
 
-          <div className="text-gray-800 text-lg mb-4">
+          <div className="text-gray-800 text-lg mb-4 relative" style={{ zIndex: 1 }}>
             {paragraphs.map((p, i) => {
               const isCurrent = i === currentParagraphIdx;
               const isCompleted = completedParagraphs.has(i);
+              const isFuture = i > currentParagraphIdx && !isCompleted;
               
               let bgColor = '';
               let borderStyle = '';
               let padding = '';
               let borderRadius = '';
+              let opacity = 1;
+              let pointerEvents: 'auto' | 'none' = 'auto';
+              let display: 'block' | 'none' = 'block';
               
               if (isCurrent) {
                 bgColor = '#fff794'; // Warning yellow
@@ -435,6 +577,11 @@ export default function L3Step1() {
                 borderRadius = '0.5rem';
                 padding = '0.5rem';
                 borderStyle = 'border-l-4 border-green-500';
+              } else if (isFuture) {
+                // Future paragraphs: very faded and non-interactive, partially hidden
+                opacity = 0.15;
+                pointerEvents = 'none';
+                // Don't hide completely, just make very faint
               }
               
               return (
@@ -445,6 +592,10 @@ export default function L3Step1() {
                     backgroundColor: bgColor,
                     borderRadius: borderRadius,
                     padding: padding,
+                    opacity: opacity,
+                    pointerEvents: pointerEvents,
+                    display: display,
+                    zIndex: 1,
                   }}
                 >
                   {isCompleted && (
@@ -466,30 +617,81 @@ export default function L3Step1() {
             })}
           </div>
 
-          {isWaitingForRecording && !isProcessingResponse && (
-            <div className="sticky bottom-0 bg-white border-t-2 border-green-500 rounded-lg shadow-lg p-4 mt-6 z-10">
-              <p className="text-center mb-1 text-xl font-bold text-green-700">
-                🎤 Şimdi sıra sende! Mikrofona konuş
-              </p>
-              <div className="flex justify-center">
-                <VoiceRecorder
-                  recordingDurationMs={getRecordingDuration()}
-                  autoSubmit={true}
-                  onSave={handleVoiceSubmit}
-                  onPlayStart={() => {
-                    try {
-                      window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
-                    } catch {}
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {apiResponseText && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-bold text-blue-800 mb-2">🤖 DOST'un Yanıtı:</h4>
-              <p className="text-blue-700">{apiResponseText}</p>
+          {/* Microphone/Response Card - Always visible when started */}
+          {(isPlayingModelAudio || isPlayingSiraSende || isWaitingForRecording || isProcessingResponse || isPlayingResponse || apiResponseText) && (
+            <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-4 mt-6 z-50" 
+                 style={{
+                   borderColor: isPlayingModelAudio ? '#9CA3AF' : isPlayingSiraSende ? '#10B981' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : apiResponseText ? '#3B82F6' : '#10B981'
+                 }}>
+              {isPlayingModelAudio && !apiResponseText && (
+                <>
+                  <p className="text-center mb-1 text-xl font-bold text-gray-500">
+                    🔊 DOST paragrafı okuyor...
+                  </p>
+                  <div className="flex justify-center opacity-50 pointer-events-none">
+                    <VoiceRecorder
+                      recordingDurationMs={getRecordingDuration()}
+                      autoSubmit={true}
+                      onSave={() => {}}
+                      onPlayStart={() => {}}
+                    />
+                  </div>
+                </>
+              )}
+              
+              {isPlayingSiraSende && !apiResponseText && (
+                <>
+                  <p className="text-center mb-1 text-xl font-bold text-green-700">
+                    🎤 Şimdi sıra sende! Mikrofona konuş
+                  </p>
+                  <div className="flex justify-center opacity-50 pointer-events-none">
+                    <VoiceRecorder
+                      recordingDurationMs={getRecordingDuration()}
+                      autoSubmit={true}
+                      onSave={() => {}}
+                      onPlayStart={() => {}}
+                    />
+                  </div>
+                </>
+              )}
+              
+              {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !apiResponseText && !isPlayingSiraSende && (
+                <>
+                  <p className="text-center mb-1 text-xl font-bold text-green-700">
+                    🎤 Şimdi sıra sende! Mikrofona konuş
+                  </p>
+                  <div className="flex justify-center">
+                    <VoiceRecorder
+                      recordingDurationMs={getRecordingDuration()}
+                      autoSubmit={true}
+                      onSave={handleVoiceSubmit}
+                      onPlayStart={() => {
+                        try {
+                          window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+                        } catch {}
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+              
+              {(isProcessingResponse || isPlayingResponse) && !apiResponseText && (
+                <div className="text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent"></div>
+                    <p className="text-orange-600 font-semibold text-lg">
+                      ⏳ DOST'tan cevap bekleniyor...
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {apiResponseText && (
+                <div>
+                  <h4 className="font-bold text-blue-800 mb-2 text-center">🤖 DOST'un Yanıtı:</h4>
+                  <p className="text-blue-700 text-center">{apiResponseText}</p>
+                </div>
+              )}
             </div>
           )}
 
