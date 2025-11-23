@@ -203,6 +203,14 @@ export interface Step {
   }
 
   // Level 3 Step 1 - Paragraph Reading API Types
+  // New Level 3 Step 1 Request Interface
+  export interface Level3Step1Request {
+    studentId: string;
+    paragrafText: string;
+    audioBase64: string;
+    isLatestParagraf: boolean;
+  }
+
   export interface Level3Step1ParagraphRequest {
     userId: string;
     paragraphText: string;
