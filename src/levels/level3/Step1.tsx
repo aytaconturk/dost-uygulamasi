@@ -8,13 +8,20 @@ import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Paragraph } from '../../data/stories';
 import { getRecordingDuration } from '../../components/SidebarSettings';
+import { useStepContext } from '../../contexts/StepContext';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getPlaybackRate } from '../../components/SidebarSettings';
 
 export default function L3Step1() {
   const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
+  const { onStepCompleted } = useStepContext();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [started, setStarted] = useState(false);
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
   const [currentParagraphIdx, setCurrentParagraphIdx] = useState(0);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
   const [paragraphCount, setParagraphCount] = useState(0);
@@ -52,22 +59,76 @@ export default function L3Step1() {
   };
 
   useEffect(() => {
-    // Play intro audio on mount
-    const el = audioRef.current;
-    if (el) {
+    // Play intro audio on component mount
+    const playIntroAudio = () => {
+      const el = audioRef.current;
+      if (!el) {
+        // Retry if audio element not ready yet
+        setTimeout(playIntroAudio, 100);
+        return;
+      }
+
+      console.log('🎵 Setting up intro audio:', '/audios/level3/seviye-3-adim-1.mp3');
+      el.src = '/audios/level3/seviye-3-adim-1.mp3';
+      (el as any).playsInline = true;
+      el.muted = false;
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
+      
+      // Wait for audio to be ready
+      const handleCanPlay = () => {
+        console.log('✅ Audio can play, readyState:', el.readyState);
+        el.play().then(() => {
+          console.log('✅ Intro audio started playing');
+          setIntroAudioPlaying(true);
+        }).catch((err) => {
+          console.error('❌ Error playing intro audio:', err);
+          setIntroAudioPlaying(false);
+        });
+      };
+
+      const handleEnded = () => {
+        console.log('✅ Intro audio finished');
+        setIntroAudioPlaying(false);
+      };
+
+      const handleError = (e: Event) => {
+        console.error('❌ Intro audio error:', e, el.error);
+        setIntroAudioPlaying(false);
+      };
+
+      el.addEventListener('canplay', handleCanPlay, { once: true });
+      el.addEventListener('ended', handleEnded, { once: true });
+      el.addEventListener('error', handleError, { once: true });
+
+      // If already loaded, play immediately
+      if (el.readyState >= 2) {
+        console.log('✅ Audio already loaded, playing immediately');
+        handleCanPlay();
+      } else {
+        // Load the audio
+        el.load();
+      }
+    };
+
+    // Start after a small delay to ensure audio element is mounted and hook has applied playback rate
+    const timeoutId = setTimeout(playIntroAudio, 200);
+
+    const stopAll = () => {
       try {
-        el.src = '/src/assets/audios/level3/seviye-3-adim-1.mp3';
-        (el as any).playsInline = true;
-        el.muted = false;
-        el.play().catch(() => {});
-        el.addEventListener('ended', () => setIntroAudioPlaying(false), { once: true });
+        audioRef.current?.pause();
       } catch {}
-    }
-    return () => { 
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
       try { 
         window.speechSynthesis.cancel(); 
         if (audioRef.current) {
           audioRef.current.pause();
+          audioRef.current.currentTime = 0;
         }
       } catch {} 
     };
@@ -86,9 +147,12 @@ export default function L3Step1() {
       }
 
       const audioPath = `/audios/story/${storyId}/story-${storyId}-paragraf-${paragraphNum}.mp3`;
+      // Fallback to src/assets if not found in public
       el.src = audioPath;
       (el as any).playsInline = true;
       el.muted = false;
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
       
       setIsPlayingModelAudio(true);
       
@@ -124,6 +188,8 @@ export default function L3Step1() {
         el.src = audioData;
         (el as any).playsInline = true;
         el.muted = false;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         
         setIsPlayingResponse(true);
         
@@ -172,13 +238,15 @@ export default function L3Step1() {
     try {
       const paragraphText = paragraphToPlain(paragraphs[currentParagraphIdx]);
       const audioBase64 = await blobToBase64(audioBlob);
+      
+      // Check if this is the last paragraph
+      const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
       const response = await submitParagraphReading({
-        userId: student.id,
-        paragraphText: paragraphText,
+        studentId: student.id,
+        paragrafText: paragraphText,
         audioBase64: audioBase64,
-        paragraphNo: currentParagraphIdx + 1,
-        storyId: storyId,
+        isLatestParagraf: isLatestParagraf,
       });
 
       setApiResponseText(response.text || response.message || '');
@@ -224,6 +292,14 @@ export default function L3Step1() {
       } else {
         // All paragraphs completed
         setAllParagraphsCompleted(true);
+        
+        // Mark step as completed
+        if (onStepCompleted) {
+          await onStepCompleted({
+            totalParagraphs: paragraphs.length,
+            completedParagraphs: completedParagraphs.size + 1
+          });
+        }
       }
     } finally {
       setIsProcessingResponse(false);
@@ -392,7 +468,7 @@ export default function L3Step1() {
 
           {isWaitingForRecording && !isProcessingResponse && (
             <div className="sticky bottom-0 bg-white border-t-2 border-green-500 rounded-lg shadow-lg p-4 mt-6 z-10">
-              <p className="text-center mb-4 text-xl font-bold text-green-700">
+              <p className="text-center mb-1 text-xl font-bold text-green-700">
                 🎤 Şimdi sıra sende! Mikrofona konuş
               </p>
               <div className="flex justify-center">
