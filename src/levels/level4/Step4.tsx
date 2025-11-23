@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 const completionText = 'Dolu şema üzerinden beyin fırtınası yapma ve yorumda bulunma, özetleme ve okuduğunu anlama soruları görevlerini gerçekleştirerek 4. Seviyemizi tamamladık seni tebrik ediyorum.';
 
 export default function Step4() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
+  const { onStepCompleted } = useStepContext();
   const completionAudio = '/src/assets/audios/level4/level4-step4-completion.mp3';
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -14,6 +21,8 @@ export default function Step4() {
       if (el) {
         try {
           el.src = completionAudio;
+          // Apply playback rate
+          el.playbackRate = getPlaybackRate();
           // @ts-ignore
           el.playsInline = true; el.muted = false;
           await el.play();
@@ -34,13 +43,21 @@ export default function Step4() {
 
     playAudio();
 
+    // Mark step as completed
+    if (onStepCompleted) {
+      onStepCompleted({
+        level: 4,
+        completed: true
+      });
+    }
+
     const stopAll = () => { try { audioRef.current?.pause(); } catch {} };
     window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
     return () => {
       window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
       try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch {}
     };
-  }, []);
+  }, [onStepCompleted]);
 
   const confettiPieces = useMemo(() => {
     const lefts = [2,8,14,20,26,32,38,44,50,56,62,68,74,80,86,92];

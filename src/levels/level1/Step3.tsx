@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getRecordingDuration } from '../../components/SidebarSettings';
+import { getRecordingDuration, getPlaybackRate } from '../../components/SidebarSettings';
 import { analyzeSentencesForStep3, submitChildrenVoice } from '../../lib/level1-api';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import {
@@ -11,6 +11,8 @@ import {
 import type { Level1SentencesAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function Step3() {
   const story = {
@@ -31,6 +33,10 @@ export default function Step3() {
   const [firstSentences, setFirstSentences] = useState<string[]>([]);
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-3-fable.mp3';
 
@@ -99,6 +105,8 @@ export default function Step3() {
     const tryMime = async (mime: string) => {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
       audioRef.current!.src = src;
+      // Apply playback rate
+      audioRef.current!.playbackRate = getPlaybackRate();
 
       // Reset progress
       setAudioProgress(0);
@@ -239,6 +247,17 @@ export default function Step3() {
       setIsProcessingVoice(false);
     }
   };
+
+  // Mark step as completed when both analysis and voice response are done
+  useEffect(() => {
+    if (analysisText && childrenVoiceResponse && onStepCompleted) {
+      onStepCompleted({
+        analysisText,
+        childrenVoiceResponse,
+        resumeUrl
+      });
+    }
+  }, [analysisText, childrenVoiceResponse, onStepCompleted, resumeUrl]);
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4">

@@ -1,3 +1,5 @@
+import { getPlaybackRate } from '../components/SidebarSettings';
+
 export async function playTts(text: string) {
   const res = await fetch("https://arge.aquateknoloji.com/webhook/dost/voice-generator", {
     method: "POST",
@@ -15,6 +17,9 @@ export async function playTts(text: string) {
   const blob = new Blob([bytes], { type: "audio/mpeg" });
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
+
+  // Apply playback rate
+  audio.playbackRate = getPlaybackRate();
 
   audio.play()
     .catch(err => {

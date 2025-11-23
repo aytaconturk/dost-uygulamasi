@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import type { RootState } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
 
 const QUALITY_METRIC_LABELS: Record<string, string> = {
   speechRate: 'Okuma Hızı',
@@ -12,8 +14,18 @@ const QUALITY_METRIC_LABELS: Record<string, string> = {
 export default function Level2Step2() {
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const navigate = useNavigate();
+  const { onStepCompleted } = useStepContext();
 
   console.log('Step2: analysisResult from Redux:', analysisResult);
+
+  // Mark step as completed when analysis result is available
+  useEffect(() => {
+    if (analysisResult && onStepCompleted) {
+      onStepCompleted({
+        analysisResult
+      });
+    }
+  }, [analysisResult, onStepCompleted]);
 
   if (!analysisResult) {
     return (

@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import type { RootState } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
 
 const LEVEL_STEPS = [
   { num: 1, title: 'Okuma & Kayıt' },
@@ -14,6 +16,18 @@ export default function Level2Step4() {
   const selectedGoal = useSelector((state: RootState) => state.level2.selectedGoal);
   const selectedGoalPercentage = useSelector((state: RootState) => state.level2.selectedGoalPercentage);
   const navigate = useNavigate();
+  const { onStepCompleted } = useStepContext();
+
+  // Mark step as completed when goal is selected
+  useEffect(() => {
+    if (selectedGoal && selectedGoalPercentage && onStepCompleted) {
+      onStepCompleted({
+        selectedGoal,
+        selectedGoalPercentage,
+        analysisResult
+      });
+    }
+  }, [selectedGoal, selectedGoalPercentage, analysisResult, onStepCompleted]);
 
   return (
     <div className="w-full mx-auto px-4">

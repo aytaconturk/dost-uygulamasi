@@ -1,14 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { getStepCompletionData } from '../../lib/supabase';
+import { useStepContext } from '../../contexts/StepContext';
+import type { RootState } from '../../store/store';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function L5Step2() {
+  const student = useSelector((state: RootState) => state.user.student);
+  const { sessionId, storyId, onStepCompleted } = useStepContext();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [request, setRequest] = useState('');
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [l3, setL3] = useState<{wpm: number; targetWPM: number} | null>(null);
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
-  const l3 = useMemo(() => {
-    try { const raw = localStorage.getItem('level3_result'); return raw ? JSON.parse(raw) : null; } catch { return null; }
-  }, []);
+  // Load Level 3 result from Supabase
+  useEffect(() => {
+    if (!student) return;
+
+    const loadL3Result = async () => {
+      try {
+        const completionData = await getStepCompletionData(student.id, storyId, 3, 2, sessionId);
+        if (completionData && completionData.wpm !== undefined) {
+          setL3(completionData as any);
+        }
+      } catch (err) {
+        console.error('Error loading Level 3 result:', err);
+      }
+    };
+
+    loadL3Result();
+  }, [student?.id, storyId, sessionId]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -16,11 +42,13 @@ export default function L5Step2() {
     const text = base + (l3 && l3.wpm >= l3.targetWPM ? 'Hedefine ulaştın, ödülü hak ettin!' : 'Hedefine ulaşamadın; ama pes yok, bir sonraki oturumda başarabilirsin.');
     const speak = () => { if ('speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(text); u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; window.speechSynthesis.speak(u); } };
     if (el) { try { el.src = '/src/assets/audios/level5/seviye-5-adim-2-fable.mp3'; // optional
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
       // @ts-ignore
       el.playsInline = true; el.muted = false; el.play().catch(speak); } catch { speak(); } } else { speak(); }
   }, [l3]);
 
-  const generateSticker = () => {
+  const generateSticker = async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 600; canvas.height = 600;
     const ctx = canvas.getContext('2d');
@@ -41,6 +69,14 @@ export default function L5Step2() {
     const url = canvas.toDataURL('image/png');
     setResultUrl(url);
     setMessage('Ödülün hazır! Dilersen indir.');
+    
+    // Mark step as completed
+    if (onStepCompleted) {
+      await onStepCompleted({
+        rewardRequest: request || 'Okuma Kahramanı',
+        rewardGenerated: true
+      });
+    }
   };
 
   return (

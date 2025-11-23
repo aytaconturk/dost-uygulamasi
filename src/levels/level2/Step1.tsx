@@ -7,6 +7,9 @@ import { setAnalysisResult } from '../../store/level2Slice';
 import { getAppMode } from '../../lib/api';
 import type { Level2Step1ReadingAnalysisResponse } from '../../types';
 import type { RootState, AppDispatch } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 const STORY_ID = 2;
 const TOTAL_SECONDS = 60;
@@ -32,11 +35,15 @@ export default function Level2Step1() {
   const currentStudent = useSelector((state: RootState) => state.user.student);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const { onStepCompleted } = useStepContext();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const [started, setStarted] = useState(false);
   const [reading, setReading] = useState(false);
@@ -62,6 +69,8 @@ export default function Level2Step1() {
       try {
         if (audioRef.current) {
           audioRef.current.src = '/src/assets/audios/level2/seviye-2-adim-1.mp3';
+          // Apply playback rate
+          audioRef.current.playbackRate = getPlaybackRate();
           audioRef.current.play().then(() => {
             audioRef.current!.addEventListener('ended', () => {
               setIntroAudioPlaying(false);
@@ -243,6 +252,16 @@ export default function Level2Step1() {
       }
 
       setAnalysis(response);
+
+      // Mark step as completed
+      if (onStepCompleted) {
+        await onStepCompleted({
+          wordsRead,
+          wpm,
+          wordsPerSecond: wpm / 60,
+          analysis: response
+        });
+      }
     } catch (error) {
       console.log('Error during recording or upload:', error);
     } finally {

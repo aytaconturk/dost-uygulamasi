@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getParagraphs, paragraphToPlain } from '../../data/stories';
-import { insertReadingLog } from '../../lib/supabase';
+import { insertReadingLog, getLatestReadingGoal } from '../../lib/supabase';
 import type { RootState } from '../../store/store';
 import { getAppMode } from '../../lib/api';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -12,29 +15,46 @@ function countWords(text: string) {
 
 export default function L3Step2() {
   const student = useSelector((state: RootState) => state.user.student);
+  const { sessionId, storyId, onStepCompleted } = useStepContext();
 
-  const story = { id: 3, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
+  const story = { id: storyId, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
   const totalWords = useMemo(() => countWords(fullText), [fullText]);
   const words = useMemo(() => fullText.split(/\s+/).filter(w => w.length > 0), [fullText]);
 
-  const [targetWPM, setTargetWPM] = useState<number>(() => {
-    const v = Number(localStorage.getItem('level3_target_wpm') || '80');
-    return isNaN(v) ? 80 : v;
-  });
+  const [targetWPM, setTargetWPM] = useState<number>(80);
   const [phase, setPhase] = useState<'intro'|'countdown'|'reading'|'done'>('intro');
   const [count, setCount] = useState(3);
   const startTimeRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [introAudioPlayed, setIntroAudioPlayed] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
   const [audioDuration, setAudioDuration] = useState(0);
   const [highlightedWordIdx, setHighlightedWordIdx] = useState<number | null>(null);
   const [introAudioEnded, setIntroAudioEnded] = useState(false);
   const appMode = getAppMode();
 
-  useEffect(() => { try { localStorage.setItem('level3_target_wpm', String(targetWPM)); } catch {} }, [targetWPM]);
+  // Load target WPM from Supabase (from Level 2 reading goal)
+  useEffect(() => {
+    if (!student) return;
+    
+    const loadTargetWPM = async () => {
+      try {
+        const goal = await getLatestReadingGoal(student.id, storyId, 2);
+        if (goal) {
+          setTargetWPM(goal);
+        }
+      } catch (err) {
+        console.error('Error loading reading goal:', err);
+      }
+    };
+
+    loadTargetWPM();
+  }, [student?.id, storyId]);
 
   useEffect(() => {
     return () => {
@@ -84,6 +104,8 @@ export default function L3Step2() {
     if (!el) return;
     try {
       el.src = '/src/assets/audios/level3/simdi-sira-sende.mp3';
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
       // @ts-ignore
       el.playsInline = true; el.muted = false; el.play().catch(() => {});
     } catch {}
@@ -119,6 +141,8 @@ export default function L3Step2() {
 
     try {
       el.src = '/src/assets/audios/level3/seviye-3-adim-2.mp3';
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
       // @ts-ignore
       el.playsInline = true;
       el.muted = false;
@@ -154,7 +178,7 @@ export default function L3Step2() {
   };
 
   const finishReading = async () => {
-    if (!startTimeRef.current) return;
+    if (!startTimeRef.current || !student) return;
 
     // Stop audio
     if (audioRef.current) {
@@ -165,17 +189,18 @@ export default function L3Step2() {
     const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
     const wpm = Math.round((totalWords / elapsedSec) * 60);
 
-    try {
-      localStorage.setItem('level3_result', JSON.stringify({ totalWords, elapsedSec, wpm, targetWPM }));
-    } catch {}
+    const resultData = { totalWords, elapsedSec, wpm, targetWPM };
 
-    // Save reading log to Supabase
-    if (student) {
-      try {
-        await insertReadingLog(student.id, 3, 3, wpm, totalWords, totalWords);
-      } catch (err) {
-        console.error('Failed to save reading log:', err);
+    try {
+      // Save reading log to Supabase
+      await insertReadingLog(student.id, storyId, 3, wpm, totalWords, totalWords);
+
+      // Mark step as completed with result data
+      if (onStepCompleted) {
+        await onStepCompleted(resultData);
       }
+    } catch (err) {
+      console.error('Failed to save reading data:', err);
     }
 
     setPhase('done');

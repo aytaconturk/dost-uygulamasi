@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getComprehensionQuestions } from '../../data/stories';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 const STORY_ID = 3;
 
@@ -10,6 +13,10 @@ export default function L4Step3() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string>('');
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const questions = getComprehensionQuestions(STORY_ID);
 
@@ -17,11 +24,28 @@ export default function L4Step3() {
     return () => { try { window.speechSynthesis.cancel(); } catch {} };
   }, []);
 
+  // Mark step as completed when all questions are answered
+  useEffect(() => {
+    if (answers.length === questions.length && onStepCompleted) {
+      const correctCount = answers.filter(
+        (ans, idx) => ans === questions[idx].correctIndex
+      ).length;
+      
+      onStepCompleted({
+        totalQuestions: questions.length,
+        correctCount,
+        answers
+      });
+    }
+  }, [answers.length, questions.length, onStepCompleted, answers, questions]);
+
   const playAudio = async (audioPath: string) => {
     const el = audioRef.current;
     if (el) {
       try {
         el.src = audioPath;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         await el.play();

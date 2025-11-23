@@ -8,9 +8,14 @@ import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Level1ImageAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
+import siraSendeAudio from '../../assets/audios/sira-sende-mikrofon.mp3';
+import { useAudioPlaybackRate, applyPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getPlaybackRate } from '../../components/SidebarSettings';
 
 export default function Step1() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const siraSendeAudioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
   const [mascotState, setMascotState] = useState<'idle' | 'speaking' | 'listening'>('idle');
   const [imageAnalysisText, setImageAnalysisText] = useState('');
@@ -20,8 +25,14 @@ export default function Step1() {
   const [resumeUrl, setResumeUrl] = useState('');
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [hasPlayedSiraSende, setHasPlayedSiraSende] = useState(false);
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio elements
+  useAudioPlaybackRate(audioRef);
+  useAudioPlaybackRate(siraSendeAudioRef);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
   const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
@@ -65,6 +76,21 @@ export default function Step1() {
       handleImageAnalysis();
     }
   }, [started, imageAnalysisText]);
+
+  // Play "sıra sende" audio when mascotState becomes 'listening' after API response
+  useEffect(() => {
+    if (mascotState === 'listening' && imageAnalysisText && !childrenVoiceResponse && !hasPlayedSiraSende && siraSendeAudioRef.current) {
+      const playSiraSende = async () => {
+        try {
+          await siraSendeAudioRef.current!.play();
+          setHasPlayedSiraSende(true);
+        } catch (err) {
+          console.error('Error playing sıra sende audio:', err);
+        }
+      };
+      playSiraSende();
+    }
+  }, [mascotState, imageAnalysisText, childrenVoiceResponse, hasPlayedSiraSende]);
 
   useEffect(() => {
     const stopAll = () => {
@@ -132,6 +158,8 @@ export default function Step1() {
     const tryMime = async (mime: string) => {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
       audioRef.current!.src = src;
+      // Apply playback rate before playing
+      audioRef.current!.playbackRate = getPlaybackRate();
       setMascotState('speaking');
 
       // Reset progress
@@ -210,6 +238,17 @@ export default function Step1() {
     }
   };
 
+  // Mark step as completed when both image analysis and voice response are done
+  useEffect(() => {
+    if (imageAnalysisText && childrenVoiceResponse && onStepCompleted) {
+      onStepCompleted({
+        imageAnalysisText,
+        childrenVoiceResponse,
+        resumeUrl
+      });
+    }
+  }, [imageAnalysisText, childrenVoiceResponse, onStepCompleted, resumeUrl]);
+
   const handleReplay = () => {
     if (audioRef.current) {
       setMascotState('speaking');
@@ -221,6 +260,7 @@ export default function Step1() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center relative mt-0">
       <audio ref={audioRef} preload="auto" />
+      <audio ref={siraSendeAudioRef} preload="auto" src={siraSendeAudio} />
 
       {!started ? (
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -297,37 +337,37 @@ export default function Step1() {
                         <p className="text-blue-700">{imageAnalysisText}</p>
                       </div>
 
-                      <div className="bg-blue-50 rounded-lg border-l-4 border-blue-400 p-4 mt-6">
-                        <p className="text-blue-800 font-medium">Görev:</p>
-                        <p className="text-blue-700">Görseli inceleyerek hikayenin ne hakkında olabileceğini tahmin et. Neler gözlemliyorsun?</p>
-                      </div>
-                    </>
-                  )}
+                      {/* Only show task and microphone after audio is finished (mascotState === 'listening') */}
+                      {mascotState === 'listening' && (
+                        <>
+                          <div className="bg-blue-50 rounded-lg border-l-4 border-blue-400 p-4 mt-6">
+                            <p className="text-blue-800 font-medium">Görev:</p>
+                            <p className="text-blue-700">Görseli inceleyerek hikayenin ne hakkında olabileceğini tahmin et. Neler gözlemliyorsun?</p>
+                          </div>
 
-                  {!childrenVoiceResponse && (
-                    <div className="mt-6 text-center">
-                      <p className="mb-4 text-2xl font-bold text-green-700 animate-pulse">Hadi sıra sende!</p>
-                      <p className="text-lg text-green-600">Mikrofona tıklayarak cevabını ver</p>
-                    </div>
-                  )}
+                          <div className="mt-6 text-center">
+                            <p className="mb-4 text-2xl font-bold text-green-700 animate-pulse">Hadi sıra sende!</p>
+                            <p className="text-lg text-green-600">Mikrofona tıklayarak cevabını ver</p>
+                          </div>
 
-                  {/* Keep current microphone component as-is */}
-                  {!childrenVoiceResponse && (
-                    <div className="mt-6">
-                      <VoiceRecorder
-                        recordingDurationMs={getRecordingDuration()}
-                        autoSubmit={true}
-                        onSave={handleVoiceSubmit}
-                        onPlayStart={() => {
-                          try {
-                            window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
-                          } catch {}
-                        }}
-                      />
-                      {isProcessingVoice && (
-                        <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
+                          <div className="mt-6">
+                            <VoiceRecorder
+                              recordingDurationMs={getRecordingDuration()}
+                              autoSubmit={true}
+                              onSave={handleVoiceSubmit}
+                              onPlayStart={() => {
+                                try {
+                                  window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+                                } catch {}
+                              }}
+                            />
+                            {isProcessingVoice && (
+                              <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
+                            )}
+                          </div>
+                        </>
                       )}
-                    </div>
+                    </>
                   )}
 
                   {childrenVoiceResponse && (

@@ -99,7 +99,7 @@ export default function Completion() {
 
         console.log('🎉 Completing level 1...', { studentId: student.id, storyId, levelNumber, points });
 
-        // Award points
+        // Award points FIRST
         const { error: pointsError, data: pointsData } = await awardPoints(
           student.id,
           storyId,
@@ -115,12 +115,24 @@ export default function Completion() {
           setShowPointsAnimation(true);
         }
 
-        // Update progress to level 2
-        const progressResult = await updateStudentProgressStep(student.id, storyId, 2, 1);
+        // Wait to ensure points are saved to database
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Update progress to level 2 and mark level 1 as completed
+        const progressResult = await updateStudentProgressStep(
+          student.id, 
+          storyId, 
+          2, // currentLevel: move to level 2
+          1, // currentStep: start at step 1 of level 2
+          1  // completedLevel: mark level 1 as completed
+        );
         console.log('📊 Progress updated:', progressResult);
 
         if (progressResult.error) {
           console.error('❌ Progress update error:', progressResult.error);
+        } else {
+          // Dispatch custom event to refresh progress data
+          window.dispatchEvent(new Event('progressUpdated'));
         }
       } catch (err) {
         console.error('Error awarding points or updating progress:', err);
@@ -136,7 +148,8 @@ export default function Completion() {
     try {
       window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
     } catch {}
-    navigate('/story/1');
+    // Navigate to dashboard (home page)
+    navigate('/');
   };
 
   return (

@@ -1,12 +1,17 @@
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function Level2Completion() {
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [completedCards, setCompletedCards] = useState<boolean[]>([false, false, false, false]);
   const completionAudio = '/src/assets/audios/level1/seviye-1-tamamlandi.mp3';
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const steps = [
     {
@@ -34,6 +39,8 @@ export default function Level2Completion() {
     if (el) {
       try {
         el.src = completionAudio;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         // @ts-ignore
         el.playsInline = true;
         el.muted = false;

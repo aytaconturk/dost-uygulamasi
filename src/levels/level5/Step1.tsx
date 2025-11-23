@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getParagraphs, paragraphToPlain } from '../../data/stories';
+import { saveScore } from '../../lib/supabase';
+import { useStepContext } from '../../contexts/StepContext';
+import type { RootState } from '../../store/store';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 interface Q {
   q: string;
@@ -8,14 +14,19 @@ interface Q {
 }
 
 export default function L5Step1() {
-  const storyId = 3; // Çöl Şekerlemesi
+  const student = useSelector((state: RootState) => state.user.student);
+  const { sessionId, storyId, onStepCompleted } = useStepContext();
   const story = { id: storyId, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [phase, setPhase] = useState<'intro'|'quiz'|'done'>('intro');
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState<string>('');
+  const [answers, setAnswers] = useState<number[]>([]);
 
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
@@ -47,6 +58,8 @@ export default function L5Step1() {
     if (el) {
       try {
         el.src = '/src/assets/audios/level5/seviye-5-adim-1.mp3';
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         el.play()
@@ -67,16 +80,46 @@ export default function L5Step1() {
     if (selected == null) return;
     const q = questions[idx];
     const isCorrect = selected === q.correct;
-    if (isCorrect) { setScore(s => s + 1); setFeedback('Doğru!'); }
-    else { setFeedback(`Yanlış. Doğru cevap: ${q.choices[q.correct]}`); }
+    if (isCorrect) { 
+      setScore(s => s + 1); 
+      setFeedback('Doğru!'); 
+    } else { 
+      setFeedback(`Yanlış. Doğru cevap: ${q.choices[q.correct]}`); 
+    }
+    setAnswers([...answers, selected]);
   };
 
-  const onNext = () => {
+  const onNext = async () => {
     if (idx + 1 < questions.length) {
-      setIdx(i => i + 1); setSelected(null); setFeedback('');
+      setIdx(i => i + 1); 
+      setSelected(null); 
+      setFeedback('');
     } else {
       setPhase('done');
-      try { localStorage.setItem('level5_quiz_score', String(score)); } catch {}
+      
+      // Save score to Supabase
+      if (student) {
+        try {
+          await saveScore(
+            sessionId,
+            student.id,
+            storyId,
+            5,
+            1,
+            'quiz',
+            score,
+            questions.length,
+            { answers, questions: questions.map(q => q.q) }
+          );
+
+          // Mark step as completed
+          if (onStepCompleted) {
+            await onStepCompleted({ score, maxScore: questions.length, answers });
+          }
+        } catch (err) {
+          console.error('Error saving quiz score:', err);
+        }
+      }
     }
   };
 

@@ -1,23 +1,47 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { playTts } from '../../lib/playTts';
+import { useSelector } from 'react-redux';
+import { getStepCompletionData } from '../../lib/supabase';
+import { useStepContext } from '../../contexts/StepContext';
+import type { RootState } from '../../store/store';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function L3Step3() {
+  const student = useSelector((state: RootState) => state.user.student);
+  const { sessionId, storyId } = useStepContext();
   const [result, setResult] = useState<{totalWords:number; elapsedSec:number; wpm:number; targetWPM:number} | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
 
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
+
+  // Load result from Supabase (from Step 2 completion data)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('level3_result');
-      if (raw) setResult(JSON.parse(raw));
-    } catch {}
-  }, []);
+    if (!student) return;
+
+    const loadResult = async () => {
+      try {
+        const completionData = await getStepCompletionData(student.id, storyId, 3, 2, sessionId);
+        if (completionData && completionData.totalWords !== undefined) {
+          setResult(completionData as any);
+        }
+      } catch (err) {
+        console.error('Error loading step completion data:', err);
+      }
+    };
+
+    loadResult();
+  }, [student?.id, storyId, sessionId]);
 
   const playAudio = async (audioPath: string) => {
     const el = audioRef.current;
     if (el) {
       try {
         el.src = audioPath;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         // @ts-ignore
         el.playsInline = true;
         el.muted = false;

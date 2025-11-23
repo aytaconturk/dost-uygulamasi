@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function L3Step4() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -13,10 +20,21 @@ export default function L3Step4() {
       }
     };
     if (el) {
-      try { el.src = '/src/assets/audios/level3/seviye-3-tamamlandi.mp3'; /* optional */ // @ts-ignore
+      try { el.src = '/src/assets/audios/level3/seviye-3-tamamlandi.mp3'; /* optional */
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
+        // @ts-ignore
         el.playsInline = true; el.muted = false; el.play().catch(speak); } catch { speak(); }
     } else { speak(); }
-  }, []);
+    
+    // Mark step as completed
+    if (onStepCompleted) {
+      onStepCompleted({
+        level: 3,
+        completed: true
+      });
+    }
+  }, [onStepCompleted]);
 
   const confettiPieces = useMemo(() => {
     const positions = [0,2,5,8,10,14,20,26,32,38,44,50,56,62,68,74,80,86,92,95];

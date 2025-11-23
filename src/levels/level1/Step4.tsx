@@ -1,19 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { getParagraphs, type Paragraph } from '../../data/stories';
+import { getParagraphs, type Paragraph, getStoryCategory } from '../../data/stories';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { analyzeObjectiveForStep4 } from '../../lib/level1-api';
 import type { Level1ObjectiveAnalysisResponse } from '../../types';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function Step4() {
-  const story = {
-    id: 1,
-    title: 'Oturum 1: Kır��ntıların Kahramanları',
-    description: 'Karıncalar hakkında',
-    image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
-  };
-
+  const [searchParams] = useSearchParams();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [phase, setPhase] = useState<'intro' | 'text' | 'objective'>('intro');
   const [objectiveText, setObjectiveText] = useState<string>('');
@@ -21,9 +18,24 @@ export default function Step4() {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([]);
-  const [searchParams] = useSearchParams();
+  const [categoryBasedMessage, setCategoryBasedMessage] = useState<string>('');
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
+  const { onStepCompleted, storyId: contextStoryId } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
+  
+  // Use storyId from context if available, otherwise from searchParams
+  const storyIdFromParams = Number(searchParams.get('storyId')) || 1;
+  const finalStoryId = contextStoryId || storyIdFromParams;
+  
+  const story = {
+    id: finalStoryId,
+    title: `Oturum ${finalStoryId}`,
+    description: '',
+    image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
+  };
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-4-fable.mp3';
   const navigate = useNavigate();
@@ -31,9 +43,25 @@ export default function Step4() {
   const apiCallStarted = useRef(false);
 
   useEffect(() => {
-    const paras = getParagraphs(story.id);
+    const paras = getParagraphs(finalStoryId);
     setParagraphs(paras);
-  }, [story.id]);
+    
+    // Get category-based reading objective message
+    const category = getStoryCategory(finalStoryId);
+    if (category) {
+      let message = '';
+      if (category === 'Hayvanlarla ilgili metinler') {
+        message = 'Hayvanlarla ilgili metinlerde; hayvanların yaşayışları, fiziksel özellikleri, beslenmeleri, çoğalmaları, çevreye etkileri hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
+      } else if (category === 'Bitkilerle ilgili metinler') {
+        message = 'Bitkilerle ilgili metinlerde; bitkilerin yaşam koşulları, fiziksel özellikleri, çoğalmaları, çevreye etkileri hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
+      } else if (category === 'Elektronik araçlarla ilgili metinler') {
+        message = 'Elektronik araçlarla ilgili metinlerde; elektronik araçların kullanım amaçları, fiziksel özellikleri, çalışma biçimleri, üretimleri, çevreye etkileri hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
+      } else if (category === 'Coğrafi Bölgelerle İlgili ilgili metinler') {
+        message = 'Coğrafi Bölgelerle İlgili metinlerde; coğrafi bölgelerin iklimi, bitki örtüsü, yeryüzü özellikleri, ekonomik faaliyetleri, nüfus ve yerleşmesi hakkında bilgi sahibi olmak ve metinle ilgili sorulara doğru cevap verebilmek amacıyla bu metnin okunduğunu söyler.';
+      }
+      setCategoryBasedMessage(message);
+    }
+  }, [finalStoryId]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -47,6 +75,8 @@ export default function Step4() {
     };
     if (el) {
       el.src = stepAudio;
+      // Apply playback rate
+      el.playbackRate = getPlaybackRate();
       // @ts-ignore
       el.playsInline = true;
       el.muted = false;
@@ -78,6 +108,8 @@ export default function Step4() {
     const tryMime = async (mime: string) => {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
       audioRef.current!.src = src;
+      // Apply playback rate
+      audioRef.current!.playbackRate = getPlaybackRate();
 
       // Reset progress
       setAudioProgress(0);
@@ -169,12 +201,19 @@ export default function Step4() {
     </p>
   );
 
-  const onClickTamamla = () => {
+  const onClickTamamla = async () => {
     try {
       window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
     } catch {}
-    const storyId = searchParams.get('storyId') || '1';
-    navigate(`/level/1/completion?storyId=${storyId}`);
+    
+    // Mark step as completed
+    if (onStepCompleted && objectiveText) {
+      await onStepCompleted({
+        objectiveText
+      });
+    }
+    
+    navigate(`/level/1/completion?storyId=${finalStoryId}`);
   };
 
   return (
@@ -204,9 +243,18 @@ export default function Step4() {
             )}
 
             {objectiveText && phase === 'objective' && (
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Açıklaması:</h3>
-                <p className="text-blue-700">{objectiveText}</p>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h3 className="font-bold text-blue-800 mb-2">🤖 DOST'un Açıklaması:</h3>
+                  <p className="text-blue-700">{objectiveText}</p>
+                </div>
+                
+                {categoryBasedMessage && (
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h3 className="font-bold text-green-800 mb-2">📚 Okuma Amacı:</h3>
+                    <p className="text-green-700">{categoryBasedMessage}</p>
+                  </div>
+                )}
               </div>
             )}
 

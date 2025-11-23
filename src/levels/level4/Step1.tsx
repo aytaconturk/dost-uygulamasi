@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSchema } from '../../data/schemas';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 const STORY_ID = 3;
 
@@ -8,6 +11,10 @@ export default function L4Step1() {
   const [started, setStarted] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
   const [playedAudio, setPlayedAudio] = useState(false);
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const schema = useMemo(() => getSchema(STORY_ID), []);
 
@@ -20,6 +27,8 @@ export default function L4Step1() {
     if (el) {
       try {
         el.src = audioPath;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         await el.play();
@@ -34,9 +43,17 @@ export default function L4Step1() {
     setPlayedAudio(true);
   };
 
-  const onNextSection = () => {
+  const onNextSection = async () => {
     if (currentSection < (schema?.sections.length || 0) - 1) {
       setCurrentSection(currentSection + 1);
+    } else {
+      // All sections completed
+      if (onStepCompleted) {
+        await onStepCompleted({
+          totalSections: schema?.sections.length || 0,
+          completed: true
+        });
+      }
     }
   };
 

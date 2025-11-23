@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSchema } from '../../data/schemas';
 import Countdown from '../components/Countdown';
+import { useStepContext } from '../../contexts/StepContext';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 const STORY_ID = 3;
 
@@ -9,6 +12,10 @@ export default function L4Step2() {
   const [started, setStarted] = useState(false);
   const [phase, setPhase] = useState<'intro' | 'dost-summary' | 'student-summary'>('intro');
   const [countdownActive, setCountdownActive] = useState(false);
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const schema = useMemo(() => getSchema(STORY_ID), []);
 
@@ -21,6 +28,8 @@ export default function L4Step2() {
     if (el) {
       try {
         el.src = audioPath;
+        // Apply playback rate
+        el.playbackRate = getPlaybackRate();
         // @ts-ignore
         el.playsInline = true; el.muted = false;
         await el.play();
@@ -42,8 +51,16 @@ export default function L4Step2() {
     setCountdownActive(true);
   };
 
-  const onCountdownComplete = () => {
+  const onCountdownComplete = async () => {
     setCountdownActive(false);
+    
+    // Mark step as completed
+    if (onStepCompleted) {
+      await onStepCompleted({
+        phase: 'student-summary',
+        completed: true
+      });
+    }
   };
 
   if (!schema) {

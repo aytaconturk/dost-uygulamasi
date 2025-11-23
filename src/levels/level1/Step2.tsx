@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { getRecordingDuration } from '../../components/SidebarSettings';
+import { getRecordingDuration, getPlaybackRate } from '../../components/SidebarSettings';
 import { analyzeTitleForStep2, submitChildrenVoice } from '../../lib/level1-api';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Level1TitleAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
+import { useStepContext } from '../../contexts/StepContext';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 export default function Step2() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -19,6 +21,10 @@ export default function Step2() {
   const [audioDuration, setAudioDuration] = useState(0);
   const [showIntroText, setShowIntroText] = useState(true);
   const currentStudent = useSelector((state: RootState) => state.user.student);
+  const { onStepCompleted } = useStepContext();
+  
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   const introAudio = '/src/assets/audios/level1/seviye-1-adim-2-fable.mp3';
   const story = {
@@ -86,6 +92,8 @@ export default function Step2() {
     const tryMime = async (mime: string) => {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
       audioRef.current!.src = src;
+      // Apply playback rate
+      audioRef.current!.playbackRate = getPlaybackRate();
       setMascotState('speaking');
 
       // Reset progress
@@ -208,6 +216,17 @@ export default function Step2() {
     }
   };
 
+  // Mark step as completed when both analysis and voice response are done
+  useEffect(() => {
+    if (analysisText && childrenVoiceResponse && onStepCompleted) {
+      onStepCompleted({
+        analysisText,
+        childrenVoiceResponse,
+        resumeUrl
+      });
+    }
+  }, [analysisText, childrenVoiceResponse, onStepCompleted, resumeUrl]);
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center relative mt-0">
       <audio ref={audioRef} preload="auto" />
@@ -275,7 +294,8 @@ export default function Step2() {
                   </div>
                 )}
 
-                {analysisText && !childrenVoiceResponse && (
+                {/* Only show microphone after audio is finished (mascotState === 'listening') */}
+                {analysisText && !childrenVoiceResponse && mascotState === 'listening' && (
                   <div className="text-center">
                     <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
                     <VoiceRecorder

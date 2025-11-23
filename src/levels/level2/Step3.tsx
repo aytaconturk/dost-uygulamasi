@@ -5,6 +5,8 @@ import { setSelectedGoal, setIsLoading } from '../../store/level2Slice';
 import { insertReadingGoal } from '../../lib/supabase';
 import { submitReadingGoalSelection } from '../../lib/level2-api';
 import type { RootState, AppDispatch } from '../../store/store';
+import { getPlaybackRate } from '../../components/SidebarSettings';
+import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
 const STORY_ID = 2;
 
@@ -22,6 +24,9 @@ export default function Level2Step3() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  // Apply playback rate to audio element
+  useAudioPlaybackRate(audioRef);
 
   useEffect(() => {
     const stopAll = () => {
@@ -73,6 +78,8 @@ export default function Level2Step3() {
     const tryMime = async (mime: string) => {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
       audioRef.current!.src = src;
+      // Apply playback rate
+      audioRef.current!.playbackRate = getPlaybackRate();
 
       await audioRef.current?.play();
       await new Promise<void>((resolve) => {
@@ -140,6 +147,16 @@ export default function Level2Step3() {
         } catch (err) {
           console.error('Error playing audio:', err);
         }
+      }
+
+      // Mark step as completed
+      if (onStepCompleted) {
+        await onStepCompleted({
+          selectedWpm: wpm,
+          percentage,
+          baseWpm,
+          feedback: feedback
+        });
       }
     } catch (err) {
       console.error('Error in handleGoalSelect:', err);
