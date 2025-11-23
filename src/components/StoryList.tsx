@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Lock, CheckCircle } from 'lucide-react';
 import { useReadingProgress } from '../hooks/useReadingProgress';
+import { getAppMode } from '../lib/api';
 
 interface Story {
     id: number;
@@ -15,7 +16,34 @@ export default function StoryList({ stories }: { stories: Story[] }) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [showPrev, setShowPrev] = useState(false);
     const [showNext, setShowNext] = useState(false);
-    const { getCurrentLevel, isStoryCompleted } = useReadingProgress();
+    const location = useLocation();
+    const { getCurrentLevel, isStoryCompleted, refresh } = useReadingProgress();
+    
+    // Refresh progress when navigating back to dashboard
+    useEffect(() => {
+        if (location.pathname === '/') {
+            refresh();
+        }
+    }, [location.pathname, refresh]);
+
+    // Check if a story should be locked based on previous story completion
+    // Only in prod mode - dev mode allows all stories to be unlocked
+    const isStoryLocked = (storyId: number): boolean => {
+        const appMode = getAppMode();
+        
+        // In dev mode, all stories are unlocked
+        if (appMode === 'dev') return false;
+        
+        // First story (id: 1) is always unlocked
+        if (storyId === 1) return false;
+        
+        // Check if previous story is completed
+        const previousStoryId = storyId - 1;
+        const previousStoryCompleted = isStoryCompleted(previousStoryId);
+        
+        // Lock if previous story is not completed (only in prod mode)
+        return !previousStoryCompleted;
+    };
 
     useEffect(() => {
         const checkScroll = () => {
@@ -65,8 +93,11 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                 ref={scrollRef}
                 className="flex gap-4 overflow-x-auto pb-4 px-12 scroll-smooth [&::-webkit-scrollbar]:hidden scrollbar-hide"
             >
-                {stories.map((story) => (
-                    story.locked ? (
+                {stories.map((story) => {
+                    // Check if story should be locked (either from DB or sequential lock)
+                    const shouldBeLocked = story.locked || isStoryLocked(story.id);
+                    
+                    return shouldBeLocked ? (
                         <div
                             key={story.id}
                             className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md opacity-80 blur-[1px]"
@@ -89,7 +120,7 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                     ) : (
                         <Link
                             key={story.id}
-                            to={getCurrentLevel(story.id) === 1 ? `/story/${story.id}` : `/level/${getCurrentLevel(story.id)}/step/1?storyId=${story.id}`}
+                            to={`/level/${getCurrentLevel(story.id)}/intro?storyId=${story.id}`}
                             className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md hover:scale-105 transition-transform"
                         >
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">
@@ -120,8 +151,8 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                 )}
                             </div>
                         </Link>
-                    )
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

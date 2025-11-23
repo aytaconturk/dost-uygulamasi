@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { getStudentProgress, type ReadingProgress } from '../lib/supabase';
 import type { RootState } from '../store/store';
@@ -9,9 +9,11 @@ export function useReadingProgress() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProgress = async () => {
+  const fetchProgress = useCallback(async () => {
     if (!student) {
       setLoading(false);
+      setProgress([]);
+      setError(null);
       return;
     }
 
@@ -28,11 +30,23 @@ export function useReadingProgress() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student?.id]); // Only depend on student.id, not the whole student object
 
   useEffect(() => {
     fetchProgress();
-  }, [student]);
+  }, [fetchProgress]);
+
+  // Listen for progress update events
+  useEffect(() => {
+    const handleProgressUpdate = () => {
+      fetchProgress();
+    };
+    
+    window.addEventListener('progressUpdated', handleProgressUpdate);
+    return () => {
+      window.removeEventListener('progressUpdated', handleProgressUpdate);
+    };
+  }, [fetchProgress]);
 
   const getStoryProgress = (storyId: number): ReadingProgress | undefined => {
     return progress.find(p => p.story_id === storyId);

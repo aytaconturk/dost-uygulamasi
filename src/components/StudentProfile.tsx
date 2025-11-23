@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { getStudentProgressStats } from '../lib/supabase';
 import type { RootState } from '../store/store';
@@ -9,31 +9,48 @@ export default function StudentProfile() {
   const [completedStories, setCompletedStories] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadStats = async () => {
-      if (!student) return;
+  const loadStats = useCallback(async () => {
+    if (!student) {
+      setTotalPoints(0);
+      setCompletedStories(0);
+      setLoading(false);
+      return;
+    }
 
-      try {
-        setLoading(true);
-        const stats = await getStudentProgressStats(student.id);
+    try {
+      setLoading(true);
+      const stats = await getStudentProgressStats(student.id);
 
-        if (stats) {
-          const totalPts = stats.stories.reduce(
-            (sum: number, story: any) => sum + (story.points || 0),
-            0
-          );
-          setTotalPoints(totalPts);
-          setCompletedStories(stats.completed_stories);
-        }
-      } catch (err) {
-        console.error('Error loading stats:', err);
-      } finally {
-        setLoading(false);
+      if (stats) {
+        const totalPts = stats.stories.reduce(
+          (sum: number, story: any) => sum + (story.points || 0),
+          0
+        );
+        setTotalPoints(totalPts);
+        setCompletedStories(stats.completed_stories);
       }
-    };
+    } catch (err) {
+      console.error('Error loading stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [student?.id]); // Only depend on student.id
 
+  useEffect(() => {
     loadStats();
-  }, [student]);
+  }, [loadStats]);
+
+  // Listen for progress update events
+  useEffect(() => {
+    const handleProgressUpdate = () => {
+      loadStats();
+    };
+    
+    window.addEventListener('progressUpdated', handleProgressUpdate);
+    return () => {
+      window.removeEventListener('progressUpdated', handleProgressUpdate);
+    };
+  }, [loadStats]);
 
   if (!student) return null;
 
