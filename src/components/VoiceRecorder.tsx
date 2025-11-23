@@ -247,7 +247,7 @@ export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs
   const displayTime = recordingTimeLeft !== null ? `${recordingTimeLeft}s` : '';
 
   return (
-    <div className="voice-recorder">
+    <div className="voice-recorder p-0">
       <div className="recording-controls">
         <button
           className={`record-button ${isRecording ? 'recording' : ''}`}
