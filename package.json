@@ -24,6 +24,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "framer-motion": "^12.10.5",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.511.0",
     "multer": "^2.0.2",
     "react": "^19.1.0",

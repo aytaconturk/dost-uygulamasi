@@ -14,6 +14,7 @@ import Level1Completion from './levels/level1/Completion';
 import Level2Completion from './levels/level2/Completion';
 import './index.css';
 import LevelRouter from './levels/LevelRouter';
+import MaskotTest from './pages/MaskotTest';
 import { useEffect, useState } from 'react';
 import { applyTypography } from './lib/settings';
 import { setRole, setTeacher, setStudent } from './store/userSlice';
@@ -222,6 +223,7 @@ export default function App() {
                 <div className="mx-auto w-full max-w-screen-xl px-4 py-6 md:px-8 md:py-10">
                     <Routes>
                         <Route path="/" element={<StoryList stories={stories} />} />
+                        <Route path="/maskot_test" element={<MaskotTest />} />
                         <Route path="/level/:level/intro" element={<LevelIntro />} />
                         <Route path="/level/:level/completion" element={<CompletionRouter />} />
                         <Route path="/level:level/step:step" element={<LevelRouter />} />
