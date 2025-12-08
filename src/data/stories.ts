@@ -291,6 +291,60 @@ export type ComprehensionQuestion = {
 export type ComprehensionQuestions = Record<number, ComprehensionQuestion[]>;
 
 const COMPREHENSION_QUESTIONS: ComprehensionQuestions = {
+  1: [
+    {
+      question: 'Karıncalar nasıl yaşar?',
+      options: ['Tek başlarına', 'Küçük gruplar halinde yuvalarda', 'Büyük şehirlerde', 'Sadece ağaçlarda'],
+      correctIndex: 1
+    },
+    {
+      question: 'Karıncaların kaç ayağı vardır?',
+      options: ['Dört', 'Altı', 'Sekiz', 'On'],
+      correctIndex: 1
+    },
+    {
+      question: 'Karıncalar genellikle ne yer?',
+      options: ['Et', 'Şekerli yiyecekler ve bitkiler', 'Sadece meyve', 'Sadece sebze'],
+      correctIndex: 1
+    },
+    {
+      question: 'Kraliçe karınca yılda kaç yumurta yapabilir?',
+      options: ['10 milyon', '50 milyon', '100 milyon', '5 milyon'],
+      correctIndex: 1
+    },
+    {
+      question: 'Karıncaların çevreye olumlu etkisi nedir?',
+      options: ['Toprağı havalandırır', 'Ağaçlara zarar verir', 'İnsanları ısırır', 'Hastalık yayar'],
+      correctIndex: 0
+    }
+  ],
+  2: [
+    {
+      question: 'Akıllı telefonların temel kullanım amacı nedir?',
+      options: ['Sadece oyun oynamak', 'İletişim kurmak ve bilgiye erişmek', 'Sadece fotoğraf çekmek', 'Sadece müzik dinlemek'],
+      correctIndex: 1
+    },
+    {
+      question: 'Telefonlar genellikle hangi şekildedir?',
+      options: ['Yuvarlak', 'Dikdörtgen', 'Üçgen', 'Kare'],
+      correctIndex: 1
+    },
+    {
+      question: 'Telefonlar nasıl çalışır?',
+      options: ['Sadece batarya ile', 'Elektrik enerjisi ve batarya ile', 'Sadece güneş enerjisi ile', 'Sadece rüzgar enerjisi ile'],
+      correctIndex: 1
+    },
+    {
+      question: 'Telefonlar nerede üretilir?',
+      options: ['Evde', 'Özel fabrikalarda', 'Okullarda', 'Parklarda'],
+      correctIndex: 1
+    },
+    {
+      question: 'Aşırı telefon kullanımı neye yol açabilir?',
+      options: ['Göz sağlığını etkileyebilir', 'Hiçbir şeye yol açmaz', 'Sadece iyi şeylere yol açar', 'Sadece kulak sağlığını etkiler'],
+      correctIndex: 0
+    }
+  ],
   3: [
     {
       question: 'Hurmalar hangi iklimde yetişir?',
@@ -316,6 +370,60 @@ const COMPREHENSION_QUESTIONS: ComprehensionQuestions = {
       question: 'Hurma ağacının yapraklarından ne yapılır?',
       options: ['Çay', 'Yağ', 'Reçel', 'Ekmek'],
       correctIndex: 0
+    }
+  ],
+  4: [
+    {
+      question: 'Akdeniz Bölgesi\'nde hangi iklim görülür?',
+      options: ['Karasal iklim', 'Akdeniz iklimi', 'Kutup iklimi', 'Tropikal iklim'],
+      correctIndex: 1
+    },
+    {
+      question: 'Akdeniz Bölgesi\'nin bitki örtüsü nedir?',
+      options: ['Orman', 'Maki', 'Çöl', 'Tundra'],
+      correctIndex: 1
+    },
+    {
+      question: 'Akdeniz Bölgesi\'nin yeryüzü özelliği nasıldır?',
+      options: ['Düz', 'Dağlık ve engebeli', 'Sadece ovalar', 'Sadece platolar'],
+      correctIndex: 1
+    },
+    {
+      question: 'Akdeniz Bölgesi\'nin başlıca gelir kaynağı nedir?',
+      options: ['Sadece tarım', 'Tarım ve turizm', 'Sadece sanayi', 'Sadece balıkçılık'],
+      correctIndex: 1
+    },
+    {
+      question: 'Akdeniz Bölgesi\'nin nüfusu yaklaşık kaçtır?',
+      options: ['5 milyon', '11 milyon', '20 milyon', '30 milyon'],
+      correctIndex: 1
+    }
+  ],
+  5: [
+    {
+      question: 'Develer genellikle nerede yaşar?',
+      options: ['Kutup bölgelerinde', 'Çöl ikliminde', 'Ormanlarda', 'Deniz kenarında'],
+      correctIndex: 1
+    },
+    {
+      question: 'Develer kaç hörgüçlü olabilir?',
+      options: ['Sadece tek hörgüçlü', 'Tek veya çift hörgüçlü', 'Sadece çift hörgüçlü', 'Hiç hörgüçsüz'],
+      correctIndex: 1
+    },
+    {
+      question: 'Develer ne tür hayvanlardır?',
+      options: ['Etçil', 'Otçul', 'Hem etçil hem otçul', 'Sadece meyve yiyen'],
+      correctIndex: 1
+    },
+    {
+      question: 'Develer tek seferde ne kadar su içebilir?',
+      options: ['10-20 litre', '80-90 litre', '5-10 litre', '100-150 litre'],
+      correctIndex: 1
+    },
+    {
+      question: 'Develer nasıl çoğalır?',
+      options: ['Yumurtlayarak', 'Doğurarak', 'Bölünerek', 'Tomurcuklanarak'],
+      correctIndex: 1
     }
   ]
 };

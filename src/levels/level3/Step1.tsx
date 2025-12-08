@@ -319,17 +319,34 @@ export default function L3Step1() {
         console.log('  - Endpoint: POST /dost/level3/step1');
         console.log('  - Response:', JSON.stringify(responseForLog, null, 2));
       } else {
-        // Use resumeUrl for subsequent paragraphs
+        // Use resumeUrl for subsequent paragraphs (POST with same body as first request)
         if (!resumeUrl) {
           throw new Error('Resume URL not available');
         }
         
-        console.log('📤 API Request Details:');
-        console.log('  - Endpoint: GET (resumeUrl)');
-        console.log('  - URL:', resumeUrl);
-        console.log('  - Paragraf No:', currentParagraphIdx + 1);
+        // Check if this is the last paragraph
+        const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
-        response = await getResumeResponse(resumeUrl);
+        const requestData = {
+          studentId: student.id,
+          paragrafText: paragraphText,
+          audioBase64: audioBase64,
+          isLatestParagraf: isLatestParagraf,
+          paragrafNo: currentParagraphIdx + 1, // 1-based index
+        };
+
+        // Log request without full audioBase64
+        const requestForLog = {
+          ...requestData,
+          audioBase64: `${audioBase64.substring(0, 50)}... (${audioBase64.length} chars)`
+        };
+
+        console.log('📤 API Request Details:');
+        console.log('  - Endpoint: POST (resumeUrl)');
+        console.log('  - URL:', resumeUrl);
+        console.log('  - Request Body:', JSON.stringify(requestForLog, null, 2));
+
+        response = await getResumeResponse(resumeUrl, requestData);
 
         // Log response without full audioBase64
         const responseForLog = {
@@ -338,7 +355,7 @@ export default function L3Step1() {
         };
 
         console.log('📥 API Response Details:');
-        console.log('  - Endpoint: GET (resumeUrl)');
+        console.log('  - Endpoint: POST (resumeUrl)');
         console.log('  - URL:', resumeUrl);
         console.log('  - Response:', JSON.stringify(responseForLog, null, 2));
       }

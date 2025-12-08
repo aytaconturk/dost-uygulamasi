@@ -974,6 +974,91 @@ export async function getLatestReadingGoal(
   return data.selected_wpm;
 }
 
+// ===== COMPREHENSION QUESTIONS =====
+
+export interface ComprehensionQuestion {
+  id: string;
+  story_id: number;
+  question_text: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: 'A' | 'B' | 'C' | 'D';
+  question_order: number;
+  question_audio_url: string | null;
+  correct_answer_audio_url: string | null;
+  wrong_answer_audio_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getComprehensionQuestionsByStory(storyId: number) {
+  return supabase
+    .from('comprehension_questions')
+    .select('*')
+    .eq('story_id', storyId)
+    .order('question_order', { ascending: true });
+}
+
+export async function createComprehensionQuestion(
+  storyId: number,
+  questionText: string,
+  optionA: string,
+  optionB: string,
+  optionC: string,
+  optionD: string,
+  correctOption: 'A' | 'B' | 'C' | 'D',
+  questionOrder: number,
+  questionAudioUrl?: string | null,
+  correctAnswerAudioUrl?: string | null,
+  wrongAnswerAudioUrl?: string | null
+) {
+  return supabase
+    .from('comprehension_questions')
+    .insert({
+      story_id: storyId,
+      question_text: questionText,
+      option_a: optionA,
+      option_b: optionB,
+      option_c: optionC,
+      option_d: optionD,
+      correct_option: correctOption,
+      question_order: questionOrder,
+      question_audio_url: questionAudioUrl || null,
+      correct_answer_audio_url: correctAnswerAudioUrl || null,
+      wrong_answer_audio_url: wrongAnswerAudioUrl || null,
+    });
+}
+
+export async function updateComprehensionQuestion(
+  questionId: string,
+  updates: Partial<{
+    question_text: string;
+    option_a: string;
+    option_b: string;
+    option_c: string;
+    option_d: string;
+    correct_option: 'A' | 'B' | 'C' | 'D';
+    question_order: number;
+    question_audio_url: string | null;
+    correct_answer_audio_url: string | null;
+    wrong_answer_audio_url: string | null;
+  }>
+) {
+  return supabase
+    .from('comprehension_questions')
+    .update(updates)
+    .eq('id', questionId);
+}
+
+export async function deleteComprehensionQuestion(questionId: string) {
+  return supabase
+    .from('comprehension_questions')
+    .delete()
+    .eq('id', questionId);
+}
+
 // ===== STEP COMPLETION DATA HELPERS =====
 
 export async function getStepCompletionData(

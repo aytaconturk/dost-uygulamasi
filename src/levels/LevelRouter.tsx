@@ -18,7 +18,6 @@ import L3Step3 from './level3/Step3';
 import L3Step4 from './level3/Step4';
 import L4Step1 from './level4/Step1';
 import L4Step2 from './level4/Step2';
-import L4Step3 from './level4/Step3';
 import L4Step4 from './level4/Step4';
 import L5Step1 from './level5/Step1';
 import L5Step2 from './level5/Step2';
@@ -44,7 +43,7 @@ const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 5,
   2: 3,
   3: 4,
-  4: 4,
+  4: 3,
   5: 3,
 };
 
@@ -71,7 +70,6 @@ const LEVEL3_TITLES = [
 const LEVEL4_TITLES = [
   '1. Adım: Dolu Şema Üzerinden Beyin Fırtınası ve Yorum',
   '2. Adım: Özetleme',
-  '3. Adım: Okuduğunu Anlama Soruları',
   'Tamamlama',
 ];
 
@@ -227,9 +225,14 @@ export default function LevelRouter() {
           // Navigate to next level intro screen
           navigate(`/level/${nextLevel}/intro?storyId=${storyId}`);
         } else {
-          // All levels completed, go to dashboard
+          // All levels completed (level 5), go to story completion screen
           await updateStudentProgressStep(student.id, storyId, level, step);
-          navigate('/');
+          // Mark story as completed
+          if (sessionId) {
+            await completeStory(student.id, storyId);
+            await logStudentAction(sessionId, student.id, 'story_completed', storyId, level, step);
+          }
+          navigate(`/story/${storyId}/completion`);
         }
       } else {
         // Not last step, just move to next step
@@ -307,8 +310,7 @@ export default function LevelRouter() {
   } else if (level === 4) {
     if (step === 1) content = <L4Step1 />;
     else if (step === 2) content = <L4Step2 />;
-    else if (step === 3) content = <L4Step3 />;
-    else if (step === 4) content = <L4Step4 />;
+    else if (step === 3) content = <L4Step4 />;
   } else if (level === 5) {
     if (step === 1) content = <L5Step1 />;
     else if (step === 2) content = <L5Step2 />;
@@ -372,8 +374,8 @@ export default function LevelRouter() {
         totalSteps={totalSteps}
         onPrev={onPrev}
         onNext={onNext}
-        hideNext={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
-        hideFooter={(level === 1 && (step === 4 || step === 5)) || (level === 4 && step === 4)}
+        hideNext={step === totalSteps} // Hide Next button on last step (Tamamla button will be shown instead)
+        hideFooter={false} // Always show footer on last step to show Tamamla button
         disableNext={!canProceed}
         stepCompleted={stepCompleted}
         onStepCompleted={handleStepCompleted}

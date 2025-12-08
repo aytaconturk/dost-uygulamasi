@@ -11,14 +11,15 @@ export default function L4Step1() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
-  const [playedAudio, setPlayedAudio] = useState(false);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
-  const { onStepCompleted } = useStepContext();
+  const [isPlayingSectionAudio, setIsPlayingSectionAudio] = useState(false);
+  const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(STORY_ID), []);
+  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
   const appMode = getAppMode();
 
   const instruction = 'Şimdi dördüncü seviyeye geçiyoruz. Bu seviyede okuma öncesinde metni gözden geçirirken yaptığımız tahminlerimiz ve belirlediğimiz okuma amacımız doğru muymuş? Bunları düşünerek şemada yer alan bilgileri numara sırasına göre oku.';
@@ -28,7 +29,6 @@ export default function L4Step1() {
     const playIntroAudio = () => {
       const el = audioRef.current;
       if (!el) {
-        // Retry if audio element not ready yet
         setTimeout(playIntroAudio, 100);
         return;
       }
@@ -37,10 +37,8 @@ export default function L4Step1() {
       el.src = '/audios/level4/seviye-4-adim-1.mp3';
       (el as any).playsInline = true;
       el.muted = false;
-      // Apply playback rate
       el.playbackRate = getPlaybackRate();
       
-      // Wait for audio to be ready
       const handleCanPlay = () => {
         console.log('✅ Audio can play, readyState:', el.readyState);
         el.play().then(() => {
@@ -66,17 +64,13 @@ export default function L4Step1() {
       el.addEventListener('ended', handleEnded, { once: true });
       el.addEventListener('error', handleError, { once: true });
 
-      // If already loaded, play immediately
       if (el.readyState >= 2) {
-        console.log('✅ Audio already loaded, playing immediately');
         handleCanPlay();
       } else {
-        // Load the audio
         el.load();
       }
     };
 
-    // Start after a small delay to ensure audio element is mounted and hook has applied playback rate
     const timeoutId = setTimeout(playIntroAudio, 200);
 
     const stopAll = () => {
@@ -99,19 +93,71 @@ export default function L4Step1() {
     };
   }, []);
 
-  const playAudio = async (audioPath: string) => {
-    const el = audioRef.current;
-    if (el) {
+  // Play section audio when currentSection changes
+  useEffect(() => {
+    if (!started || !schema || currentSection >= schema.sections.length) return;
+
+    const playSectionAudio = async () => {
+      const el = audioRef.current;
+      if (!el) return;
+
+      const section = schema.sections[currentSection];
+      const audioPath = `/audios/level4/schema-${storyId || STORY_ID}-${section.id}.mp3`;
+      
+      console.log(`🎵 Playing section ${currentSection + 1} audio:`, audioPath);
+      setIsPlayingSectionAudio(true);
+
+      el.src = audioPath;
+      el.playbackRate = getPlaybackRate();
+      (el as any).playsInline = true;
+      el.muted = false;
+
+      const handleEnded = () => {
+        console.log(`✅ Section ${currentSection + 1} audio finished`);
+        setIsPlayingSectionAudio(false);
+        setCompletedSections(prev => new Set([...prev, currentSection]));
+        
+        // Auto-advance to next section after a short delay
+        if (currentSection < schema.sections.length - 1) {
+          setTimeout(() => {
+            setCurrentSection(currentSection + 1);
+          }, 1000);
+        } else {
+          // All sections completed
+          if (onStepCompleted) {
+            onStepCompleted({
+              totalSections: schema.sections.length,
+              completed: true
+            });
+          }
+        }
+      };
+
+      const handleError = (e: Event) => {
+        console.error(`❌ Section ${currentSection + 1} audio error:`, e);
+        setIsPlayingSectionAudio(false);
+        // Continue even if audio fails
+        setCompletedSections(prev => new Set([...prev, currentSection]));
+        if (currentSection < schema.sections.length - 1) {
+          setTimeout(() => {
+            setCurrentSection(currentSection + 1);
+          }, 1000);
+        }
+      };
+
+      el.addEventListener('ended', handleEnded, { once: true });
+      el.addEventListener('error', handleError, { once: true });
+
       try {
-        el.src = audioPath;
-        // Apply playback rate
-        el.playbackRate = getPlaybackRate();
-        // @ts-ignore
-        el.playsInline = true; el.muted = false;
         await el.play();
-      } catch {}
-    }
-  };
+      } catch (err) {
+        console.error('Error playing section audio:', err);
+        handleError(new Event('error'));
+      }
+    };
+
+    playSectionAudio();
+  }, [started, currentSection, schema, storyId, onStepCompleted]);
 
   const startFlow = async () => {
     // Stop intro audio if still playing
@@ -123,22 +169,27 @@ export default function L4Step1() {
     }
 
     setStarted(true);
-    setPlayedAudio(false);
-    await playAudio('/src/assets/audios/level4/level4-step1-intro.mp3');
-    setPlayedAudio(true);
+    setCurrentSection(0);
+    setCompletedSections(new Set());
   };
 
-  const onNextSection = async () => {
-    if (currentSection < (schema?.sections.length || 0) - 1) {
+  const onNextSection = () => {
+    if (currentSection < (schema?.sections.length || 0) - 1 && !isPlayingSectionAudio) {
       setCurrentSection(currentSection + 1);
-    } else {
-      // All sections completed
-      if (onStepCompleted) {
-        await onStepCompleted({
-          totalSections: schema?.sections.length || 0,
-          completed: true
-        });
-      }
+    }
+  };
+
+  const onReplaySection = () => {
+    if (!isPlayingSectionAudio && schema) {
+      setCompletedSections(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(currentSection);
+        return newSet;
+      });
+      // Trigger re-play by resetting current section
+      const tempSection = currentSection;
+      setCurrentSection(-1);
+      setTimeout(() => setCurrentSection(tempSection), 100);
     }
   };
 
@@ -186,49 +237,81 @@ export default function L4Step1() {
           <div className="mb-8">
             <h3 className="text-xl font-bold text-center mb-8 text-gray-800">{schema.title}</h3>
             
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              {schema.sections.map((section, idx) => (
-                <div
-                  key={section.id}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    idx === currentSection
-                      ? 'border-purple-500 bg-purple-50 scale-105'
-                      : idx < currentSection
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-300 bg-gray-50 opacity-60'
-                  }`}
-                >
-                  <h4 className="font-bold text-purple-800 mb-3">{section.title}</h4>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    {section.items.map((item, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="font-bold text-purple-600">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+            {/* Progress indicator */}
+            <div className="mb-6 text-center">
+              <div className="inline-flex items-center gap-2 bg-purple-100 px-4 py-2 rounded-full">
+                <span className="text-sm font-semibold text-purple-800">
+                  Şematik {currentSection + 1} / {schema.sections.length}
+                </span>
+                {isPlayingSectionAudio && (
+                  <div className="flex items-center gap-2 text-purple-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                    <span className="text-xs">DOST okuyor...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {schema.sections.map((section, idx) => {
+                const isCurrent = idx === currentSection;
+                const isCompleted = completedSections.has(idx);
+                const isFuture = idx > currentSection;
+                
+                return (
+                  <div
+                    key={section.id}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      isCurrent && isPlayingSectionAudio
+                        ? 'border-purple-500 bg-purple-50 scale-105 shadow-lg'
+                        : isCurrent
+                        ? 'border-purple-500 bg-purple-50 scale-105'
+                        : isCompleted
+                        ? 'border-green-500 bg-green-50'
+                        : isFuture
+                        ? 'border-gray-300 bg-gray-50 opacity-60'
+                        : 'border-gray-300 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-bold text-purple-800">{section.title}</h4>
+                      {isCompleted && (
+                        <span className="text-green-600 text-xl">✓</span>
+                      )}
+                      {isCurrent && isPlayingSectionAudio && (
+                        <span className="text-purple-600 animate-pulse">🔊</span>
+                      )}
+                    </div>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      {section.items.map((item, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="font-bold text-purple-600">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
             </div>
 
-            {playedAudio && (
-              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-6">
-                <p className="text-center text-gray-800 font-semibold">
-                  {currentSection < schema.sections.length
-                    ? `${schema.sections[currentSection].title} hakkında neler ��ğrendin? DOST'un sorularını cevaplayabilirsin.`
-                    : 'Tüm şemaları inceledik! Harika!'}
-                </p>
-              </div>
-            )}
-
+            {/* Controls */}
             <div className="flex justify-center gap-4">
               <button
-                onClick={onNextSection}
-                disabled={currentSection >= schema.sections.length - 1}
-                className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold"
+                onClick={onReplaySection}
+                disabled={isPlayingSectionAudio}
+                className="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold"
               >
-                Sonraki Bölüm
+                🔄 Tekrar Oynat
               </button>
+              {!isPlayingSectionAudio && currentSection < schema.sections.length - 1 && (
+                <button
+                  onClick={onNextSection}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-bold"
+                >
+                  Sonraki Şematik →
+                </button>
+              )}
             </div>
           </div>
         </div>

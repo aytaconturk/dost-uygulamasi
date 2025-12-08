@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Lock, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { useReadingProgress } from '../hooks/useReadingProgress';
 import { getAppMode } from '../lib/api';
 
@@ -130,8 +130,8 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                     className="w-full h-full object-cover"
                                 />
                                 {isStoryCompleted(story.id) ? (
-                                    <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
-                                        <CheckCircle size={24} className="text-white" />
+                                    <div className="absolute top-2 right-2 bg-green-500 rounded-full p-2 shadow-lg">
+                                        <span className="text-2xl">⭐</span>
                                     </div>
                                 ) : (
                                     <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">

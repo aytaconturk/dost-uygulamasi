@@ -10,7 +10,7 @@ export default function Step4() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
   const { onStepCompleted } = useStepContext();
-  const completionAudio = '/src/assets/audios/level4/level4-step4-completion.mp3';
+  const completionAudio = '/audios/level4/seviye-4-tamamlandi.mp3';
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -24,20 +24,13 @@ export default function Step4() {
           // Apply playback rate
           el.playbackRate = getPlaybackRate();
           // @ts-ignore
-          el.playsInline = true; el.muted = false;
+          el.playsInline = true; 
+          el.muted = false;
           await el.play();
-        } catch {
-          speakTTS();
+        } catch (err) {
+          console.error('Error playing completion audio:', err);
+          // Text-to-speech removed as requested
         }
-      } else {
-        speakTTS();
-      }
-    };
-
-    const speakTTS = () => {
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance(completionText);
-        u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; window.speechSynthesis.speak(u);
       }
     };
 

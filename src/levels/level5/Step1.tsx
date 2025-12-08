@@ -1,161 +1,423 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { getParagraphs, paragraphToPlain } from '../../data/stories';
-import { saveScore } from '../../lib/supabase';
+import { useEffect, useRef, useState } from 'react';
+import { getComprehensionQuestions } from '../../data/stories';
+import { getComprehensionQuestionsByStory, type ComprehensionQuestion } from '../../lib/supabase';
 import { useStepContext } from '../../contexts/StepContext';
-import type { RootState } from '../../store/store';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { playSoundEffect } from '../../lib/soundEffects';
 
-interface Q {
-  q: string;
-  choices: string[];
-  correct: number;
+interface QuestionData {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  questionAudioUrl?: string | null;
+  correctAnswerAudioUrl?: string | null;
+  wrongAnswerAudioUrl?: string | null;
 }
 
 export default function L5Step1() {
-  const student = useSelector((state: RootState) => state.user.student);
-  const { sessionId, storyId, onStepCompleted } = useStepContext();
-  const story = { id: storyId, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [phase, setPhase] = useState<'intro'|'quiz'|'done'>('intro');
+  const [started, setStarted] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [feedback, setFeedback] = useState<string>('');
+  const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [questions, setQuestions] = useState<QuestionData[]>([]);
+  const [playingQuestionAudio, setPlayingQuestionAudio] = useState(false);
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
-  const [idx, setIdx] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [score, setScore] = useState(0);
-  const [feedback, setFeedback] = useState<string>('');
-  const [answers, setAnswers] = useState<number[]>([]);
 
-  const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
-  const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
+  // Load questions from Supabase, fallback to static data
+  useEffect(() => {
+    const loadQuestions = async () => {
+      setLoadingQuestions(true);
+      try {
+        const { data: supabaseQuestions, error } = await getComprehensionQuestionsByStory(storyId || 3);
+        
+        if (!error && supabaseQuestions && supabaseQuestions.length > 0) {
+          // Convert Supabase questions to QuestionData format
+          const convertedQuestions: QuestionData[] = supabaseQuestions.map((q: ComprehensionQuestion) => ({
+            question: q.question_text,
+            options: [q.option_a, q.option_b, q.option_c, q.option_d],
+            correctIndex: q.correct_option === 'A' ? 0 : q.correct_option === 'B' ? 1 : q.correct_option === 'C' ? 2 : 3,
+            questionAudioUrl: q.question_audio_url,
+            correctAnswerAudioUrl: q.correct_answer_audio_url,
+            wrongAnswerAudioUrl: q.wrong_answer_audio_url,
+          }));
+          setQuestions(convertedQuestions);
+        } else {
+          // Fallback to static questions
+          const staticQuestions = getComprehensionQuestions(storyId || 3);
+          setQuestions(staticQuestions.map(q => ({
+            question: q.question,
+            options: q.options,
+            correctIndex: q.correctIndex,
+          })));
+        }
+      } catch (err) {
+        console.error('Error loading questions:', err);
+        // Fallback to static questions
+        const staticQuestions = getComprehensionQuestions(storyId || 3);
+        setQuestions(staticQuestions.map(q => ({
+          question: q.question,
+          options: q.options,
+          correctIndex: q.correctIndex,
+        })));
+      } finally {
+        setLoadingQuestions(false);
+      }
+    };
 
-  // Basit 5 soru - metinden türetilmiş
-  const questions: Q[] = useMemo(() => [
-    { q: 'Hurma ağacı en çok hangi iklimde yetişir?', choices: ['Ilıman iklim','Soğuk iklim','Çöl iklimi','Yağmurlu iklim'], correct: 2 },
-    { q: 'Hurma ağacının meyveleri nerede bulunur?', choices: ['Köklerde','Dallarında salkım halinde','Toprak altında','Gövde içinde'], correct: 1 },
-    { q: 'Hurma ağacı hangi ağaca benzer?', choices: ['Meşe','Palmiye','Çam','Kayın'], correct: 1 },
-    { q: 'Hurma ağacı nasıl çoğalabilir?', choices: ['Sadece aşı ile','Sadece tohumla','Sadece filizle','Tohum veya gövdeden çıkan filizlerle'], correct: 3 },
-    { q: 'Aşırı hurma tüketimi neye yol açabilir?', choices: ['Uyku hali','Baş ağrısı','Diş çürümesi','Mide yanması'], correct: 1 },
-  ], []);
-
-  const speak = (text: string, onend?: () => void) => {
-    if (!('speechSynthesis' in window)) { onend?.(); return; }
-    try { window.speechSynthesis.cancel(); } catch {}
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; u.onend = () => onend?.();
-    window.speechSynthesis.speak(u);
-  };
-
-  const introText = 'Beşinci seviyeye geçiyoruz. Şimdi sana metinle ilgili 5 tane okuduğunu anlama sorusu soracağım ve cevaplarının doğruluğunu kontrol edeceğim. Sen cevap vermeden diğer soruya geçmeyeceğim. Başlıyorum.';
+    loadQuestions();
+  }, [storyId]);
 
   useEffect(() => {
-    // Autoplay instruction audio, then show quiz
-    const el = audioRef.current;
-    const proceed = () => setPhase('quiz');
-    let attached = false;
-    if (el) {
-      try {
-        el.src = '/src/assets/audios/level5/seviye-5-adim-1.mp3';
-        // Apply playback rate
-        el.playbackRate = getPlaybackRate();
-        // @ts-ignore
-        el.playsInline = true; el.muted = false;
-        el.play()
-          .then(() => { el.addEventListener('ended', proceed, { once: true }); attached = true; })
-          .catch(() => speak(introText, proceed));
-      } catch {
-        speak(introText, proceed);
-      }
-    } else {
-      speak(introText, proceed);
-    }
-    return () => { if (attached) try { el?.removeEventListener('ended', proceed as any); } catch {} };
+    return () => { try { window.speechSynthesis.cancel(); } catch {} };
   }, []);
 
-  const onSelect = (i: number) => setSelected(i);
+  // Play intro audio on mount
+  useEffect(() => {
+    const playIntroAudio = () => {
+      const el = audioRef.current;
+      if (!el) {
+        setTimeout(playIntroAudio, 100);
+        return;
+      }
 
-  const onConfirm = () => {
-    if (selected == null) return;
-    const q = questions[idx];
-    const isCorrect = selected === q.correct;
-    if (isCorrect) { 
-      setScore(s => s + 1); 
-      setFeedback('Doğru!'); 
-    } else { 
-      setFeedback(`Yanlış. Doğru cevap: ${q.choices[q.correct]}`); 
+      console.log('🎵 Setting up intro audio:', '/audios/level5/seviye-5-adim-1.mp3');
+      el.src = '/audios/level5/seviye-5-adim-1.mp3';
+      (el as any).playsInline = true;
+      el.muted = false;
+      el.playbackRate = getPlaybackRate();
+      
+      const handleCanPlay = () => {
+        console.log('✅ Audio can play, readyState:', el.readyState);
+        el.play().then(() => {
+          console.log('✅ Intro audio started playing');
+          setIntroAudioPlaying(true);
+        }).catch((err) => {
+          console.error('❌ Error playing intro audio:', err);
+          setIntroAudioPlaying(false);
+        });
+      };
+
+      const handleEnded = () => {
+        console.log('✅ Intro audio finished');
+        setIntroAudioPlaying(false);
+      };
+
+      const handleError = (e: Event) => {
+        console.error('❌ Intro audio error:', e, el.error);
+        setIntroAudioPlaying(false);
+      };
+
+      el.addEventListener('canplay', handleCanPlay, { once: true });
+      el.addEventListener('ended', handleEnded, { once: true });
+      el.addEventListener('error', handleError, { once: true });
+
+      if (el.readyState >= 2) {
+        handleCanPlay();
+      } else {
+        el.load();
+      }
+    };
+
+    const timeoutId = setTimeout(playIntroAudio, 200);
+
+    const stopAll = () => {
+      try {
+        audioRef.current?.pause();
+      } catch {}
+    };
+    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
+      try { 
+        window.speechSynthesis.cancel(); 
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+      } catch {} 
+    };
+  }, []);
+
+  // Mark step as completed when all questions are answered
+  useEffect(() => {
+    if (answers.length === questions.length && onStepCompleted) {
+      const correctCount = answers.filter(
+        (ans, idx) => ans === questions[idx].correctIndex
+      ).length;
+      
+      onStepCompleted({
+        totalQuestions: questions.length,
+        correctCount,
+        answers
+      });
     }
-    setAnswers([...answers, selected]);
+  }, [answers.length, questions.length, onStepCompleted, answers, questions]);
+
+  const playAudio = async (audioPath: string) => {
+    const el = audioRef.current;
+    if (el) {
+      try {
+        el.src = audioPath;
+        el.playbackRate = getPlaybackRate();
+        (el as any).playsInline = true; 
+        el.muted = false;
+        await el.play();
+      } catch {}
+    }
   };
 
-  const onNext = async () => {
-    if (idx + 1 < questions.length) {
-      setIdx(i => i + 1); 
-      setSelected(null); 
-      setFeedback('');
-    } else {
-      setPhase('done');
-      
-      // Save score to Supabase
-      if (student) {
-        try {
-          await saveScore(
-            sessionId,
-            student.id,
-            storyId,
-            5,
-            1,
-            'quiz',
-            score,
-            questions.length,
-            { answers, questions: questions.map(q => q.q) }
-          );
+  const startFlow = async () => {
+    // Stop intro audio if still playing
+    const el = audioRef.current;
+    if (el && introAudioPlaying) {
+      el.pause();
+      el.currentTime = 0;
+      setIntroAudioPlaying(false);
+    }
 
-          // Mark step as completed
-          if (onStepCompleted) {
-            await onStepCompleted({ score, maxScore: questions.length, answers });
-          }
-        } catch (err) {
-          console.error('Error saving quiz score:', err);
-        }
+    setStarted(true);
+    
+    // Play first question audio if available
+    if (questions.length > 0 && questions[0].questionAudioUrl) {
+      await playQuestionAudio(questions[0].questionAudioUrl);
+    }
+  };
+
+  const playQuestionAudio = async (audioUrl: string) => {
+    const el = audioRef.current;
+    if (!el || !audioUrl) return;
+
+    setPlayingQuestionAudio(true);
+    try {
+      el.src = audioUrl;
+      el.playbackRate = getPlaybackRate();
+      (el as any).playsInline = true;
+      el.muted = false;
+      await el.play();
+      
+      // Wait for audio to finish
+      await new Promise<void>((resolve) => {
+        const handleEnded = () => {
+          el.removeEventListener('ended', handleEnded);
+          resolve();
+        };
+        el.addEventListener('ended', handleEnded, { once: true });
+      });
+    } catch (err) {
+      console.error('Error playing question audio:', err);
+    } finally {
+      setPlayingQuestionAudio(false);
+    }
+  };
+
+  const onSubmitAnswer = async () => {
+    if (selectedAnswer === null) return;
+
+    const question = questions[currentQuestion];
+    const isCorrect = selectedAnswer === question.correctIndex;
+
+    setAnswers([...answers, selectedAnswer]);
+
+    if (isCorrect) {
+      setFeedback('✓ Çok iyi! Cevap doğru!');
+      // Play correct answer audio if available, otherwise play success sound
+      if (question.correctAnswerAudioUrl) {
+        await playQuestionAudio(question.correctAnswerAudioUrl);
+      } else {
+        await playSoundEffect('success');
+      }
+    } else {
+      const correctOption = question.options[question.correctIndex];
+      setFeedback(`✗ Maalesef yanlış. Doğru cevap: "${correctOption}"`);
+      // Play wrong answer audio if available, otherwise play error sound
+      if (question.wrongAnswerAudioUrl) {
+        await playQuestionAudio(question.wrongAnswerAudioUrl);
+      } else {
+        await playSoundEffect('error');
       }
     }
+
+    setSelectedAnswer(null);
+
+    setTimeout(async () => {
+      if (currentQuestion < questions.length - 1) {
+        const nextQuestionIdx = currentQuestion + 1;
+        setCurrentQuestion(nextQuestionIdx);
+        setFeedback('');
+        
+        // Play next question audio if available
+        if (questions[nextQuestionIdx]?.questionAudioUrl) {
+          await playQuestionAudio(questions[nextQuestionIdx].questionAudioUrl);
+        }
+      }
+    }, 2000);
   };
 
+  if (loadingQuestions) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+        <p className="text-lg text-gray-600">Sorular yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-lg text-gray-600">Sorular bulunamadı</p>
+      </div>
+    );
+  }
+
+  if (answers.length === questions.length) {
+    const correctCount = answers.filter(
+      (ans, idx) => ans === questions[idx].correctIndex
+    ).length;
+
+    return (
+      <div className="w-full max-w-5xl mx-auto">
+        <div className="bg-white rounded-xl shadow p-8 text-center space-y-4">
+          <h3 className="text-2xl font-bold text-purple-800">Sorular Tamamlandı!</h3>
+          <p className="text-lg text-gray-700">
+            {correctCount} / {questions.length} soruya doğru cevap verdin.
+          </p>
+          {correctCount === questions.length && (
+            <p className="text-xl text-green-600 font-bold">Mükemmel! Tüm soruları doğru yanıtladın! 🎉</p>
+          )}
+          {correctCount >= questions.length - 1 && correctCount < questions.length && (
+            <p className="text-lg text-blue-600">Çok iyi başarı! Biraz daha pratik yapabilirsin.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto">
       <audio ref={audioRef} preload="auto" />
-      <h2 className="text-2xl font-bold text-purple-800 mb-3">1. Adım: Okuduğunu anlama soruları</h2>
+      <div className="flex flex-col items-center justify-center gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-purple-800">1. Adım: Okuduğunu Anlama Soruları</h2>
+        {!started && (
+          <>
+            <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mb-4">
+              <p className="text-gray-700 text-left leading-relaxed">
+                Beşinci seviyeye geçiyoruz. Şimdi sana metinle ilgili {questions.length} tane okuduğunu anlama sorusu soracağım ve cevaplarının doğruluğunu kontrol edeceğim. Sen cevap vermeden diğer soruya geçmeyeceğim. Başlıyorum.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              {introAudioPlaying ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
+                  <p className="text-gray-600">Ses çalınıyor...</p>
+                </div>
+              ) : (
+                <button 
+                  onClick={startFlow} 
+                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+                >
+                  Başla
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
-      {phase === 'intro' && (
-        <div className="bg-white rounded-xl shadow p-5">
-          <p className="text-gray-800 text-lg">{introText}</p>
-        </div>
-      )}
-
-      {phase === 'quiz' && (
-        <div className="bg-white rounded-xl shadow p-5">
-          <p className="text-gray-800 font-semibold">Soru {idx + 1} / {questions.length}</p>
-          <p className="text-lg text-gray-900 mt-2">{questions[idx].q}</p>
-          <div className="mt-3 grid gap-2">
-            {questions[idx].choices.map((c, i) => (
-              <label key={i} className={`flex items-center gap-2 border rounded p-2 cursor-pointer ${selected === i ? 'bg-purple-50 border-purple-400' : 'border-gray-300'}`}>
-                <input type="radio" name="choice" checked={selected === i} onChange={() => onSelect(i)} />
-                <span>{c}</span>
-              </label>
-            ))}
+      {started && (
+        <div className="bg-white rounded-xl shadow p-8">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-purple-800">
+                Soru {currentQuestion + 1} / {questions.length}
+              </h3>
+              <div className="text-sm text-gray-600">
+                <span className="font-bold text-green-600">{answers.length}</span> / {questions.length} tamamlandı
+              </div>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="mt-4 flex items-center gap-3">
-            <button onClick={onConfirm} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Onayla</button>
-            <button onClick={onNext} disabled={feedback === ''} className="bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white px-4 py-2 rounded">Sonraki</button>
-            {feedback && <span className={`ml-2 ${feedback.startsWith('Doğru') ? 'text-green-600' : 'text-red-600'}`}>{feedback}</span>}
+
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xl font-semibold text-gray-800">
+                {questions[currentQuestion].question}
+              </h4>
+              {questions[currentQuestion].questionAudioUrl && (
+                <button
+                  onClick={() => playQuestionAudio(questions[currentQuestion].questionAudioUrl!)}
+                  disabled={playingQuestionAudio}
+                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg text-sm"
+                >
+                  {playingQuestionAudio ? '⏳ Çalınıyor...' : '🔊 Soruyu Dinle'}
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {questions[currentQuestion].options.map((option, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedAnswer(idx)}
+                  disabled={feedback !== ''}
+                  className={`w-full p-4 text-left rounded-lg border-2 transition-all font-medium ${
+                    selectedAnswer === idx
+                      ? 'border-purple-500 bg-purple-50'
+                      : feedback !== '' && idx === questions[currentQuestion].correctIndex
+                      ? 'border-green-500 bg-green-50'
+                      : feedback !== '' && idx === selectedAnswer
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-300 hover:border-purple-300 bg-white'
+                  } ${feedback !== '' ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold ${
+                      selectedAnswer === idx
+                        ? 'border-purple-500 bg-purple-500 text-white'
+                        : 'border-gray-300'
+                    }`}>
+                      {String.fromCharCode(65 + idx)}
+                    </div>
+                    <span>{option}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {feedback && (
+              <div className={`p-4 rounded-lg font-semibold text-center ${
+                feedback.startsWith('✓')
+                  ? 'bg-green-100 border-2 border-green-500 text-green-700'
+                  : 'bg-red-100 border-2 border-red-500 text-red-700'
+              }`}>
+                {feedback}
+              </div>
+            )}
+
+            <button
+              onClick={onSubmitAnswer}
+              disabled={selectedAnswer === null || feedback !== ''}
+              className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold mt-6"
+            >
+              Cevap Gönder
+            </button>
           </div>
         </div>
-      )}
-
-      {phase === 'done' && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded">Sorular tamamlandı. Doğru sayısı: {score} / {questions.length}</div>
       )}
     </div>
   );

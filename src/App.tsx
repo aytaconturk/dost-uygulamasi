@@ -14,6 +14,7 @@ import Level1Completion from './levels/level1/Completion';
 import Level2Completion from './levels/level2/Completion';
 import './index.css';
 import LevelRouter from './levels/LevelRouter';
+import StoryCompletion from './components/StoryCompletion';
 import MaskotTest from './pages/MaskotTest';
 import { useEffect, useState } from 'react';
 import { applyTypography } from './lib/settings';
@@ -229,6 +230,7 @@ export default function App() {
                         <Route path="/level:level/step:step" element={<LevelRouter />} />
                         <Route path="/level/:level/step/:step" element={<LevelRouter />} />
                         <Route path="/story/:id/read" element={<ReadingScreen stories={stories} />} />
+                        <Route path="/story/:id/completion" element={<StoryCompletion />} />
                     </Routes>
                 </div>
             </div>

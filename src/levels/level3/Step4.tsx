@@ -11,21 +11,7 @@ export default function L3Step4() {
   useAudioPlaybackRate(audioRef);
 
   useEffect(() => {
-    const el = audioRef.current;
-    const completionText = '3. seviyeyi tamamladın, tebrikler!';
-    const speak = () => {
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance(completionText);
-        u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; window.speechSynthesis.speak(u);
-      }
-    };
-    if (el) {
-      try { el.src = '/src/assets/audios/level3/seviye-3-tamamlandi.mp3'; /* optional */
-        // Apply playback rate
-        el.playbackRate = getPlaybackRate();
-        // @ts-ignore
-        el.playsInline = true; el.muted = false; el.play().catch(speak); } catch { speak(); }
-    } else { speak(); }
+    // No audio playback - as requested
     
     // Mark step as completed
     if (onStepCompleted) {

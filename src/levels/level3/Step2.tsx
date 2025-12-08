@@ -31,6 +31,15 @@ export default function L3Step2() {
   const [introAudioPlayed, setIntroAudioPlayed] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   
+  // Microphone recording state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(180); // 3 minutes default
+  const [countdownStartTime, setCountdownStartTime] = useState<number | null>(null);
+  
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -62,6 +71,13 @@ export default function L3Step2() {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
+      // Cleanup microphone
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
@@ -69,7 +85,8 @@ export default function L3Step2() {
     if (!introAudioPlayed && phase === 'intro' && audioRef.current) {
       const playIntroAudio = async () => {
         try {
-          audioRef.current!.src = '/src/assets/audios/level3/seviye-3-adim-2.mp3';
+          audioRef.current!.src = '/audios/level3/seviye-3-adim-2.mp3';
+          audioRef.current!.playbackRate = getPlaybackRate();
           // @ts-ignore
           audioRef.current.playsInline = true;
           audioRef.current.muted = false;
@@ -99,16 +116,41 @@ export default function L3Step2() {
     }
   }, [introAudioPlayed, phase]);
 
-  const playBeep = () => {
-    const el = audioRef.current;
-    if (!el) return;
-    try {
-      el.src = '/src/assets/audios/level3/simdi-sira-sende.mp3';
-      // Apply playback rate
-      el.playbackRate = getPlaybackRate();
-      // @ts-ignore
-      el.playsInline = true; el.muted = false; el.play().catch(() => {});
-    } catch {}
+
+  const playBeep = async () => {
+    return new Promise<void>((resolve) => {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 1000; // 1000Hz beep
+      oscillator.type = 'sine';
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+
+      setTimeout(resolve, 100);
+    });
+  };
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        // Remove the data:audio/...;base64, prefix to get just the base64 string
+        const base64String = base64.split(',')[1] || base64;
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   };
 
   const startCountdown = async () => {
@@ -126,13 +168,52 @@ export default function L3Step2() {
       setCount((c) => {
         if (c <= 1) {
           clearInterval(id);
-          setPhase('reading');
-          startTimeRef.current = Date.now();
-          startAudioWithHighlight();
+          startReading();
         }
         return c - 1;
       });
     }, 1000);
+  };
+
+  const startReading = async () => {
+    // Play beep first
+    try {
+      await playBeep();
+    } catch (err) {
+      console.error('Error playing beep:', err);
+    }
+
+    setPhase('reading');
+    startTimeRef.current = Date.now();
+    setCountdownStartTime(Date.now());
+    setRecordingStartTime(Date.now());
+    setTimeLeft(180); // Reset timer
+
+    // Start audio recording automatically
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+    }
+
+    // Start audio with highlight
+    startAudioWithHighlight();
   };
 
   const startAudioWithHighlight = async () => {
@@ -140,7 +221,7 @@ export default function L3Step2() {
     if (!el) return;
 
     try {
-      el.src = '/src/assets/audios/level3/seviye-3-adim-2.mp3';
+      el.src = '/audios/level3/seviye-3-adim-2.mp3';
       // Apply playback rate
       el.playbackRate = getPlaybackRate();
       // @ts-ignore
@@ -177,13 +258,52 @@ export default function L3Step2() {
     }
   };
 
-  const finishReading = async () => {
+  // Timer countdown effect
+  useEffect(() => {
+    if (phase !== 'reading' || !countdownStartTime) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
+      const remaining = Math.max(0, 180 - elapsed); // 3 minutes
+      setTimeLeft(remaining);
+
+      if (remaining === 0) {
+        handleFinish();
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [phase, countdownStartTime]);
+
+  const handleFinish = async () => {
     if (!startTimeRef.current || !student) return;
+
+    setIsRecording(false);
 
     // Stop audio
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+    }
+
+    // Stop recording
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+
+      const stopPromise = new Promise<void>((resolve) => {
+        mediaRecorderRef.current!.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+          resolve();
+        };
+      });
+
+      await stopPromise;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
     }
 
     const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
@@ -205,6 +325,8 @@ export default function L3Step2() {
 
     setPhase('done');
   };
+
+  const finishReading = handleFinish;
 
   return (
     <div className="w-full max-w-5xl mx-auto">
@@ -237,11 +359,26 @@ export default function L3Step2() {
         <div className="flex flex-col md:flex-row gap-5 items-start">
           <img src={story.image} alt={story.title} className="rounded-xl shadow w-48 md:w-64" />
           <div className="bg-white rounded-xl shadow p-5 flex-1">
-            {isAudioPlaying && (
-              <div className="mb-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
-                <p className="text-sm text-blue-800 font-semibold">🔊 DOST okuyor... Kelime harita takip et!</p>
-              </div>
-            )}
+            {/* Recording status and timer */}
+            <div className="mb-4 space-y-2">
+              {isRecording && (
+                <div className="p-3 bg-red-100 border border-red-300 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-red-800 font-semibold">
+                      🎤 Kayıt yapılıyor...
+                    </p>
+                    <div className="text-2xl font-bold text-red-600 tabular-nums">
+                      {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isAudioPlaying && (
+                <div className="p-3 bg-blue-100 border border-blue-300 rounded-lg">
+                  <p className="text-sm text-blue-800 font-semibold">🔊 DOST okuyor... Kelime harita takip et!</p>
+                </div>
+              )}
+            </div>
             <div className="text-lg text-gray-800 leading-relaxed">
               {paragraphs.map((p, i) => {
                 let wordCount = 0;

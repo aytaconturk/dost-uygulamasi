@@ -15,7 +15,7 @@ interface Props {
   size?: number;
 }
 
-export default function DostMascotLottie({ state, size = 160 }: Props) {
+export default function DostMascotLottie({ state, size = 280 }: Props) {
   const [animationData, setAnimationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,15 +33,21 @@ export default function DostMascotLottie({ state, size = 160 }: Props) {
     const loadAnimation = async () => {
       setLoading(true);
       setError(null);
+      setAnimationData(null); // Önce temizle
       
       try {
         const filePath = lottieFiles[state];
-        console.log('🎬 Lottie yükleniyor:', filePath);
+        // Cache-busting için timestamp ekle (development için)
+        const cacheBuster = import.meta.env.DEV ? `?t=${Date.now()}` : '';
+        const fullPath = `${filePath}${cacheBuster}`;
         
-        const response = await fetch(filePath, {
+        console.log('🎬 Lottie yükleniyor:', fullPath);
+        
+        const response = await fetch(fullPath, {
           headers: {
             'Accept': 'application/json',
           },
+          cache: 'no-cache', // Cache'i bypass et
         });
         
         if (!response.ok) {
@@ -56,6 +62,50 @@ export default function DostMascotLottie({ state, size = 160 }: Props) {
           throw new Error('Geçersiz Lottie formatı');
         }
         
+        // Asset path'lerini mutlak URL olarak ayarla ve base64'e çevir
+        if (data.assets && data.assets.length > 0) {
+          console.log('📦 Assets bulundu:', data.assets.length);
+          
+          const assetPromises = data.assets.map(async (asset: any) => {
+            if (asset.p && asset.u !== undefined && asset.ty === undefined) {
+              const assetPath = (asset.u || '/dost/lottie/') + asset.p;
+              console.log('🖼️ Asset yükleniyor:', assetPath);
+              
+              try {
+                const response = await fetch(assetPath);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const blob = await response.blob();
+                const base64 = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(blob);
+                });
+                
+                // Base64 data URL'i direkt kullan
+                asset.p = base64;
+                asset.u = '';
+                console.log('✅ Asset base64\'e çevrildi:', asset.id);
+              } catch (err) {
+                console.error('❌ Asset yükleme hatası:', asset.id, err);
+                // Hata durumunda path'i koru
+                if (!asset.u || asset.u === '') {
+                  asset.u = '/dost/lottie/';
+                }
+              }
+            }
+            return asset;
+          });
+          
+          await Promise.all(assetPromises);
+        } else {
+          console.log('⚠️ Assets bulunamadı veya boş');
+        }
+        
+        console.log('📊 Animation data hazır, layers:', data.layers?.length || 0);
+        console.log('📊 Animation boyutları:', { w: data.w, h: data.h });
+        console.log('📊 Animation frame sayısı:', data.op - data.ip);
+        console.log('📊 Animation assets:', data.assets);
         setAnimationData(data);
       } catch (err: any) {
         console.error('❌ Lottie animasyon yüklenemedi:', err);
@@ -68,6 +118,74 @@ export default function DostMascotLottie({ state, size = 160 }: Props) {
 
     loadAnimation();
   }, [state]);
+
+  // Lottie render kontrolü
+  useEffect(() => {
+    if (animationData && !loading && !error) {
+      console.log('🎨 Lottie render ediliyor, state:', state);
+      console.log('🎨 Container boyutu:', size);
+      // DOM'da Lottie elementini kontrol et
+      setTimeout(() => {
+        const lottieElement = document.querySelector('[data-lottie-container]');
+        if (lottieElement) {
+          console.log('✅ Lottie DOM element bulundu:', lottieElement);
+          console.log('📐 Lottie element boyutları:', {
+            width: (lottieElement as HTMLElement).offsetWidth,
+            height: (lottieElement as HTMLElement).offsetHeight,
+          });
+          
+          // Lottie'nin render ettiği SVG/canvas elementini bul
+          const svg = lottieElement.querySelector('svg');
+          const canvas = lottieElement.querySelector('canvas');
+          if (svg) {
+            console.log('✅ SVG element bulundu:', svg);
+            console.log('📐 SVG boyutları:', {
+              width: svg.offsetWidth,
+              height: svg.offsetHeight,
+              viewBox: svg.getAttribute('viewBox'),
+            });
+            
+            // SVG içindeki image elementlerini kontrol et
+            const images = svg.querySelectorAll('image');
+            console.log('🖼️ SVG içindeki image elementleri:', images.length);
+            images.forEach((img, idx) => {
+              console.log(`  Image ${idx}:`, {
+                href: img.getAttribute('href') || img.getAttribute('xlink:href'),
+                x: img.getAttribute('x'),
+                y: img.getAttribute('y'),
+                width: img.getAttribute('width'),
+                height: img.getAttribute('height'),
+              });
+            });
+            
+            // SVG içindeki tüm child elementleri kontrol et
+            const children = Array.from(svg.children);
+            console.log('👶 SVG child elementleri:', children.length);
+            children.forEach((child, idx) => {
+              console.log(`  Child ${idx}:`, child.tagName, {
+                id: child.getAttribute('id'),
+                class: child.getAttribute('class'),
+              });
+            });
+            
+            // SVG içeriğinin ilk 500 karakterini göster
+            console.log('📄 SVG innerHTML (ilk 500 karakter):', svg.innerHTML.substring(0, 500));
+          } else if (canvas) {
+            console.log('✅ Canvas element bulundu:', canvas);
+            console.log('📐 Canvas boyutları:', {
+              width: canvas.offsetWidth,
+              height: canvas.offsetHeight,
+            });
+          } else {
+            console.warn('⚠️ SVG veya Canvas element bulunamadı!');
+            console.log('🔍 Container içeriği:', lottieElement.innerHTML.substring(0, 200));
+          }
+        } else {
+          console.warn('⚠️ Lottie DOM element bulunamadı');
+        }
+      }, 500); // Daha uzun bekle, render tamamlansın
+    }
+  }, [animationData, loading, error, state, size]);
 
   // Container animasyonları (Lottie animasyonu dışında ekstra efektler için)
   const containerAnimations = {
@@ -109,12 +227,40 @@ export default function DostMascotLottie({ state, size = 160 }: Props) {
           </div>
         </div>
       ) : (
-        <div className="w-full h-full" style={{ filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.15))' }}>
+        <div 
+          className="w-full h-full" 
+          data-lottie-container
+          style={{ 
+            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.15))',
+            minHeight: size,
+            minWidth: size,
+            position: 'relative',
+            overflow: 'hidden',
+            backgroundColor: 'transparent', // Şeffaf arka plan
+          }}
+        >
           <Lottie
+            key={state} // Force re-render on state change
             animationData={animationData}
             loop={state !== 'celebrating'}
             autoplay={true}
-            style={{ width: size, height: size }}
+            initialSegment={[0, 30]}
+            style={{ 
+              width: size, 
+              height: size,
+              display: 'block',
+              position: 'relative',
+              zIndex: 1,
+              backgroundColor: 'transparent', // Şeffaf arka plan
+            }}
+            renderer="svg"
+            rendererSettings={{
+              preserveAspectRatio: 'xMidYMid meet',
+              clearCanvas: true,
+              progressiveLoad: false,
+              hideOnTransparent: true, // Şeffaf alanları gizle
+            }}
+            className="lottie-animation"
           />
         </div>
       )}

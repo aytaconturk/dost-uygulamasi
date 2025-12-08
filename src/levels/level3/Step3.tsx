@@ -6,6 +6,7 @@ import { useStepContext } from '../../contexts/StepContext';
 import type { RootState } from '../../store/store';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { playSoundEffect } from '../../lib/soundEffects';
 
 export default function L3Step3() {
   const student = useSelector((state: RootState) => state.user.student);
@@ -85,8 +86,10 @@ export default function L3Step3() {
 
     if (result.wpm >= result.targetWPM) {
       playAudio('/src/assets/audios/level3/seviye-3-adim-3-tebrikler.mp3');
+      playSoundEffect('success');
     } else {
       playAudio('/src/assets/audios/level3/seviye-3-adim-3-uzgunum.mp3');
+      playSoundEffect('error');
     }
     setShowFeedback(true);
   }, [result, showFeedback]);

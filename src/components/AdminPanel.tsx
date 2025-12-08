@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { supabase, getStories, createStory, updateStory, deleteStory } from '../lib/supabase';
+import { 
+  supabase, 
+  getStories, 
+  createStory, 
+  updateStory, 
+  deleteStory,
+  getComprehensionQuestionsByStory,
+  createComprehensionQuestion,
+  updateComprehensionQuestion,
+  deleteComprehensionQuestion,
+  type ComprehensionQuestion
+} from '../lib/supabase';
+import { generateVoice, uploadAudioToSupabase } from '../lib/voiceGenerator';
 import type { Teacher, Student, ActivityLog } from '../lib/supabase-types';
 import { signOut } from '../lib/auth';
 import { clearUser } from '../store/userSlice';
@@ -682,6 +694,21 @@ function StoriesTab() {
     locked: false,
   });
   const [error, setError] = useState('');
+  const [selectedStoryForQuestions, setSelectedStoryForQuestions] = useState<number | null>(null);
+  const [questions, setQuestions] = useState<ComprehensionQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [questionFormData, setQuestionFormData] = useState({
+    question_text: '',
+    option_a: '',
+    option_b: '',
+    option_c: '',
+    option_d: '',
+    correct_option: 'A' as 'A' | 'B' | 'C' | 'D',
+    question_order: 1,
+  });
+  const [generatingAudio, setGeneratingAudio] = useState<string | null>(null);
 
   const fetchStories = async () => {
     setLoading(true);
@@ -700,6 +727,27 @@ function StoriesTab() {
   useEffect(() => {
     fetchStories();
   }, []);
+
+  useEffect(() => {
+    if (selectedStoryForQuestions) {
+      fetchQuestions();
+    }
+  }, [selectedStoryForQuestions]);
+
+  const fetchQuestions = async () => {
+    if (!selectedStoryForQuestions) return;
+    setLoadingQuestions(true);
+    try {
+      const { data, error: err } = await getComprehensionQuestionsByStory(selectedStoryForQuestions);
+      if (err) throw err;
+      setQuestions(data || []);
+    } catch (err) {
+      console.error('Error fetching questions:', err);
+      setError('Sorular yüklenemedi');
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -873,23 +921,441 @@ function StoriesTab() {
                 )}
               </div>
               <p className="text-gray-600 text-sm mb-3">{story.description}</p>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(story)}
+                    className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                  >
+                    Düzenle
+                  </button>
+                  <button
+                    onClick={() => handleDelete(story.id)}
+                    className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                  >
+                    Sil
+                  </button>
+                </div>
                 <button
-                  onClick={() => handleEdit(story)}
-                  className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                  onClick={() => setSelectedStoryForQuestions(story.id)}
+                  className="w-full px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
                 >
-                  Düzenle
-                </button>
-                <button
-                  onClick={() => handleDelete(story.id)}
-                  className="flex-1 px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
-                >
-                  Sil
+                  📝 Soruları Yönet
                 </button>
               </div>
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Questions Management Modal */}
+      {selectedStoryForQuestions && (
+        <QuestionsModal
+          storyId={selectedStoryForQuestions}
+          storyTitle={stories.find(s => s.id === selectedStoryForQuestions)?.title || ''}
+          questions={questions}
+          loadingQuestions={loadingQuestions}
+          onClose={() => {
+            setSelectedStoryForQuestions(null);
+            setShowQuestionForm(false);
+            setEditingQuestionId(null);
+            setQuestionFormData({
+              question_text: '',
+              option_a: '',
+              option_b: '',
+              option_c: '',
+              option_d: '',
+              correct_option: 'A',
+              question_order: 1,
+            });
+          }}
+          onRefresh={fetchQuestions}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuestionsModal({
+  storyId,
+  storyTitle,
+  questions,
+  loadingQuestions,
+  onClose,
+  onRefresh,
+}: {
+  storyId: number;
+  storyTitle: string;
+  questions: ComprehensionQuestion[];
+  loadingQuestions: boolean;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [questionFormData, setQuestionFormData] = useState({
+    question_text: '',
+    option_a: '',
+    option_b: '',
+    option_c: '',
+    option_d: '',
+    correct_option: 'A' as 'A' | 'B' | 'C' | 'D',
+    question_order: 1,
+  });
+  const [generatingAudio, setGeneratingAudio] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  const handleQuestionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      if (editingQuestionId) {
+        await updateComprehensionQuestion(editingQuestionId, questionFormData);
+      } else {
+        await createComprehensionQuestion(
+          storyId,
+          questionFormData.question_text,
+          questionFormData.option_a,
+          questionFormData.option_b,
+          questionFormData.option_c,
+          questionFormData.option_d,
+          questionFormData.correct_option,
+          questionFormData.question_order
+        );
+      }
+
+      setQuestionFormData({
+        question_text: '',
+        option_a: '',
+        option_b: '',
+        option_c: '',
+        option_d: '',
+        correct_option: 'A',
+        question_order: questions.length + 1,
+      });
+      setShowQuestionForm(false);
+      setEditingQuestionId(null);
+      onRefresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'İşlem başarısız oldu';
+      setError(message);
+    }
+  };
+
+  const handleEditQuestion = (question: ComprehensionQuestion) => {
+    setQuestionFormData({
+      question_text: question.question_text,
+      option_a: question.option_a,
+      option_b: question.option_b,
+      option_c: question.option_c,
+      option_d: question.option_d,
+      correct_option: question.correct_option,
+      question_order: question.question_order,
+    });
+    setEditingQuestionId(question.id);
+    setShowQuestionForm(true);
+  };
+
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (!confirm('Bu soruyu silmek istediğinize emin misiniz?')) return;
+
+    try {
+      await deleteComprehensionQuestion(questionId);
+      onRefresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Silme işlemi başarısız oldu';
+      setError(message);
+    }
+  };
+
+  const handleGenerateAudio = async (
+    questionId: string,
+    type: 'question' | 'correct' | 'wrong',
+    text: string
+  ) => {
+    if (!text.trim()) {
+      setError('Seslendirme için metin gerekli');
+      return;
+    }
+
+    setGeneratingAudio(`${questionId}-${type}`);
+    setError('');
+
+    try {
+      // Generate audio
+      const result = await generateVoice(text);
+      if (!result.success || !result.audioBase64) {
+        throw new Error(result.error || 'Ses oluşturulamadı');
+      }
+
+      // Upload to Supabase
+      const fileName = `story-${storyId}-question-${questionId}-${type}.mp3`;
+      const audioUrl = await uploadAudioToSupabase(result.audioBase64, fileName);
+
+      if (!audioUrl) {
+        throw new Error('Ses Supabase\'e yüklenemedi');
+      }
+
+      // Update question with audio URL
+      const updateField = 
+        type === 'question' ? 'question_audio_url' :
+        type === 'correct' ? 'correct_answer_audio_url' :
+        'wrong_answer_audio_url';
+
+      await updateComprehensionQuestion(questionId, {
+        [updateField]: audioUrl,
+      });
+
+      onRefresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Ses oluşturma başarısız oldu';
+      setError(message);
+    } finally {
+      setGeneratingAudio(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-purple-800">
+            Sorular - {storyTitle}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              setShowQuestionForm(!showQuestionForm);
+              setEditingQuestionId(null);
+              setQuestionFormData({
+                question_text: '',
+                option_a: '',
+                option_b: '',
+                option_c: '',
+                option_d: '',
+                correct_option: 'A',
+                question_order: questions.length + 1,
+              });
+            }}
+            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+          >
+            {showQuestionForm ? 'İptal' : '+ Yeni Soru Ekle'}
+          </button>
+
+          {showQuestionForm && (
+            <form onSubmit={handleQuestionSubmit} className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h3 className="font-bold text-purple-800">
+                {editingQuestionId ? 'Soruyu Düzenle' : 'Yeni Soru Ekle'}
+              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Soru Metni</label>
+                <textarea
+                  required
+                  value={questionFormData.question_text}
+                  onChange={(e) => setQuestionFormData({ ...questionFormData, question_text: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">A) Seçenek</label>
+                  <input
+                    type="text"
+                    required
+                    value={questionFormData.option_a}
+                    onChange={(e) => setQuestionFormData({ ...questionFormData, option_a: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">B) Seçenek</label>
+                  <input
+                    type="text"
+                    required
+                    value={questionFormData.option_b}
+                    onChange={(e) => setQuestionFormData({ ...questionFormData, option_b: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">C) Seçenek</label>
+                  <input
+                    type="text"
+                    required
+                    value={questionFormData.option_c}
+                    onChange={(e) => setQuestionFormData({ ...questionFormData, option_c: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">D) Seçenek</label>
+                  <input
+                    type="text"
+                    required
+                    value={questionFormData.option_d}
+                    onChange={(e) => setQuestionFormData({ ...questionFormData, option_d: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Doğru Cevap</label>
+                  <select
+                    value={questionFormData.correct_option}
+                    onChange={(e) => setQuestionFormData({ ...questionFormData, correct_option: e.target.value as 'A' | 'B' | 'C' | 'D' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sıra</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={questionFormData.question_order}
+                    onChange={(e) => setQuestionFormData({ ...questionFormData, question_order: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              >
+                {editingQuestionId ? 'Güncelle' : 'Ekle'}
+              </button>
+            </form>
+          )}
+
+          {loadingQuestions ? (
+            <div className="text-center py-8">Yükleniyor...</div>
+          ) : questions.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">Henüz soru eklenmemiş</div>
+          ) : (
+            <div className="space-y-4">
+              {questions.map((question) => (
+                <div key={question.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded font-semibold">
+                          Soru {question.question_order}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          Doğru: {question.correct_option}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-gray-800 mb-3">{question.question_text}</p>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className={question.correct_option === 'A' ? 'text-green-600 font-semibold' : ''}>
+                          A) {question.option_a}
+                        </div>
+                        <div className={question.correct_option === 'B' ? 'text-green-600 font-semibold' : ''}>
+                          B) {question.option_b}
+                        </div>
+                        <div className={question.correct_option === 'C' ? 'text-green-600 font-semibold' : ''}>
+                          C) {question.option_c}
+                        </div>
+                        <div className={question.correct_option === 'D' ? 'text-green-600 font-semibold' : ''}>
+                          D) {question.option_d}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleEditQuestion(question)}
+                        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded"
+                      >
+                        Düzenle
+                      </button>
+                      <button
+                        onClick={() => handleDeleteQuestion(question.id)}
+                        className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded"
+                      >
+                        Sil
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="text-xs font-semibold text-gray-700 mb-2">Seslendirmeler:</div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleGenerateAudio(question.id, 'question', question.question_text)}
+                        disabled={generatingAudio === `${question.id}-question`}
+                        className={`px-3 py-1 text-xs rounded ${
+                          question.question_audio_url
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        } disabled:opacity-50`}
+                      >
+                        {generatingAudio === `${question.id}-question` ? '⏳ Oluşturuluyor...' : 
+                         question.question_audio_url ? '✓ Soru Seslendirmesi' : '🎤 Soru Seslendirmesi Oluştur'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const correctText = question[`option_${question.correct_option.toLowerCase()}` as 'option_a' | 'option_b' | 'option_c' | 'option_d'];
+                          handleGenerateAudio(question.id, 'correct', correctText);
+                        }}
+                        disabled={generatingAudio === `${question.id}-correct`}
+                        className={`px-3 py-1 text-xs rounded ${
+                          question.correct_answer_audio_url
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        } disabled:opacity-50`}
+                      >
+                        {generatingAudio === `${question.id}-correct` ? '⏳ Oluşturuluyor...' : 
+                         question.correct_answer_audio_url ? '✓ Doğru Cevap Seslendirmesi' : '🎤 Doğru Cevap Seslendirmesi Oluştur'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const wrongOptions = ['A', 'B', 'C', 'D'].filter(opt => opt !== question.correct_option);
+                          const wrongText = question[`option_${wrongOptions[0].toLowerCase()}` as 'option_a' | 'option_b' | 'option_c' | 'option_d'];
+                          handleGenerateAudio(question.id, 'wrong', wrongText);
+                        }}
+                        disabled={generatingAudio === `${question.id}-wrong`}
+                        className={`px-3 py-1 text-xs rounded ${
+                          question.wrong_answer_audio_url
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        } disabled:opacity-50`}
+                      >
+                        {generatingAudio === `${question.id}-wrong` ? '⏳ Oluşturuluyor...' : 
+                         question.wrong_answer_audio_url ? '✓ Yanlış Cevap Seslendirmesi' : '🎤 Yanlış Cevap Seslendirmesi Oluştur'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

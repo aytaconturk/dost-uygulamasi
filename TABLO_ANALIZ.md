@@ -89,3 +89,5 @@
 **Öneri**: `reading_progress` tablosunu silebilirsiniz, kodda kullanılmıyor.
 
 
+
+

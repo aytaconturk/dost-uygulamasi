@@ -1,4 +1,6 @@
 // React 19: no default import required
+import { useRef } from 'react';
+import { playSoundEffect } from '../../lib/soundEffects';
 
 interface Props {
   currentStep: number;
@@ -29,6 +31,16 @@ export default function StepLayout({
   storyTitle,
   level
 }: Props) {
+  const handlePrev = async () => {
+    await playSoundEffect('whoosh');
+    onPrev();
+  };
+
+  const handleNext = async () => {
+    await playSoundEffect('pop');
+    onNext();
+  };
+
   return (
     <div className="min-h-screen bg-[#f9f9fb] flex flex-col relative top-[-24px]">
       {/* Story Title and Level Info */}
@@ -68,10 +80,16 @@ export default function StepLayout({
 
       {/* Main Content with Nav */}
       <div className="relative flex-1">
+        {/* Prev Button - Fixed to left edge */}
         <button
-          onClick={onPrev}
+          onClick={handlePrev}
           disabled={currentStep <= 1}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105 disabled:opacity-50"
+          className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-r-full rounded-l-none p-6 text-3xl shadow-2xl z-50 hover:bg-green-600 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+          style={{ 
+            clipPath: 'polygon(0 0, 100% 10%, 100% 90%, 0 100%)',
+            paddingLeft: '1.5rem',
+            paddingRight: '2rem',
+          }}
         >
           ←
         </button>
@@ -80,11 +98,17 @@ export default function StepLayout({
           {children}
         </div>
 
+        {/* Next Button - Fixed to right edge */}
         {!hideNext && (
           <button
-            onClick={onNext}
+            onClick={handleNext}
             disabled={disableNext && currentStep < totalSteps}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-full p-5 text-2xl shadow-lg z-10 hover:bg-green-600 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="fixed right-0 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-l-full rounded-r-none p-6 text-3xl shadow-2xl z-50 hover:bg-green-600 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+            style={{ 
+              clipPath: 'polygon(10% 0, 100% 0, 100% 100%, 10% 100%)',
+              paddingLeft: '2rem',
+              paddingRight: '1.5rem',
+            }}
             title={disableNext && !stepCompleted && currentStep < totalSteps ? 'Bu adımı tamamlamadan devam edemezsiniz' : currentStep >= totalSteps ? 'Seviyeyi tamamla' : ''}
           >
             {currentStep >= totalSteps ? '🏠' : '→'}
@@ -92,19 +116,17 @@ export default function StepLayout({
         )}
       </div>
 
-      {/* Footer Nav */}
-      {!hideFooter && (
+      {/* Footer Nav - Tamamla Button (only on last step) */}
+      {!hideFooter && currentStep >= totalSteps && (
         <div className="flex items-center justify-center gap-6 px-6 py-6 bg-gray-50">
-          {currentStep >= totalSteps && (
-            <button
-              onClick={onNext}
-              disabled={disableNext}
-              className="flex flex-col items-center bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-2xl px-8 py-4 shadow-lg transform hover:scale-105 transition-all duration-200 active:scale-95"
-            >
-              <div className="text-4xl mb-2">🏆</div>
-              <div className="text-lg font-bold">TAMAMLA</div>
-            </button>
-          )}
+          <button
+            onClick={handleNext}
+            disabled={disableNext && !stepCompleted}
+            className="flex flex-col items-center bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-2xl px-8 py-4 shadow-lg transform hover:scale-105 transition-all duration-200 active:scale-95"
+          >
+            <div className="text-4xl mb-2">🏆</div>
+            <div className="text-lg font-bold">TAMAMLA</div>
+          </button>
         </div>
       )}
     </div>

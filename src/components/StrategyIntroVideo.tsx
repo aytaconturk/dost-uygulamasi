@@ -122,37 +122,35 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 bg-black flex flex-col"
       onClick={handleBackdropClick}
     >
-      <div 
-        className="bg-white rounded-2xl shadow-2xl p-6 w-full flex flex-col items-center" 
-        style={{ maxWidth: '80vw', maxHeight: '80vh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 w-full flex items-center justify-between">
-          <div className="text-center flex-1">
-            <h1 className="text-2xl font-bold text-purple-800 mb-1">DOST</h1>
-            <h2 className="text-lg font-semibold text-gray-700">
-              Strateji Tanıtımı ve Güzel Okuma Kuralları
-            </h2>
-            {isMandatory && (
-              <p className="text-xs text-yellow-600 mt-1">
-                ⚠️ Bu oturum için strateji tanıtımı zorunludur. Video bitene kadar kapanmaz.
-              </p>
-            )}
-          </div>
-          {canSkip && (
-            <button
-              onClick={handleSkip}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold transition-colors text-sm ml-4"
-            >
-              Tanıtımı Geç
-            </button>
+      {/* Header - Fixed at top */}
+      <div className="absolute top-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm p-4 flex items-center justify-between">
+        <div className="text-center flex-1">
+          <h1 className="text-2xl font-bold text-white mb-1">DOST</h1>
+          <h2 className="text-lg font-semibold text-gray-200">
+            Strateji Tanıtımı ve Güzel Okuma Kuralları
+          </h2>
+          {isMandatory && (
+            <p className="text-xs text-yellow-400 mt-1">
+              ⚠️ Bu oturum için strateji tanıtımı zorunludur. Video bitene kadar kapanmaz.
+            </p>
           )}
         </div>
+        {canSkip && (
+          <button
+            onClick={handleSkip}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm ml-4"
+          >
+            Tanıtımı Geç
+          </button>
+        )}
+      </div>
 
-        <div className="relative bg-black rounded-lg overflow-hidden mb-3 w-full flex justify-center" style={{ aspectRatio: '16/9', maxHeight: '60vh' }}>
+      {/* Video Container - Full screen */}
+      <div className="flex-1 flex items-center justify-center pt-20 pb-24">
+        <div className="relative w-full h-full flex items-center justify-center">
           {videoError ? (
             <div className="flex items-center justify-center h-full text-white p-4">
               <div className="text-center">
@@ -175,7 +173,7 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
             <>
               <video
                 ref={videoRef}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
                 src="/videos/dost-okuma-stratejisi.mp4"
                 controls={false}
                 preload="metadata"
@@ -216,25 +214,24 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
             />
           </div>
         </div>
+      </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center mb-2 w-full">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handlePlayPause}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
-            >
-              {isPlaying ? '⏸ Duraklat' : '▶ Oynat'}
-            </button>
-            <span className="text-gray-600 text-sm">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
-          </div>
+      {/* Controls - Fixed at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <button
+            onClick={handlePlayPause}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            {isPlaying ? '⏸ Duraklat' : '▶ Oynat'}
+          </button>
+          <span className="text-white text-lg font-medium">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
         </div>
-
         {isMandatory && (
-          <div className="text-center mb-2 w-full">
-            <p className="text-xs text-gray-500">
+          <div className="text-center">
+            <p className="text-xs text-gray-300">
               Video bittiğinde otomatik olarak devam edeceksiniz.
             </p>
           </div>

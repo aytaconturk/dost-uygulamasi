@@ -87,3 +87,5 @@ CREATE POLICY "Allow all operations on points_history" ON public.points_history
 --    ALTER TABLE public.student_progress DISABLE ROW LEVEL SECURITY;
 
 
+
+
