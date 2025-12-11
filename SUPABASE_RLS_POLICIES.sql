@@ -89,3 +89,4 @@ CREATE POLICY "Allow all operations on points_history" ON public.points_history
 
 
 
+
