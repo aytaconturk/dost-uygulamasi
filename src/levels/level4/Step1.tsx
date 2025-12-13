@@ -1,18 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getSchema } from '../../data/schemas';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getAppMode } from '../../lib/api';
+import { submitSchemaSectionReading, getResumeResponse } from '../../lib/level4-api';
+import type { RootState } from '../../store/store';
+import VoiceRecorder from '../../components/VoiceRecorder';
+import { getRecordingDuration } from '../../components/SidebarSettings';
 
 const STORY_ID = 3;
 
 export default function L4Step1() {
+  const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [isPlayingSectionAudio, setIsPlayingSectionAudio] = useState(false);
+  const [isWaitingForRecording, setIsWaitingForRecording] = useState(false);
+  const [isProcessingResponse, setIsProcessingResponse] = useState(false);
+  const [isPlayingResponse, setIsPlayingResponse] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
   const { onStepCompleted, storyId } = useStepContext();
   
@@ -115,34 +125,15 @@ export default function L4Step1() {
       const handleEnded = () => {
         console.log(`✅ Section ${currentSection + 1} audio finished`);
         setIsPlayingSectionAudio(false);
-        setCompletedSections(prev => new Set([...prev, currentSection]));
-        
-        // Auto-advance to next section after a short delay
-        if (currentSection < schema.sections.length - 1) {
-          setTimeout(() => {
-            setCurrentSection(currentSection + 1);
-          }, 1000);
-        } else {
-          // All sections completed
-          if (onStepCompleted) {
-            onStepCompleted({
-              totalSections: schema.sections.length,
-              completed: true
-            });
-          }
-        }
+        // Show recording interface
+        setIsWaitingForRecording(true);
       };
 
       const handleError = (e: Event) => {
         console.error(`❌ Section ${currentSection + 1} audio error:`, e);
         setIsPlayingSectionAudio(false);
-        // Continue even if audio fails
-        setCompletedSections(prev => new Set([...prev, currentSection]));
-        if (currentSection < schema.sections.length - 1) {
-          setTimeout(() => {
-            setCurrentSection(currentSection + 1);
-          }, 1000);
-        }
+        // Show recording interface even if audio fails
+        setIsWaitingForRecording(true);
       };
 
       el.addEventListener('ended', handleEnded, { once: true });
@@ -157,7 +148,137 @@ export default function L4Step1() {
     };
 
     playSectionAudio();
-  }, [started, currentSection, schema, storyId, onStepCompleted]);
+  }, [started, currentSection, schema, storyId]);
+
+  const handleVoiceSubmit = async (audioBlob: Blob) => {
+    if (!student || !schema) return;
+    
+    setIsWaitingForRecording(false);
+    setIsProcessingResponse(true);
+
+    try {
+      const section = schema.sections[currentSection];
+      const sectionText = `${section.title}\n${section.items.join('\n')}`;
+      
+      // Convert audio blob to base64
+      const reader = new FileReader();
+      const audioBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          const base64String = base64.split(',')[1] || base64;
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+
+      const isLastSection = currentSection === schema.sections.length - 1;
+      
+      console.log(`📤 Submitting section ${currentSection + 1}/${schema.sections.length}`, {
+        sectionNo: currentSection + 1,
+        isLastSection,
+        audioSize: audioBlob.size,
+      });
+
+      let response;
+      if (resumeUrl) {
+        // Resume from n8n webhook wait
+        response = await getResumeResponse(resumeUrl, {
+          studentId: student.id,
+          sectionText,
+          audioBase64,
+          isLatestSection: isLastSection,
+          sectionNo: currentSection + 1,
+        });
+      } else {
+        // First section - initial webhook call
+        response = await submitSchemaSectionReading({
+          studentId: student.id,
+          sectionText,
+          audioBase64,
+          isLatestSection: isLastSection,
+          sectionNo: currentSection + 1,
+        });
+      }
+
+      console.log(`✅ Received response for section ${currentSection + 1}:`, {
+        hasAudio: !!response.audioBase64,
+        hasResumeUrl: !!response.resumeUrl,
+      });
+
+      // Store resume URL for next section
+      if (response.resumeUrl) {
+        setResumeUrl(response.resumeUrl);
+      }
+
+      // Play n8n response audio
+      if (response.audioBase64) {
+        await playResponseAudio(response.audioBase64);
+      }
+
+      // Mark section as completed
+      setCompletedSections(prev => new Set([...prev, currentSection]));
+
+      // Move to next section or complete
+      if (isLastSection) {
+        console.log('✅ All sections completed!');
+        if (onStepCompleted) {
+          onStepCompleted({
+            totalSections: schema.sections.length,
+            completed: true,
+          });
+        }
+      } else {
+        // Auto-advance to next section
+        setTimeout(() => {
+          setCurrentSection(currentSection + 1);
+        }, 1000);
+      }
+
+    } catch (err) {
+      console.error('Failed to process voice recording:', err);
+      alert('Ses kaydı işlenemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setIsProcessingResponse(false);
+    }
+  };
+
+  const playResponseAudio = async (audioBase64: string) => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    setIsPlayingResponse(true);
+
+    try {
+      const audioSrc = audioBase64.startsWith('data:') 
+        ? audioBase64 
+        : `data:audio/mpeg;base64,${audioBase64}`;
+      
+      el.src = audioSrc;
+      el.playbackRate = getPlaybackRate();
+      (el as any).playsInline = true;
+      el.muted = false;
+
+      await new Promise<void>((resolve, reject) => {
+        const handleEnded = () => {
+          setIsPlayingResponse(false);
+          resolve();
+        };
+        const handleError = () => {
+          setIsPlayingResponse(false);
+          reject(new Error('Audio playback failed'));
+        };
+
+        el.addEventListener('ended', handleEnded, { once: true });
+        el.addEventListener('error', handleError, { once: true });
+
+        el.play().catch(reject);
+      });
+    } catch (err) {
+      console.error('Failed to play response audio:', err);
+      setIsPlayingResponse(false);
+    }
+  };
 
   const startFlow = async () => {
     // Stop intro audio if still playing
@@ -173,19 +294,17 @@ export default function L4Step1() {
     setCompletedSections(new Set());
   };
 
-  const onNextSection = () => {
-    if (currentSection < (schema?.sections.length || 0) - 1 && !isPlayingSectionAudio) {
-      setCurrentSection(currentSection + 1);
-    }
-  };
-
   const onReplaySection = () => {
-    if (!isPlayingSectionAudio && schema) {
+    if (!isPlayingSectionAudio && !isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && schema) {
       setCompletedSections(prev => {
         const newSet = new Set(prev);
         newSet.delete(currentSection);
         return newSet;
       });
+      setIsWaitingForRecording(false);
+      setIsProcessingResponse(false);
+      setIsPlayingResponse(false);
+      
       // Trigger re-play by resetting current section
       const tempSection = currentSection;
       setCurrentSection(-1);
@@ -295,23 +414,52 @@ export default function L4Step1() {
               })}
             </div>
 
+            {/* Voice Recording Interface */}
+            {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && (
+              <div className="mt-6 text-center">
+                <p className="mb-4 text-xl font-bold text-green-700">Sıra sende! Şematiği sesli oku</p>
+                <VoiceRecorder 
+                  recordingDurationMs={getRecordingDuration()}
+                  autoSubmit={true}
+                  onSave={handleVoiceSubmit}
+                  onPlayStart={() => {
+                    try {
+                      window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+                    } catch {}
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Processing Status */}
+            {isProcessingResponse && (
+              <div className="mt-6 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div>
+                  <p className="text-purple-600 font-medium">DOST değerlendiriyor...</p>
+                </div>
+              </div>
+            )}
+
+            {/* Response Audio Playing */}
+            {isPlayingResponse && (
+              <div className="mt-6 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="text-4xl animate-pulse">🔊</div>
+                  <p className="text-blue-600 font-medium">DOST geri bildirim veriyor...</p>
+                </div>
+              </div>
+            )}
+
             {/* Controls */}
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-4 mt-6">
               <button
                 onClick={onReplaySection}
-                disabled={isPlayingSectionAudio}
+                disabled={isPlayingSectionAudio || isWaitingForRecording || isProcessingResponse || isPlayingResponse}
                 className="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold"
               >
                 🔄 Tekrar Oynat
               </button>
-              {!isPlayingSectionAudio && currentSection < schema.sections.length - 1 && (
-                <button
-                  onClick={onNextSection}
-                  className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-bold"
-                >
-                  Sonraki Şematik →
-                </button>
-              )}
             </div>
           </div>
         </div>

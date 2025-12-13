@@ -266,3 +266,19 @@ export interface Step {
     audioBase64: string;
     transcriptText: string;
   }
+
+  // Level 4 Step 1 - Schema Section Reading API Types
+  export interface Level4Step1Request {
+    studentId: string;
+    sectionText: string;
+    audioBase64: string;
+    isLatestSection: boolean;
+    sectionNo: number;
+  }
+
+  export interface Level4Step1Response {
+    audioBase64: string;
+    resumeUrl: string;
+    textAudio?: string;
+    title?: string;
+  }
