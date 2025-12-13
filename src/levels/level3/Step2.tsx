@@ -7,6 +7,7 @@ import { getAppMode } from '../../lib/api';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -306,21 +307,44 @@ export default function L3Step2() {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
 
-    const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+    const elapsedMs = Date.now() - startTimeRef.current;
+    const elapsedSec = elapsedMs / 1000;
     const wpm = Math.round((totalWords / elapsedSec) * 60);
 
     const resultData = { totalWords, elapsedSec, wpm, targetWPM };
 
     try {
+      // Create audio blob from recorded chunks
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      
+      console.log('🎤 Sending audio to n8n for analysis:', {
+        audioSize: audioBlob.size,
+        duration: elapsedMs,
+        targetWPM,
+      });
+
+      // Send to n8n for AI analysis
+      const analysisResponse = await submitReadingSpeedAnalysis({
+        userId: student.id,
+        audioFile: audioBlob,
+        durationMs: elapsedMs,
+        hedefOkuma: targetWPM,
+      });
+
+      console.log('✅ Received analysis from n8n:', analysisResponse);
+
       // Save reading log to Supabase
       await insertReadingLog(student.id, storyId, 3, wpm, totalWords, totalWords);
 
       // Mark step as completed with result data
       if (onStepCompleted) {
-        await onStepCompleted(resultData);
+        await onStepCompleted({
+          ...resultData,
+          analysis: analysisResponse,
+        });
       }
     } catch (err) {
-      console.error('Failed to save reading data:', err);
+      console.error('Failed to save reading data or get analysis:', err);
     }
 
     setPhase('done');

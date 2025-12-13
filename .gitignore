@@ -26,3 +26,6 @@ dist-ssr
 # Documentation and SQL files
 *.md
 *.sql
+
+# n8n Workflows
+n8n_Workflows/

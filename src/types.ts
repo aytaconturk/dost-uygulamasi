@@ -234,3 +234,34 @@ export interface Step {
     textAudio?: string;
     title?: string;
   }
+
+  // Level 3 Step 2 - Reading Speed Analysis API Types
+  export interface Level3Step2Request {
+    userId: string;
+    audioFile: Blob;
+    durationMs: number;
+    hedefOkuma: number;
+  }
+
+  export interface Level3Step2Response {
+    kidName: string;
+    title: string;
+    speedSummary: string;
+    hedefOkuma: number;
+    reachedTarget: boolean;
+    analysisText: string;
+    metrics: {
+      durationSec: number;
+      durationMMSS: string;
+      targetWordCount: number;
+      spokenWordCount: number;
+      matchedWordCount: number;
+      accuracyPercent: number;
+      wpmSpoken: number;
+      wpmCorrect: number;
+      wpmTarget: number;
+    };
+    coachText: string;
+    audioBase64: string;
+    transcriptText: string;
+  }
