@@ -66,6 +66,7 @@ export async function getResumeResponse(
   
   const payload = {
     studentId: request.studentId,
+    sectionTitle: request.sectionTitle,
     sectionText: request.sectionText,
     audioBase64: request.audioBase64,
     isLatestSection: request.isLatestSection,
