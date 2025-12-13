@@ -455,7 +455,7 @@ export default function L4Step1() {
                    }}>
                 {isPlayingSectionAudio && (
                   <>
-                    <p className="text-center mb-1 text-base font-bold text-gray-500">
+                    <p className="text-center mb-2 text-base font-bold text-gray-500">
                       🔊 DOST şematiği okuyor...
                     </p>
                     <div className="flex justify-center opacity-50 pointer-events-none">
@@ -464,6 +464,7 @@ export default function L4Step1() {
                         autoSubmit={true}
                         onSave={() => {}}
                         onPlayStart={() => {}}
+                        compact={true}
                       />
                     </div>
                   </>
@@ -471,7 +472,7 @@ export default function L4Step1() {
                 
                 {isPlayingSiraSende && (
                   <>
-                    <p className="text-center mb-1 text-base font-bold text-green-700">
+                    <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
                     </p>
                     <div className="flex justify-center opacity-50 pointer-events-none">
@@ -480,6 +481,7 @@ export default function L4Step1() {
                         autoSubmit={true}
                         onSave={() => {}}
                         onPlayStart={() => {}}
+                        compact={true}
                       />
                     </div>
                   </>
@@ -487,7 +489,7 @@ export default function L4Step1() {
                 
                 {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !isPlayingSiraSende && (
                   <>
-                    <p className="text-center mb-1 text-base font-bold text-green-700">
+                    <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
                     </p>
                     <div className="flex justify-center">
@@ -500,6 +502,7 @@ export default function L4Step1() {
                             window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
                           } catch {}
                         }}
+                        compact={true}
                       />
                     </div>
                   </>
