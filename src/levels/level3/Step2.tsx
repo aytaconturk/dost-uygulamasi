@@ -329,6 +329,7 @@ export default function L3Step2() {
         audioFile: audioBlob,
         durationMs: elapsedMs,
         hedefOkuma: targetWPM,
+        metin: fullText,
       });
 
       console.log('✅ Received analysis from n8n:', analysisResponse);

@@ -241,6 +241,7 @@ export interface Step {
     audioFile: Blob;
     durationMs: number;
     hedefOkuma: number;
+    metin: string;
   }
 
   export interface Level3Step2Response {

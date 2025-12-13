@@ -141,6 +141,7 @@ export async function submitReadingSpeedAnalysis(
     formData.append('userId', request.userId);
     formData.append('durationMs', String(request.durationMs));
     formData.append('hedefOkuma', String(request.hedefOkuma));
+    formData.append('metin', request.metin);
     
     const response = await axios.post<Level3Step2Response>(
       `${getApiBase()}/dost/level3/step2`,
