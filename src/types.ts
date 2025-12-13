@@ -270,6 +270,7 @@ export interface Step {
   // Level 4 Step 1 - Schema Section Reading API Types
   export interface Level4Step1Request {
     studentId: string;
+    sectionTitle: string;
     sectionText: string;
     audioBase64: string;
     isLatestSection: boolean;

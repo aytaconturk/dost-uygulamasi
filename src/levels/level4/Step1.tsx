@@ -158,7 +158,9 @@ export default function L4Step1() {
 
     try {
       const section = schema.sections[currentSection];
-      const sectionText = `${section.title}\n${section.items.join('\n')}`;
+      const sectionTitle = section.title;
+      const sectionItems = section.items.join('\n');
+      const sectionText = `${sectionTitle}\n${sectionItems}`;
       
       // Convert audio blob to base64
       const reader = new FileReader();
@@ -185,6 +187,7 @@ export default function L4Step1() {
         // Resume from n8n webhook wait
         response = await getResumeResponse(resumeUrl, {
           studentId: student.id,
+          sectionTitle,
           sectionText,
           audioBase64,
           isLatestSection: isLastSection,
@@ -194,6 +197,7 @@ export default function L4Step1() {
         // First section - initial webhook call
         response = await submitSchemaSectionReading({
           studentId: student.id,
+          sectionTitle,
           sectionText,
           audioBase64,
           isLatestSection: isLastSection,
