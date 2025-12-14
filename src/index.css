@@ -61,6 +61,22 @@ body {
   max-width: 400px;
 }
 
+.voice-recorder.compact {
+  padding: 0;
+  margin: 0;
+  gap: 0.25rem;
+}
+
+.voice-recorder.compact .recording-controls {
+  gap: 0.25rem;
+}
+
+.voice-recorder.compact .record-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  min-width: auto;
+}
+
 .recording-controls {
   display: flex;
   flex-direction: column;

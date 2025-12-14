@@ -6,9 +6,10 @@ interface Props {
   onPlayStart?: () => void;
   recordingDurationMs?: number;
   autoSubmit?: boolean;
+  compact?: boolean;
 }
 
-export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs = 10000, autoSubmit = true }: Props) {
+export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs = 10000, autoSubmit = true, compact = false }: Props) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTimeLeft, setRecordingTimeLeft] = useState<number | null>(null);
@@ -247,7 +248,7 @@ export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs
   const displayTime = recordingTimeLeft !== null ? `${recordingTimeLeft}s` : '';
 
   return (
-    <div className="voice-recorder p-0">
+    <div className={`voice-recorder p-0 ${compact ? 'compact' : ''}`}>
       <div className="recording-controls">
         <button
           className={`record-button ${isRecording ? 'recording' : ''}`}
