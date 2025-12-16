@@ -268,6 +268,23 @@ export interface Step {
   }
 
   // Level 4 Step 1 - Schema Section Reading API Types
+  // Level 4 Step 2 - Summary API Types (Step1 ile aynı yapı)
+  export interface Level4Step2Request {
+    studentId: string;
+    sectionTitle: string;
+    sectionText: string;
+    audioBase64: string;
+    isLatestSection: boolean;
+    sectionNo: number;
+  }
+
+  export interface Level4Step2Response {
+    audioBase64: string;
+    resumeUrl: string;
+    textAudio?: string;
+    title?: string;
+  }
+
   export interface Level4Step1Request {
     studentId: string;
     sectionTitle: string;

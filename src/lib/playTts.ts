@@ -1,6 +1,6 @@
 import { getPlaybackRate } from '../components/SidebarSettings';
 
-export async function playTts(text: string) {
+export async function playTts(text: string): Promise<void> {
   const res = await fetch("https://arge.aquateknoloji.com/webhook/dost/voice-generator", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -21,13 +21,21 @@ export async function playTts(text: string) {
   // Apply playback rate
   audio.playbackRate = getPlaybackRate();
 
-  audio.play()
-    .catch(err => {
-      console.error("Ses oynatılırken hata:", err);
-    })
-    .finally(() => {
-      audio.onended = () => URL.revokeObjectURL(url);
-    });
+  return new Promise<void>((resolve, reject) => {
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+    
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Ses oynatılırken hata"));
+    };
 
-  return audio;
+    audio.play().catch(err => {
+      URL.revokeObjectURL(url);
+      console.error("Ses oynatılırken hata:", err);
+      reject(err);
+    });
+  });
 }
