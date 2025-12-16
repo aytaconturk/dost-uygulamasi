@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getComprehensionQuestions } from '../../data/stories';
-import { getComprehensionQuestionsByStory, type ComprehensionQuestion } from '../../lib/supabase';
+import { getComprehensionQuestionsByStory, type ComprehensionQuestion, logStudentAction, awardPoints } from '../../lib/supabase';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { playSoundEffect } from '../../lib/soundEffects';
+import type { RootState } from '../../store/store';
+import PointsAnimation from '../../components/PointsAnimation';
 
 interface QuestionData {
   question: string;
   options: string[];
   correctIndex: number;
-  questionNumber: number;
+  questionNumber: number; // UI için 1-5 arası numara
+  originalQuestionOrder: number; // Ses dosyası için orijinal question_order
   questionAudioUrl?: string | null;
   correctAnswerAudioUrl?: string | null;
   wrongAnswerAudioUrl?: string | null;
 }
 
 export default function L5Step1() {
+  const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -27,8 +32,10 @@ export default function L5Step1() {
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [playingQuestionAudio, setPlayingQuestionAudio] = useState(false);
   const [playingOptionAudio, setPlayingOptionAudio] = useState<number | null>(null);
-  const [playingOptionAudio, setPlayingOptionAudio] = useState<number | null>(null);
-  const { onStepCompleted, storyId } = useStepContext();
+  const [totalScore, setTotalScore] = useState(0);
+  const [showPointsAnimation, setShowPointsAnimation] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const { onStepCompleted, storyId, sessionId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -42,27 +49,24 @@ export default function L5Step1() {
         
         let allQuestions: QuestionData[] = [];
         
-        let allQuestions: QuestionData[] = [];
-        
         if (!error && supabaseQuestions && supabaseQuestions.length > 0) {
           // Convert Supabase questions to QuestionData format
-          allQuestions = supabaseQuestions.map((q: ComprehensionQuestion, idx: number) => ({
           allQuestions = supabaseQuestions.map((q: ComprehensionQuestion, idx: number) => ({
             question: q.question_text,
             options: [q.option_a, q.option_b, q.option_c, q.option_d],
             correctIndex: q.correct_option === 'A' ? 0 : q.correct_option === 'B' ? 1 : q.correct_option === 'C' ? 2 : 3,
             questionNumber: q.question_order || idx + 1,
-            questionNumber: q.question_order || idx + 1,
+            originalQuestionOrder: q.question_order || idx + 1, // Ses dosyası için orijinal order
           }));
         } else {
           // Fallback to static questions
           const staticQuestions = getComprehensionQuestions(storyId || 3);
           allQuestions = staticQuestions.map((q, idx) => ({
-          allQuestions = staticQuestions.map((q, idx) => ({
             question: q.question,
             options: q.options,
             correctIndex: q.correctIndex,
             questionNumber: idx + 1,
+            originalQuestionOrder: idx + 1, // Ses dosyası için orijinal order
           }));
         }
 
@@ -72,19 +76,21 @@ export default function L5Step1() {
           const selected = shuffled.slice(0, 5);
           // Seçilen soruları questionNumber'a göre sırala
           selected.sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
-          // QuestionNumber'ları 1-5 olarak yeniden numaralandır
+          // QuestionNumber'ları 1-5 olarak yeniden numaralandır (UI için)
+          // Ama originalQuestionOrder'ı koru (ses dosyası için)
           const renumbered = selected.map((q, idx) => ({
             ...q,
-            questionNumber: idx + 1,
+            questionNumber: idx + 1, // UI için 1-5
+            originalQuestionOrder: q.originalQuestionOrder, // Ses dosyası için orijinal
           }));
           console.log('Setting questions (random 5):', renumbered);
           setQuestions(renumbered);
         } else {
           // 5 veya daha az soru varsa hepsini kullan
-          // Eğer questionNumber yoksa ekle
           const questionsWithNumbers = allQuestions.map((q, idx) => ({
             ...q,
             questionNumber: q.questionNumber || idx + 1,
+            originalQuestionOrder: q.originalQuestionOrder || q.questionNumber || idx + 1,
           }));
           console.log('Setting questions (all):', questionsWithNumbers);
           setQuestions(questionsWithNumbers);
@@ -94,11 +100,11 @@ export default function L5Step1() {
         // Fallback to static questions
         const staticQuestions = getComprehensionQuestions(storyId || 3);
         const allQuestions = staticQuestions.map((q, idx) => ({
-        const allQuestions = staticQuestions.map((q, idx) => ({
           question: q.question,
           options: q.options,
           correctIndex: q.correctIndex,
           questionNumber: idx + 1,
+          originalQuestionOrder: idx + 1, // Ses dosyası için orijinal order
         }));
         
         // Random 5 soru seç
@@ -108,7 +114,8 @@ export default function L5Step1() {
           selected.sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
           const renumbered = selected.map((q, idx) => ({
             ...q,
-            questionNumber: idx + 1,
+            questionNumber: idx + 1, // UI için 1-5
+            originalQuestionOrder: q.originalQuestionOrder, // Ses dosyası için orijinal
           }));
           console.log('Setting questions (error fallback, random 5):', renumbered);
           setQuestions(renumbered);
@@ -117,6 +124,7 @@ export default function L5Step1() {
           const questionsWithNumbers = allQuestions.map((q, idx) => ({
             ...q,
             questionNumber: q.questionNumber || idx + 1,
+            originalQuestionOrder: q.originalQuestionOrder || q.questionNumber || idx + 1,
           }));
           console.log('Setting questions (error fallback, all):', questionsWithNumbers);
           setQuestions(questionsWithNumbers);
@@ -181,26 +189,17 @@ export default function L5Step1() {
         (el as any).playsInline = true;
         el.muted = false;
         
+        const handleError = () => {
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          console.warn(`Audio file not found: ${audioPath}`);
+          resolve(); // Hata olsa bile devam et
+        };
+        
         const handleEnded = () => {
           el.removeEventListener('ended', handleEnded);
           el.removeEventListener('error', handleError);
-          el.removeEventListener('error', handleError);
           resolve();
-        };
-        
-        const handleError = () => {
-          el.removeEventListener('ended', handleEnded);
-          el.removeEventListener('error', handleError);
-          console.warn(`Audio file not found: ${audioPath}`);
-          resolve(); // Hata olsa bile devam et
-        };
-        
-        
-        const handleError = () => {
-          el.removeEventListener('ended', handleEnded);
-          el.removeEventListener('error', handleError);
-          console.warn(`Audio file not found: ${audioPath}`);
-          resolve(); // Hata olsa bile devam et
         };
         
         el.addEventListener('ended', handleEnded, { once: true });
@@ -217,16 +216,16 @@ export default function L5Step1() {
     });
   };
 
-  // Soru seslendirmesi oynat
-  const playQuestionAudio = async (questionNumber: number | undefined) => {
-    if (!questionNumber) {
-      console.warn('questionNumber is undefined');
+  // Soru seslendirmesi oynat - orijinal question_order kullan
+  const playQuestionAudio = async (question: QuestionData | undefined) => {
+    if (!question || !question.originalQuestionOrder) {
+      console.warn('question or originalQuestionOrder is undefined');
       return;
     }
     setPlayingQuestionAudio(true);
     try {
-      const audioPath = `/audios/sorular/question-${storyId || 3}-q${questionNumber}.mp3`;
-      console.log('Playing question audio:', audioPath);
+      const audioPath = `/audios/sorular/question-${storyId || 3}-q${question.originalQuestionOrder}.mp3`;
+      console.log('Playing question audio:', audioPath, 'for question:', question.question);
       await playAudioFile(audioPath);
     } catch (err) {
       console.error('Error playing question audio:', err);
@@ -235,16 +234,16 @@ export default function L5Step1() {
     }
   };
 
-  // Şık seslendirmesi oynat
-  const playOptionAudio = async (questionNumber: number | undefined, optionIndex: number) => {
-    if (!questionNumber) {
-      console.warn('questionNumber is undefined');
+  // Şık seslendirmesi oynat - orijinal question_order kullan
+  const playOptionAudio = async (question: QuestionData | undefined, optionIndex: number) => {
+    if (!question || !question.originalQuestionOrder) {
+      console.warn('question or originalQuestionOrder is undefined');
       return;
     }
     const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
     setPlayingOptionAudio(optionIndex);
     try {
-      const audioPath = `/audios/sorular/option-${storyId || 3}-q${questionNumber}-${optionLetter}.mp3`;
+      const audioPath = `/audios/sorular/option-${storyId || 3}-q${question.originalQuestionOrder}-${optionLetter}.mp3`;
       console.log('Playing option audio:', audioPath);
       await playAudioFile(audioPath);
     } catch (err) {
@@ -274,18 +273,17 @@ export default function L5Step1() {
       return;
     }
     
-    const questionNum = firstQuestion.questionNumber;
-    console.log('startFlow - questionNum:', questionNum, 'firstQuestion:', firstQuestion);
+    console.log('startFlow - firstQuestion:', firstQuestion);
     
-    if (typeof questionNum !== 'number' || questionNum <= 0) {
-      console.error('Invalid questionNumber in startFlow:', questionNum, 'Question:', firstQuestion);
+    if (!firstQuestion || !firstQuestion.originalQuestionOrder) {
+      console.error('Invalid question in startFlow:', firstQuestion);
       return;
     }
     
-    await playQuestionAudio(questionNum);
+    await playQuestionAudio(firstQuestion);
     // Şıkları da seslendir
     for (let i = 0; i < firstQuestion.options.length; i++) {
-      await playOptionAudio(questionNum, i);
+      await playOptionAudio(firstQuestion, i);
     }
   };
 
@@ -299,34 +297,84 @@ export default function L5Step1() {
     }
     
     const isCorrect = selectedAnswer === question.correctIndex;
+    const selectedOptionText = question.options[selectedAnswer];
+    const correctOptionText = question.options[question.correctIndex];
+    const optionLetter = String.fromCharCode(65 + selectedAnswer); // A, B, C, D
+
+    // Log the answer
+    if (student && sessionId && storyId) {
+      try {
+        await logStudentAction(
+          sessionId,
+          student.id,
+          isCorrect ? 'comprehension_question_correct' : 'comprehension_question_wrong',
+          storyId,
+          5, // level
+          1, // step
+          {
+            questionNumber: question.questionNumber,
+            originalQuestionOrder: question.originalQuestionOrder,
+            questionText: question.question,
+            selectedAnswer: optionLetter,
+            selectedAnswerText: selectedOptionText,
+            correctAnswer: String.fromCharCode(65 + question.correctIndex),
+            correctAnswerText: correctOptionText,
+            isCorrect
+          }
+        );
+        console.log('✅ Answer logged:', { isCorrect, questionNumber: question.questionNumber, selectedAnswer: optionLetter });
+      } catch (err) {
+        console.error('❌ Error logging answer:', err);
+      }
+    }
+
+    // Award points for correct answers
+    if (isCorrect && student && storyId) {
+      try {
+        const { error: pointsError } = await awardPoints(
+          student.id,
+          storyId,
+          10,
+          `Seviye 5 - Soru ${question.questionNumber} doğru cevap`
+        );
+        if (pointsError) {
+          console.error('❌ Error awarding points:', pointsError);
+        } else {
+          console.log('✅ 10 puan eklendi');
+          setTotalScore(prev => prev + 10);
+          // Reset animation state first, then trigger it
+          setShowPointsAnimation(false);
+          // Use setTimeout to ensure state reset before triggering animation
+          setTimeout(() => {
+            setEarnedPoints(10);
+            setShowPointsAnimation(true);
+            // Auto-hide animation after 2 seconds
+            setTimeout(() => {
+              setShowPointsAnimation(false);
+            }, 2000);
+          }, 50);
+          // Trigger progress update event to refresh header
+          window.dispatchEvent(new Event('progressUpdated'));
+        }
+      } catch (err) {
+        console.error('❌ Error awarding points:', err);
+      }
+    }
 
     setAnswers([...answers, selectedAnswer]);
 
     if (isCorrect) {
       setFeedback('✓ Çok iyi! Cevap doğru!');
-      // Play correct answer audio
-      const correctPath = `/audios/sorular/correct-${storyId || 3}-q${question.questionNumber}.mp3`;
-      await playAudioFile(correctPath).catch(() => {
-        // Fallback to success sound if audio file not found
-        playSoundEffect('success');
-      });
-      // Play correct answer audio
-      const correctPath = `/audios/sorular/correct-${storyId || 3}-q${question.questionNumber}.mp3`;
+      // Play correct answer audio - orijinal question_order kullan
+      const correctPath = `/audios/sorular/correct-${storyId || 3}-q${question.originalQuestionOrder || question.questionNumber}.mp3`;
       await playAudioFile(correctPath).catch(() => {
         // Fallback to success sound if audio file not found
         playSoundEffect('success');
       });
     } else {
-      const correctOption = question.options[question.correctIndex];
-      setFeedback(`✗ Maalesef yanlış. Doğru cevap: "${correctOption}"`);
-      // Play wrong answer audio
-      const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.questionNumber}.mp3`;
-      await playAudioFile(wrongPath).catch(() => {
-        // Fallback to error sound if audio file not found
-        playSoundEffect('error');
-      });
-      // Play wrong answer audio
-      const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.questionNumber}.mp3`;
+      setFeedback(`✗ Maalesef yanlış. Doğru cevap: "${correctOptionText}"`);
+      // Play wrong answer audio - orijinal question_order kullan
+      const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.originalQuestionOrder || question.questionNumber}.mp3`;
       await playAudioFile(wrongPath).catch(() => {
         // Fallback to error sound if audio file not found
         playSoundEffect('error');
@@ -343,11 +391,11 @@ export default function L5Step1() {
         
         // Play next question audio and options
         const nextQuestion = questions[nextQuestionIdx];
-        if (nextQuestion && typeof nextQuestion.questionNumber === 'number') {
-          await playQuestionAudio(nextQuestion.questionNumber);
+        if (nextQuestion && nextQuestion.originalQuestionOrder) {
+          await playQuestionAudio(nextQuestion);
           // Şıkları da seslendir
           for (let i = 0; i < nextQuestion.options.length; i++) {
-            await playOptionAudio(nextQuestion.questionNumber, i);
+            await playOptionAudio(nextQuestion, i);
           }
         } else {
           console.error('Invalid nextQuestion:', nextQuestion);
@@ -380,11 +428,16 @@ export default function L5Step1() {
 
     return (
       <div className="w-full max-w-5xl mx-auto">
+        <PointsAnimation show={showPointsAnimation} points={earnedPoints} />
         <div className="bg-white rounded-xl shadow p-8 text-center space-y-4">
           <h3 className="text-2xl font-bold text-purple-800">Sorular Tamamlandı!</h3>
           <p className="text-lg text-gray-700">
             {correctCount} / {questions.length} soruya doğru cevap verdin.
           </p>
+          <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-lg p-4 mt-4">
+            <p className="text-sm text-gray-800 mb-1">Toplam Puan</p>
+            <p className="text-4xl font-bold text-white">{totalScore} Puan</p>
+          </div>
           {correctCount === questions.length && (
             <p className="text-xl text-green-600 font-bold">Mükemmel! Tüm soruları doğru yanıtladın! 🎉</p>
           )}
@@ -398,6 +451,7 @@ export default function L5Step1() {
 
   return (
     <div className="w-full max-w-5xl mx-auto">
+      <PointsAnimation show={showPointsAnimation} points={earnedPoints} />
       <audio ref={audioRef} preload="auto" />
       <div className="flex flex-col items-center justify-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-purple-800">1. Adım: Okuduğunu Anlama Soruları</h2>
@@ -447,11 +501,11 @@ export default function L5Step1() {
               <button
                 onClick={async () => {
                   const currentQ = questions[currentQuestion];
-                  if (currentQ && typeof currentQ.questionNumber === 'number') {
-                    await playQuestionAudio(currentQ.questionNumber);
+                  if (currentQ && currentQ.originalQuestionOrder) {
+                    await playQuestionAudio(currentQ);
                     // Şıkları da seslendir
                     for (let i = 0; i < currentQ.options.length; i++) {
-                      await playOptionAudio(currentQ.questionNumber, i);
+                      await playOptionAudio(currentQ, i);
                     }
                   } else {
                     console.error('Invalid question in play button:', currentQ);
@@ -473,8 +527,8 @@ export default function L5Step1() {
                     setSelectedAnswer(idx);
                     // Şık seslendirmesi
                     const currentQ = questions[currentQuestion];
-                    if (currentQ && typeof currentQ.questionNumber === 'number') {
-                      await playOptionAudio(currentQ.questionNumber, idx);
+                    if (currentQ && currentQ.originalQuestionOrder) {
+                      await playOptionAudio(currentQ, idx);
                     } else {
                       console.error('Invalid question in option button:', currentQ);
                     }
@@ -504,8 +558,8 @@ export default function L5Step1() {
                       onClick={async (e) => {
                         e.stopPropagation();
                         const currentQ = questions[currentQuestion];
-                        if (currentQ && typeof currentQ.questionNumber === 'number') {
-                          await playOptionAudio(currentQ.questionNumber, idx);
+                        if (currentQ && currentQ.originalQuestionOrder) {
+                          await playOptionAudio(currentQ, idx);
                         } else {
                           console.error('Invalid question in option play button:', currentQ);
                         }
