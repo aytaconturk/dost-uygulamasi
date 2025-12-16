@@ -5,6 +5,8 @@ import type {
   Level3Step1ParagraphRequest,
   Level3Step1ParagraphResponse,
   Level3Step1Response,
+  Level3Step2Request,
+  Level3Step2Response,
 } from '../types';
 
 // Helper: Convert payload to FormData to avoid CORS preflight
@@ -114,6 +116,55 @@ export async function getResumeResponse(
   } catch (error: any) {
     console.error('❌ Error with resumeUrl:', {
       url: resumeUrl,
+      error: error.message,
+      code: error.code,
+      response: error.response?.data,
+    });
+    throw error;
+  }
+}
+
+export async function submitReadingSpeedAnalysis(
+  request: Level3Step2Request
+): Promise<Level3Step2Response> {
+  console.log('📤 Sending Level 3 Step 2 request:', {
+    userId: request.userId,
+    audioFileSize: request.audioFile.size,
+    durationMs: request.durationMs,
+    hedefOkuma: request.hedefOkuma,
+  });
+  
+  try {
+    // Use FormData to send audio file + metadata
+    const formData = new FormData();
+    formData.append('audioFile', request.audioFile, 'recording.webm');
+    formData.append('userId', request.userId);
+    formData.append('durationMs', String(request.durationMs));
+    formData.append('hedefOkuma', String(request.hedefOkuma));
+    formData.append('metin', request.metin);
+    
+    const response = await axios.post<Level3Step2Response>(
+      `${getApiBase()}/dost/level3/step2`,
+      formData,
+      {
+        withCredentials: false,
+        timeout: 90000, // 90 seconds for transcription + AI processing
+        // NO headers - browser sets multipart/form-data automatically
+      }
+    );
+    
+    console.log('📥 Level 3 Step 2 response:', {
+      kidName: response.data.kidName,
+      title: response.data.title,
+      speedSummary: response.data.speedSummary,
+      reachedTarget: response.data.reachedTarget,
+      wpmCorrect: response.data.metrics.wpmCorrect,
+      audioBase64Length: response.data.audioBase64?.length || 0,
+    });
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error with Level 3 Step 2:', {
       error: error.message,
       code: error.code,
       response: error.response?.data,

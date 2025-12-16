@@ -27,12 +27,13 @@ export default function L5Step1() {
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [playingQuestionAudio, setPlayingQuestionAudio] = useState(false);
   const [playingOptionAudio, setPlayingOptionAudio] = useState<number | null>(null);
+  const [playingOptionAudio, setPlayingOptionAudio] = useState<number | null>(null);
   const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  // Load questions from Supabase, fallback to static data
+  // Load questions from Supabase, fallback to static data, then select random 5
   useEffect(() => {
     const loadQuestions = async () => {
       setLoadingQuestions(true);
@@ -41,17 +42,22 @@ export default function L5Step1() {
         
         let allQuestions: QuestionData[] = [];
         
+        let allQuestions: QuestionData[] = [];
+        
         if (!error && supabaseQuestions && supabaseQuestions.length > 0) {
           // Convert Supabase questions to QuestionData format
+          allQuestions = supabaseQuestions.map((q: ComprehensionQuestion, idx: number) => ({
           allQuestions = supabaseQuestions.map((q: ComprehensionQuestion, idx: number) => ({
             question: q.question_text,
             options: [q.option_a, q.option_b, q.option_c, q.option_d],
             correctIndex: q.correct_option === 'A' ? 0 : q.correct_option === 'B' ? 1 : q.correct_option === 'C' ? 2 : 3,
             questionNumber: q.question_order || idx + 1,
+            questionNumber: q.question_order || idx + 1,
           }));
         } else {
           // Fallback to static questions
           const staticQuestions = getComprehensionQuestions(storyId || 3);
+          allQuestions = staticQuestions.map((q, idx) => ({
           allQuestions = staticQuestions.map((q, idx) => ({
             question: q.question,
             options: q.options,
@@ -87,6 +93,7 @@ export default function L5Step1() {
         console.error('Error loading questions:', err);
         // Fallback to static questions
         const staticQuestions = getComprehensionQuestions(storyId || 3);
+        const allQuestions = staticQuestions.map((q, idx) => ({
         const allQuestions = staticQuestions.map((q, idx) => ({
           question: q.question,
           options: q.options,
@@ -177,8 +184,17 @@ export default function L5Step1() {
         const handleEnded = () => {
           el.removeEventListener('ended', handleEnded);
           el.removeEventListener('error', handleError);
+          el.removeEventListener('error', handleError);
           resolve();
         };
+        
+        const handleError = () => {
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          console.warn(`Audio file not found: ${audioPath}`);
+          resolve(); // Hata olsa bile devam et
+        };
+        
         
         const handleError = () => {
           el.removeEventListener('ended', handleEnded);
@@ -294,9 +310,21 @@ export default function L5Step1() {
         // Fallback to success sound if audio file not found
         playSoundEffect('success');
       });
+      // Play correct answer audio
+      const correctPath = `/audios/sorular/correct-${storyId || 3}-q${question.questionNumber}.mp3`;
+      await playAudioFile(correctPath).catch(() => {
+        // Fallback to success sound if audio file not found
+        playSoundEffect('success');
+      });
     } else {
       const correctOption = question.options[question.correctIndex];
       setFeedback(`✗ Maalesef yanlış. Doğru cevap: "${correctOption}"`);
+      // Play wrong answer audio
+      const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.questionNumber}.mp3`;
+      await playAudioFile(wrongPath).catch(() => {
+        // Fallback to error sound if audio file not found
+        playSoundEffect('error');
+      });
       // Play wrong answer audio
       const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.questionNumber}.mp3`;
       await playAudioFile(wrongPath).catch(() => {

@@ -234,3 +234,69 @@ export interface Step {
     textAudio?: string;
     title?: string;
   }
+
+  // Level 3 Step 2 - Reading Speed Analysis API Types
+  export interface Level3Step2Request {
+    userId: string;
+    audioFile: Blob;
+    durationMs: number;
+    hedefOkuma: number;
+    metin: string;
+  }
+
+  export interface Level3Step2Response {
+    kidName: string;
+    title: string;
+    speedSummary: string;
+    hedefOkuma: number;
+    reachedTarget: boolean;
+    analysisText: string;
+    metrics: {
+      durationSec: number;
+      durationMMSS: string;
+      targetWordCount: number;
+      spokenWordCount: number;
+      matchedWordCount: number;
+      accuracyPercent: number;
+      wpmSpoken: number;
+      wpmCorrect: number;
+      wpmTarget: number;
+    };
+    coachText: string;
+    audioBase64: string;
+    transcriptText: string;
+  }
+
+  // Level 4 Step 1 - Schema Section Reading API Types
+  // Level 4 Step 2 - Summary API Types (Step1 ile aynı yapı)
+  export interface Level4Step2Request {
+    studentId: string;
+    sectionTitle: string;
+    sectionText: string;
+    audioBase64: string;
+    isLatestSection: boolean;
+    sectionNo: number;
+  }
+
+  export interface Level4Step2Response {
+    audioBase64: string;
+    resumeUrl: string;
+    textAudio?: string;
+    title?: string;
+  }
+
+  export interface Level4Step1Request {
+    studentId: string;
+    sectionTitle: string;
+    sectionText: string;
+    audioBase64: string;
+    isLatestSection: boolean;
+    sectionNo: number;
+  }
+
+  export interface Level4Step1Response {
+    audioBase64: string;
+    resumeUrl: string;
+    textAudio?: string;
+    title?: string;
+  }

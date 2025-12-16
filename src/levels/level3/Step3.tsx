@@ -11,9 +11,10 @@ import { playSoundEffect } from '../../lib/soundEffects';
 export default function L3Step3() {
   const student = useSelector((state: RootState) => state.user.student);
   const { sessionId, storyId } = useStepContext();
-  const [result, setResult] = useState<{totalWords:number; elapsedSec:number; wpm:number; targetWPM:number} | null>(null);
+  const [result, setResult] = useState<{totalWords:number; elapsedSec:number; wpm:number; targetWPM:number; analysis?: any} | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -53,13 +54,33 @@ export default function L3Step3() {
     }
   };
 
-  const playFeedbackTts = async () => {
-    if (!result) return;
+  const playFeedbackAudio = async () => {
+    if (!result?.analysis?.audioBase64 || isPlayingAudio) return;
+    
+    setIsPlayingAudio(true);
+    const el = audioRef.current;
+    if (!el) {
+      setIsPlayingAudio(false);
+      return;
+    }
+
     try {
-      const feedbackText = `Şimdi hedefimize ulaşıp ulaşamadığımızı kontrol etme zamanı. Metni üçüncü kez okuduğunda okuma hızın ${result.wpm} sözcük. Okuma hedefi olarak ${result.targetWPM} sözcük seçmiştin.`;
-      await playTts(feedbackText);
+      const base64 = result.analysis.audioBase64;
+      const audioSrc = base64.startsWith('data:') ? base64 : `data:audio/mpeg;base64,${base64}`;
+      
+      el.src = audioSrc;
+      el.playbackRate = getPlaybackRate();
+      // @ts-ignore
+      el.playsInline = true;
+      el.muted = false;
+
+      el.onended = () => setIsPlayingAudio(false);
+      el.onerror = () => setIsPlayingAudio(false);
+
+      await el.play();
     } catch (err) {
-      console.error('TTS playback error:', err);
+      console.error('Failed to play analysis audio:', err);
+      setIsPlayingAudio(false);
     }
   };
 
@@ -74,6 +95,13 @@ export default function L3Step3() {
   const summaryText = useMemo(() => {
     const r = result;
     if (!r) return 'Henüz bir okuma sonucu bulunamadı.';
+    
+    // Use analysisText from n8n response if available
+    if (r.analysis?.analysisText) {
+      return r.analysis.analysisText;
+    }
+    
+    // Fallback to old logic
     const base = `Şimdi hedefimize ulaşıp ulaşamadığımızı kontrol etme zamanı. Metni üçüncü kez okuduğunda okuma hızın ${r.wpm} sözcük/dakika. Okuma hedefi olarak ${r.targetWPM} sözcük/dakika seçmiştin.`;
     if (r.wpm >= r.targetWPM) {
       return base + ' Tebrikler belirlemiş olduğun hedefe ulaştın. Ödülü hak ettin. Çalışma sonunda sana sunulan ödüllerden birini tercih edebilirsin.';
@@ -101,12 +129,30 @@ export default function L3Step3() {
         <h2 className="text-2xl font-bold text-purple-800">3. Adım: Okuma hızı ve Performans geribildirimi</h2>
       </div>
       <div
-        onClick={playFeedbackTts}
+        onClick={result?.analysis?.audioBase64 ? playFeedbackAudio : playFeedbackTts}
         className="bg-white rounded-xl shadow p-5 cursor-pointer hover:shadow-lg hover:bg-purple-50 transition duration-200"
       >
         <p className="text-lg text-gray-800">{summaryText}</p>
-        <p className="text-sm text-purple-600 mt-3 font-semibold">💬 Tıkla - DOST'u dinle</p>
+        <p className="text-sm text-purple-600 mt-3 font-semibold">
+          💬 Tıkla - DOST'u dinle {isPlayingAudio && '(Çalıyor...)'}
+        </p>
       </div>
+      
+      {result?.analysis?.metrics && (
+        <div className="bg-white rounded-xl shadow p-5 mt-4">
+          <h3 className="text-lg font-bold text-purple-800 mb-3">📊 Detaylı Metrikler</h3>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><span className="font-semibold">Süre:</span> {result.analysis.metrics.durationMMSS}</div>
+            <div><span className="font-semibold">Hedef Kelime:</span> {result.analysis.metrics.targetWordCount}</div>
+            <div><span className="font-semibold">Okunan Kelime:</span> {result.analysis.metrics.spokenWordCount}</div>
+            <div><span className="font-semibold">Doğru Kelime:</span> {result.analysis.metrics.matchedWordCount}</div>
+            <div><span className="font-semibold">Doğruluk:</span> {result.analysis.metrics.accuracyPercent}%</div>
+            <div><span className="font-semibold">WPM (Okunan):</span> {result.analysis.metrics.wpmSpoken}</div>
+            <div><span className="font-semibold">WPM (Doğru):</span> {result.analysis.metrics.wpmCorrect}</div>
+            <div><span className="font-semibold">WPM (Hedef):</span> {result.analysis.metrics.wpmTarget}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

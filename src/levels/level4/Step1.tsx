@@ -1,18 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getSchema } from '../../data/schemas';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getAppMode } from '../../lib/api';
+import { submitSchemaSectionReading, getResumeResponse } from '../../lib/level4-api';
+import type { RootState } from '../../store/store';
+import VoiceRecorder from '../../components/VoiceRecorder';
+import { getRecordingDuration } from '../../components/SidebarSettings';
 
 const STORY_ID = 3;
 
 export default function L4Step1() {
+  const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [isPlayingSectionAudio, setIsPlayingSectionAudio] = useState(false);
+  const [isPlayingSiraSende, setIsPlayingSiraSende] = useState(false);
+  const [isWaitingForRecording, setIsWaitingForRecording] = useState(false);
+  const [isProcessingResponse, setIsProcessingResponse] = useState(false);
+  const [isPlayingResponse, setIsPlayingResponse] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
   const { onStepCompleted, storyId } = useStepContext();
   
@@ -115,34 +126,15 @@ export default function L4Step1() {
       const handleEnded = () => {
         console.log(`✅ Section ${currentSection + 1} audio finished`);
         setIsPlayingSectionAudio(false);
-        setCompletedSections(prev => new Set([...prev, currentSection]));
-        
-        // Auto-advance to next section after a short delay
-        if (currentSection < schema.sections.length - 1) {
-          setTimeout(() => {
-            setCurrentSection(currentSection + 1);
-          }, 1000);
-        } else {
-          // All sections completed
-          if (onStepCompleted) {
-            onStepCompleted({
-              totalSections: schema.sections.length,
-              completed: true
-            });
-          }
-        }
+        // Play "Şimdi sıra sende" audio
+        playSiraSendeAudio();
       };
 
       const handleError = (e: Event) => {
         console.error(`❌ Section ${currentSection + 1} audio error:`, e);
         setIsPlayingSectionAudio(false);
-        // Continue even if audio fails
-        setCompletedSections(prev => new Set([...prev, currentSection]));
-        if (currentSection < schema.sections.length - 1) {
-          setTimeout(() => {
-            setCurrentSection(currentSection + 1);
-          }, 1000);
-        }
+        // Play "Şimdi sıra sende" audio even if section audio fails
+        playSiraSendeAudio();
       };
 
       el.addEventListener('ended', handleEnded, { once: true });
@@ -157,7 +149,186 @@ export default function L4Step1() {
     };
 
     playSectionAudio();
-  }, [started, currentSection, schema, storyId, onStepCompleted]);
+  }, [started, currentSection, schema, storyId]);
+
+  const playSiraSendeAudio = async (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const el = audioRef.current;
+      if (!el) {
+        setIsWaitingForRecording(true);
+        resolve();
+        return;
+      }
+
+      try {
+        setIsPlayingSiraSende(true);
+        el.src = '/audios/sira-sende-mikrofon.mp3';
+        (el as any).playsInline = true;
+        el.muted = false;
+        el.playbackRate = getPlaybackRate();
+        
+        el.onended = () => {
+          setIsPlayingSiraSende(false);
+          setIsWaitingForRecording(true);
+          resolve();
+        };
+        
+        el.onerror = () => {
+          console.warn('Sıra sende audio not found, continuing...');
+          setIsPlayingSiraSende(false);
+          setIsWaitingForRecording(true);
+          resolve(); // Continue even if audio doesn't exist
+        };
+        
+        el.play().catch((err) => {
+          console.warn('Error playing sira sende audio:', err);
+          setIsPlayingSiraSende(false);
+          setIsWaitingForRecording(true);
+          resolve(); // Continue even if play fails
+        });
+      } catch (err) {
+        console.warn('Error setting up sira sende audio:', err);
+        setIsPlayingSiraSende(false);
+        setIsWaitingForRecording(true);
+        resolve(); // Continue even if setup fails
+      }
+    });
+  };
+
+  const handleVoiceSubmit = async (audioBlob: Blob) => {
+    if (!student || !schema) return;
+    
+    setIsWaitingForRecording(false);
+    setIsProcessingResponse(true);
+
+    try {
+      const section = schema.sections[currentSection];
+      const sectionTitle = section.title;
+      const sectionItems = section.items.join('\n');
+      const sectionText = `${sectionTitle}\n${sectionItems}`;
+      
+      // Convert audio blob to base64
+      const reader = new FileReader();
+      const audioBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          const base64String = base64.split(',')[1] || base64;
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+
+      const isLastSection = currentSection === schema.sections.length - 1;
+      
+      console.log(`📤 Submitting section ${currentSection + 1}/${schema.sections.length}`, {
+        sectionNo: currentSection + 1,
+        isLastSection,
+        audioSize: audioBlob.size,
+      });
+
+      let response;
+      if (resumeUrl) {
+        // Resume from n8n webhook wait
+        response = await getResumeResponse(resumeUrl, {
+          studentId: student.id,
+          sectionTitle,
+          sectionText,
+          audioBase64,
+          isLatestSection: isLastSection,
+          sectionNo: currentSection + 1,
+        });
+      } else {
+        // First section - initial webhook call
+        response = await submitSchemaSectionReading({
+          studentId: student.id,
+          sectionTitle,
+          sectionText,
+          audioBase64,
+          isLatestSection: isLastSection,
+          sectionNo: currentSection + 1,
+        });
+      }
+
+      console.log(`✅ Received response for section ${currentSection + 1}:`, {
+        hasAudio: !!response.audioBase64,
+        hasResumeUrl: !!response.resumeUrl,
+      });
+
+      // Store resume URL for next section
+      if (response.resumeUrl) {
+        setResumeUrl(response.resumeUrl);
+      }
+
+      // Play n8n response audio
+      if (response.audioBase64) {
+        await playResponseAudio(response.audioBase64);
+      }
+
+      // Mark section as completed
+      setCompletedSections(prev => new Set([...prev, currentSection]));
+
+      // Move to next section or complete
+      if (isLastSection) {
+        console.log('✅ All sections completed!');
+        if (onStepCompleted) {
+          onStepCompleted({
+            totalSections: schema.sections.length,
+            completed: true,
+          });
+        }
+      } else {
+        // Auto-advance to next section
+        setTimeout(() => {
+          setCurrentSection(currentSection + 1);
+        }, 1000);
+      }
+
+    } catch (err) {
+      console.error('Failed to process voice recording:', err);
+      alert('Ses kaydı işlenemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setIsProcessingResponse(false);
+    }
+  };
+
+  const playResponseAudio = async (audioBase64: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const el = audioRef.current;
+      if (!el) {
+        reject(new Error('Audio element not found'));
+        return;
+      }
+
+      try {
+        const audioData = `data:audio/mp3;base64,${audioBase64}`;
+        el.src = audioData;
+        (el as any).playsInline = true;
+        el.muted = false;
+        el.playbackRate = getPlaybackRate();
+        
+        setIsPlayingResponse(true);
+        
+        el.onended = () => {
+          setIsPlayingResponse(false);
+          resolve();
+        };
+        
+        el.onerror = () => {
+          setIsPlayingResponse(false);
+          reject(new Error('Error playing response audio'));
+        };
+        
+        el.play().catch((err) => {
+          setIsPlayingResponse(false);
+          reject(err);
+        });
+      } catch (err) {
+        setIsPlayingResponse(false);
+        reject(err);
+      }
+    });
+  };
 
   const startFlow = async () => {
     // Stop intro audio if still playing
@@ -173,25 +344,6 @@ export default function L4Step1() {
     setCompletedSections(new Set());
   };
 
-  const onNextSection = () => {
-    if (currentSection < (schema?.sections.length || 0) - 1 && !isPlayingSectionAudio) {
-      setCurrentSection(currentSection + 1);
-    }
-  };
-
-  const onReplaySection = () => {
-    if (!isPlayingSectionAudio && schema) {
-      setCompletedSections(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(currentSection);
-        return newSet;
-      });
-      // Trigger re-play by resetting current section
-      const tempSection = currentSection;
-      setCurrentSection(-1);
-      setTimeout(() => setCurrentSection(tempSection), 100);
-    }
-  };
 
   if (!schema) {
     return (
@@ -295,24 +447,79 @@ export default function L4Step1() {
               })}
             </div>
 
-            {/* Controls */}
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={onReplaySection}
-                disabled={isPlayingSectionAudio}
-                className="bg-gray-500 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold"
-              >
-                🔄 Tekrar Oynat
-              </button>
-              {!isPlayingSectionAudio && currentSection < schema.sections.length - 1 && (
-                <button
-                  onClick={onNextSection}
-                  className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-bold"
-                >
-                  Sonraki Şematik →
-                </button>
-              )}
-            </div>
+            {/* Microphone/Response Card - Always visible when started */}
+            {(isPlayingSectionAudio || isPlayingSiraSende || isWaitingForRecording || isProcessingResponse || isPlayingResponse) && (
+              <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-2 mt-3 z-50" 
+                   style={{
+                     borderColor: isPlayingSectionAudio ? '#9CA3AF' : isPlayingSiraSende ? '#10B981' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : '#10B981'
+                   }}>
+                {isPlayingSectionAudio && (
+                  <>
+                    <p className="text-center mb-2 text-base font-bold text-gray-500">
+                      🔊 DOST şematiği okuyor...
+                    </p>
+                    <div className="flex justify-center opacity-50 pointer-events-none">
+                      <VoiceRecorder
+                        recordingDurationMs={getRecordingDuration()}
+                        autoSubmit={true}
+                        onSave={() => {}}
+                        onPlayStart={() => {}}
+                        compact={true}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {isPlayingSiraSende && (
+                  <>
+                    <p className="text-center mb-2 text-base font-bold text-green-700">
+                      🎤 Şimdi sıra sende! Mikrofona konuş
+                    </p>
+                    <div className="flex justify-center opacity-50 pointer-events-none">
+                      <VoiceRecorder
+                        recordingDurationMs={getRecordingDuration()}
+                        autoSubmit={true}
+                        onSave={() => {}}
+                        onPlayStart={() => {}}
+                        compact={true}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !isPlayingSiraSende && (
+                  <>
+                    <p className="text-center mb-2 text-base font-bold text-green-700">
+                      🎤 Şimdi sıra sende! Mikrofona konuş
+                    </p>
+                    <div className="flex justify-center">
+                      <VoiceRecorder
+                        recordingDurationMs={getRecordingDuration()}
+                        autoSubmit={true}
+                        onSave={handleVoiceSubmit}
+                        onPlayStart={() => {
+                          try {
+                            window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
+                          } catch {}
+                        }}
+                        compact={true}
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {(isProcessingResponse || isPlayingResponse) && (
+                  <div className="text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
+                      <p className="text-orange-600 font-semibold text-base">
+                        ⏳ DOST'tan cevap bekleniyor...
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

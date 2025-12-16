@@ -13,7 +13,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "generate:level4-step2-audios": "node scripts/generate-level4-step2-audios.js"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.9.1",
