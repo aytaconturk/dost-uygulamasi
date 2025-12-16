@@ -79,12 +79,12 @@ export default function StoryCompletion() {
           // If no progress, try to get points from points_history
           const { data: pointsData, error: pointsError } = await supabase
             .from('points_history')
-            .select('points')
+            .select('points_earned')
             .eq('student_id', student.id)
             .eq('story_id', storyId);
 
           if (!pointsError && pointsData) {
-            const total = pointsData.reduce((sum, record) => sum + (record.points || 0), 0);
+            const total = pointsData.reduce((sum, record) => sum + (record.points_earned || 0), 0);
             setTotalPoints(total);
           }
         }
@@ -96,6 +96,31 @@ export default function StoryCompletion() {
     };
 
     loadData();
+  }, [student?.id, storyId]);
+
+  // Listen for progress update events to refresh points
+  useEffect(() => {
+    if (!student) return;
+
+    const handleProgressUpdate = async () => {
+      try {
+        const { data: progress, error: progressError } = await getStudentProgressByStory(
+          student.id,
+          storyId
+        );
+
+        if (!progressError && progress) {
+          setTotalPoints(progress.points || 0);
+        }
+      } catch (err) {
+        console.error('Error refreshing points:', err);
+      }
+    };
+
+    window.addEventListener('progressUpdated', handleProgressUpdate);
+    return () => {
+      window.removeEventListener('progressUpdated', handleProgressUpdate);
+    };
   }, [student?.id, storyId]);
 
   if (loading) {
