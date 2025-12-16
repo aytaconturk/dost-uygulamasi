@@ -36,17 +36,27 @@ export default function L5Step2() {
     loadL3Result();
   }, [student?.id, storyId, sessionId]);
 
+  // Play reward prompt audio on component mount
   useEffect(() => {
     const el = audioRef.current;
-    const base = l3 ? `Üçüncü okumadaki hızın ${l3.wpm} sözcük/dk idi ve hedefin ${l3.targetWPM} idi. ` : '';
-    const text = base + (l3 && l3.wpm >= l3.targetWPM ? 'Hedefine ulaştın, ödülü hak ettin!' : 'Hedefine ulaşamadın; ama pes yok, bir sonraki oturumda başarabilirsin.');
-    const speak = () => { if ('speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(text); u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; window.speechSynthesis.speak(u); } };
-    if (el) { try { el.src = '/src/assets/audios/level5/seviye-5-adim-2-fable.mp3'; // optional
-      // Apply playback rate
-      el.playbackRate = getPlaybackRate();
-      // @ts-ignore
-      el.playsInline = true; el.muted = false; el.play().catch(speak); } catch { speak(); } } else { speak(); }
-  }, [l3]);
+    if (!el) return;
+
+    const playRewardPrompt = async () => {
+      try {
+        el.src = '/audios/odul-prompt.mp3';
+        el.playbackRate = getPlaybackRate();
+        // @ts-ignore
+        el.playsInline = true;
+        el.muted = false;
+        await el.play();
+        console.log('✅ Ödül prompt sesi çalındı');
+      } catch (err) {
+        console.error('❌ Ödül prompt sesi çalınamadı:', err);
+      }
+    };
+
+    playRewardPrompt();
+  }, []); // Sadece component mount olduğunda çal
 
   const generateSticker = async () => {
     const canvas = document.createElement('canvas');
