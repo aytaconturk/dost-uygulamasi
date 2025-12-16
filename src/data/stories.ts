@@ -347,28 +347,38 @@ const COMPREHENSION_QUESTIONS: ComprehensionQuestions = {
   ],
   3: [
     {
-      question: 'Hurmalar hangi iklimde yetişir?',
-      options: ['Soğuk iklimde', 'Çöl ikliminde', 'Orman ikliminde', 'Dağ ikliminde'],
+      question: 'Hurma ağaçları için en uygun yetişme ortamı hangisidir?',
+      options: ['Ilıman orman içleri', 'Çöl ve çok sıcak iklimler', 'Sürekli soğuk bölgeler', 'Dağ etekleri'],
       correctIndex: 1
     },
     {
-      question: 'Hurma ağacı kaç yıl yaşar?',
-      options: ['Yaklaşık 30 yıl', 'Yaklaşık 50 yıl', 'Yaklaşık 70 yıl', 'Yaklaşık 100 yıl'],
+      question: 'Metne göre hurma ağacının görünümü nasıldır?',
+      options: ['Kısa ve dallı gövde', 'Çalı formunda, yer seviyesinde', 'Uzun gövdeli, palmiye benzeri yapı', 'Yere yayılan sarmaşık'],
       correctIndex: 2
     },
     {
-      question: 'Hurma ağacının temel parçaları nelerdir?',
-      options: ['Yaprak ve meyve', 'Gövde, yaprak ve meyve', 'Sadece gövde', 'Kök, gövde ve yaprak'],
+      question: 'Hurma ağacı çoğaltılırken hangi yöntemler kullanılabilir?',
+      options: ['Sadece yaprakla çoğaltma', 'Yalnızca aşılama', 'Tohumla çoğaltma dışında yöntem yoktur', 'Çekirdeklerinin ekilmesi ya da gövdeden çıkan filizlerin dikilmesi'],
+      correctIndex: 3
+    },
+    {
+      question: 'Metne göre hurma yaprağının insan sağlığına ne gibi bir faydası vardır?',
+      options: ['Ağızda çiğnendiğinde diş sağlığını koruması', 'Sindirimi hızlandırması', 'Kansere karşı koruması', 'Ateşi düşürmesi'],
+      correctIndex: 0
+    },
+    {
+      question: 'Metne göre hurma meyvesinin aşırı tüketimi hangi olumsuz etkiyi verebilir?',
+      options: ['Ciddi görme sorunları', 'Baş ağrısı', 'Deride soyulma', 'Kalp ritim bozukluğu'],
       correctIndex: 1
     },
     {
-      question: 'Hurma meyvesi ne şekilde ağaçtan sallanır?',
-      options: ['Tekil şekilde', 'Çift şekilde', 'Salkım şeklinde', 'Demetler halinde'],
+      question: '"Çöl şekerlemesi" ifadesi hurmayı tanımlarken hangi iki özelliğine vurgu yapar?',
+      options: ['Şekli ve boyutu', 'Rengi ve kokusu', 'Yetiştiği yer ve tadı', 'Fiyatı ve bulunurluğu'],
       correctIndex: 2
     },
     {
-      question: 'Hurma ağacının yapraklarından ne yapılır?',
-      options: ['Çay', 'Yağ', 'Reçel', 'Ekmek'],
+      question: 'Metinde hurmanın Ramazan Ayı\'nda sık tüketildiği ifade edilmektedir. Bunun sebebi ne olabilir?',
+      options: ['Besin değerlerinin yüksek olması ve uzun süre tok tutması', 'Pişirilmeden tüketilebilmesi', 'Sadece sıcak iklimlerde yetişmesi', 'Diğer meyvelerden daha ucuz olması'],
       correctIndex: 0
     }
   ],
