@@ -10,9 +10,7 @@ interface QuestionData {
   question: string;
   options: string[];
   correctIndex: number;
-  questionAudioUrl?: string | null;
-  correctAnswerAudioUrl?: string | null;
-  wrongAnswerAudioUrl?: string | null;
+  questionNumber: number; // Soru numarası (1, 2, 3, ...)
 }
 
 export default function L5Step1() {
@@ -26,47 +24,80 @@ export default function L5Step1() {
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [playingQuestionAudio, setPlayingQuestionAudio] = useState(false);
+  const [playingOptionAudio, setPlayingOptionAudio] = useState<number | null>(null);
   const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  // Load questions from Supabase, fallback to static data
+  // Load questions from Supabase, fallback to static data, then select random 5
   useEffect(() => {
     const loadQuestions = async () => {
       setLoadingQuestions(true);
       try {
         const { data: supabaseQuestions, error } = await getComprehensionQuestionsByStory(storyId || 3);
         
+        let allQuestions: QuestionData[] = [];
+        
         if (!error && supabaseQuestions && supabaseQuestions.length > 0) {
           // Convert Supabase questions to QuestionData format
-          const convertedQuestions: QuestionData[] = supabaseQuestions.map((q: ComprehensionQuestion) => ({
+          allQuestions = supabaseQuestions.map((q: ComprehensionQuestion, idx: number) => ({
             question: q.question_text,
             options: [q.option_a, q.option_b, q.option_c, q.option_d],
             correctIndex: q.correct_option === 'A' ? 0 : q.correct_option === 'B' ? 1 : q.correct_option === 'C' ? 2 : 3,
-            questionAudioUrl: q.question_audio_url,
-            correctAnswerAudioUrl: q.correct_answer_audio_url,
-            wrongAnswerAudioUrl: q.wrong_answer_audio_url,
+            questionNumber: q.question_order || idx + 1,
           }));
-          setQuestions(convertedQuestions);
         } else {
           // Fallback to static questions
           const staticQuestions = getComprehensionQuestions(storyId || 3);
-          setQuestions(staticQuestions.map(q => ({
+          allQuestions = staticQuestions.map((q, idx) => ({
             question: q.question,
             options: q.options,
             correctIndex: q.correctIndex,
-          })));
+            questionNumber: idx + 1,
+          }));
+        }
+
+        // Random 5 soru seç (eğer 5'ten fazla varsa)
+        if (allQuestions.length > 5) {
+          const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+          const selected = shuffled.slice(0, 5);
+          // Seçilen soruları questionNumber'a göre sırala
+          selected.sort((a, b) => a.questionNumber - b.questionNumber);
+          // QuestionNumber'ları 1-5 olarak yeniden numaralandır
+          const renumbered = selected.map((q, idx) => ({
+            ...q,
+            questionNumber: idx + 1,
+          }));
+          setQuestions(renumbered);
+        } else {
+          // 5 veya daha az soru varsa hepsini kullan
+          setQuestions(allQuestions);
         }
       } catch (err) {
         console.error('Error loading questions:', err);
         // Fallback to static questions
         const staticQuestions = getComprehensionQuestions(storyId || 3);
-        setQuestions(staticQuestions.map(q => ({
+        const allQuestions = staticQuestions.map((q, idx) => ({
           question: q.question,
           options: q.options,
           correctIndex: q.correctIndex,
-        })));
+          questionNumber: idx + 1,
+        }));
+        
+        // Random 5 soru seç
+        if (allQuestions.length > 5) {
+          const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+          const selected = shuffled.slice(0, 5);
+          selected.sort((a, b) => a.questionNumber - b.questionNumber);
+          const renumbered = selected.map((q, idx) => ({
+            ...q,
+            questionNumber: idx + 1,
+          }));
+          setQuestions(renumbered);
+        } else {
+          setQuestions(allQuestions);
+        }
       } finally {
         setLoadingQuestions(false);
       }
@@ -187,36 +218,79 @@ export default function L5Step1() {
 
     setStarted(true);
     
-    // Play first question audio if available
-    if (questions.length > 0 && questions[0].questionAudioUrl) {
-      await playQuestionAudio(questions[0].questionAudioUrl);
+    // Play first question audio and options
+    if (questions.length > 0) {
+      await playQuestionAudio(questions[0].questionNumber);
+      // Şıkları da seslendir
+      for (let i = 0; i < questions[0].options.length; i++) {
+        await playOptionAudio(questions[0].questionNumber, i);
+      }
     }
   };
 
-  const playQuestionAudio = async (audioUrl: string) => {
+  // Ses dosyası oynat (public/audios/sorular dizininden)
+  const playAudioFile = async (audioPath: string): Promise<void> => {
     const el = audioRef.current;
-    if (!el || !audioUrl) return;
+    if (!el) return;
 
-    setPlayingQuestionAudio(true);
-    try {
-      el.src = audioUrl;
-      el.playbackRate = getPlaybackRate();
-      (el as any).playsInline = true;
-      el.muted = false;
-      await el.play();
-      
-      // Wait for audio to finish
-      await new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        el.src = audioPath;
+        el.playbackRate = getPlaybackRate();
+        (el as any).playsInline = true;
+        el.muted = false;
+        
         const handleEnded = () => {
           el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
           resolve();
         };
+        
+        const handleError = () => {
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          console.warn(`Audio file not found: ${audioPath}`);
+          resolve(); // Hata olsa bile devam et
+        };
+        
         el.addEventListener('ended', handleEnded, { once: true });
-      });
+        el.addEventListener('error', handleError, { once: true });
+        
+        el.play().catch(err => {
+          console.error('Error playing audio:', err);
+          handleError();
+        });
+      } catch (err) {
+        console.error('Error setting up audio:', err);
+        resolve(); // Hata olsa bile devam et
+      }
+    });
+  };
+
+  // Soru seslendirmesi oynat
+  const playQuestionAudio = async (questionNumber: number) => {
+    setPlayingQuestionAudio(true);
+    try {
+      const audioPath = `/audios/sorular/question-${storyId || 3}-q${questionNumber}.mp3`;
+      await playAudioFile(audioPath);
     } catch (err) {
       console.error('Error playing question audio:', err);
     } finally {
       setPlayingQuestionAudio(false);
+    }
+  };
+
+  // Şık seslendirmesi oynat
+  const playOptionAudio = async (questionNumber: number, optionIndex: number) => {
+    const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
+    setPlayingOptionAudio(optionIndex);
+    try {
+      const audioPath = `/audios/sorular/option-${storyId || 3}-q${questionNumber}-${optionLetter}.mp3`;
+      await playAudioFile(audioPath);
+    } catch (err) {
+      console.error('Error playing option audio:', err);
+    } finally {
+      setPlayingOptionAudio(null);
     }
   };
 
@@ -230,21 +304,21 @@ export default function L5Step1() {
 
     if (isCorrect) {
       setFeedback('✓ Çok iyi! Cevap doğru!');
-      // Play correct answer audio if available, otherwise play success sound
-      if (question.correctAnswerAudioUrl) {
-        await playQuestionAudio(question.correctAnswerAudioUrl);
-      } else {
-        await playSoundEffect('success');
-      }
+      // Play correct answer audio
+      const correctPath = `/audios/sorular/correct-${storyId || 3}-q${question.questionNumber}.mp3`;
+      await playAudioFile(correctPath).catch(() => {
+        // Fallback to success sound if audio file not found
+        playSoundEffect('success');
+      });
     } else {
       const correctOption = question.options[question.correctIndex];
       setFeedback(`✗ Maalesef yanlış. Doğru cevap: "${correctOption}"`);
-      // Play wrong answer audio if available, otherwise play error sound
-      if (question.wrongAnswerAudioUrl) {
-        await playQuestionAudio(question.wrongAnswerAudioUrl);
-      } else {
-        await playSoundEffect('error');
-      }
+      // Play wrong answer audio
+      const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.questionNumber}.mp3`;
+      await playAudioFile(wrongPath).catch(() => {
+        // Fallback to error sound if audio file not found
+        playSoundEffect('error');
+      });
     }
 
     setSelectedAnswer(null);
@@ -255,9 +329,12 @@ export default function L5Step1() {
         setCurrentQuestion(nextQuestionIdx);
         setFeedback('');
         
-        // Play next question audio if available
-        if (questions[nextQuestionIdx]?.questionAudioUrl) {
-          await playQuestionAudio(questions[nextQuestionIdx].questionAudioUrl);
+        // Play next question audio and options
+        const nextQuestion = questions[nextQuestionIdx];
+        await playQuestionAudio(nextQuestion.questionNumber);
+        // Şıkları da seslendir
+        for (let i = 0; i < nextQuestion.options.length; i++) {
+          await playOptionAudio(nextQuestion.questionNumber, i);
         }
       }
     }, 2000);
@@ -358,22 +435,30 @@ export default function L5Step1() {
               <h4 className="text-xl font-semibold text-gray-800">
                 {questions[currentQuestion].question}
               </h4>
-              {questions[currentQuestion].questionAudioUrl && (
-                <button
-                  onClick={() => playQuestionAudio(questions[currentQuestion].questionAudioUrl!)}
-                  disabled={playingQuestionAudio}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg text-sm"
-                >
-                  {playingQuestionAudio ? '⏳ Çalınıyor...' : '🔊 Soruyu Dinle'}
-                </button>
-              )}
+              <button
+                onClick={async () => {
+                  await playQuestionAudio(questions[currentQuestion].questionNumber);
+                  // Şıkları da seslendir
+                  for (let i = 0; i < questions[currentQuestion].options.length; i++) {
+                    await playOptionAudio(questions[currentQuestion].questionNumber, i);
+                  }
+                }}
+                disabled={playingQuestionAudio || playingOptionAudio !== null}
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white rounded-lg text-sm"
+              >
+                {playingQuestionAudio || playingOptionAudio !== null ? '⏳ Çalınıyor...' : '🔊 Soruyu ve Şıkları Dinle'}
+              </button>
             </div>
 
             <div className="space-y-3">
               {questions[currentQuestion].options.map((option, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setSelectedAnswer(idx)}
+                  onClick={async () => {
+                    setSelectedAnswer(idx);
+                    // Şık seslendirmesi
+                    await playOptionAudio(questions[currentQuestion].questionNumber, idx);
+                  }}
                   disabled={feedback !== ''}
                   className={`w-full p-4 text-left rounded-lg border-2 transition-all font-medium ${
                     selectedAnswer === idx
@@ -385,15 +470,27 @@ export default function L5Step1() {
                       : 'border-gray-300 hover:border-purple-300 bg-white'
                   } ${feedback !== '' ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold ${
-                      selectedAnswer === idx
-                        ? 'border-purple-500 bg-purple-500 text-white'
-                        : 'border-gray-300'
-                    }`}>
-                      {String.fromCharCode(65 + idx)}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold ${
+                        selectedAnswer === idx
+                          ? 'border-purple-500 bg-purple-500 text-white'
+                          : 'border-gray-300'
+                      }`}>
+                        {String.fromCharCode(65 + idx)}
+                      </div>
+                      <span>{option}</span>
                     </div>
-                    <span>{option}</span>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await playOptionAudio(questions[currentQuestion].questionNumber, idx);
+                      }}
+                      disabled={playingOptionAudio === idx}
+                      className="px-3 py-1 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded text-sm"
+                    >
+                      {playingOptionAudio === idx ? '⏳' : '🔊'}
+                    </button>
                   </div>
                 </button>
               ))}
