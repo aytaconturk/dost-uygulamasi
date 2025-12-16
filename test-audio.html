@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ödül Prompt Ses Testi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Ödül Prompt Ses Testi</h1>
+        <p><strong>Metin:</strong> "Hedefine ulaşıp ulaşmadığına göre DOST ödülünü yönetecek. Aşağıya istediğin ödülü yaz: görsel, şarkı, hikâye, rozet, sticker vb."</p>
+        <button id="playBtn" onclick="playAudio()">▶️ Ses Dosyasını Çal</button>
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const audio = new Audio('/audios/odul-prompt.mp3');
+        
+        function playAudio() {
+            const btn = document.getElementById('playBtn');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            status.textContent = '🎵 Ses çalınıyor...';
+            
+            audio.playbackRate = 1.0;
+            
+            audio.onended = () => {
+                btn.disabled = false;
+                status.textContent = '✅ Ses çalma tamamlandı!';
+            };
+            
+            audio.onerror = (e) => {
+                btn.disabled = false;
+                status.textContent = '❌ Hata: ' + e.message;
+                console.error('Audio error:', e);
+            };
+            
+            audio.play().catch(err => {
+                btn.disabled = false;
+                status.textContent = '❌ Çalma hatası: ' + err.message;
+                console.error('Play error:', err);
+            });
+        }
+        
+        // Sayfa yüklendiğinde otomatik çal
+        window.addEventListener('load', () => {
+            setTimeout(() => playAudio(), 500);
+        });
+    </script>
+</body>
+</html>
+
