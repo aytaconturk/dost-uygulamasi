@@ -27,6 +27,15 @@ import story3Image from './assets/images/story3.png';
 import story4Image from './assets/images/story4.png';
 import story5Image from './assets/images/story5.png';
 
+// Map story IDs to their imported images
+const STORY_IMAGES: Record<number, string> = {
+  1: story1Image,
+  2: story2Image,
+  3: story3Image,
+  4: story4Image,
+  5: story5Image,
+};
+
 type Story = {
   id: number;
   title: string;
@@ -103,9 +112,14 @@ export default function App() {
             try {
                 const { data, error } = await getStories();
                 if (error) throw error;
-                // If we got data from Supabase, use it
+                // If we got data from Supabase, use it with proper images
                 if (data && data.length > 0) {
-                    setStories(data);
+                    // Override images with locally imported ones (Supabase may have old paths)
+                    const storiesWithImages = data.map((story: Story) => ({
+                        ...story,
+                        image: STORY_IMAGES[story.id] || story.image
+                    }));
+                    setStories(storiesWithImages);
                 } else {
                     // If no data from Supabase, use fallback
                     console.warn('No stories from Supabase, using fallback data');
