@@ -173,4 +173,51 @@ export async function submitReadingSpeedAnalysis(
   }
 }
 
+// Level 3 Step 2 - Reading Analysis (same as Level 2 Step 1)
+export async function submitLevel3ReadingAnalysis(
+  request: {
+    audioBase64: string;
+    text: string;
+    recordingStartTime: string;
+    recordingEndTime: string;
+    selectedWordCount: number;
+    userId: string;
+  }
+): Promise<any> {
+  const response = await axios.post(
+    `${getApiBase()}/dost/level3/step2`,
+    request,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  return response.data;
+}
+
+// Voice Generator API
+export interface VoiceGeneratorRequest {
+  text: string;
+}
+
+export interface VoiceGeneratorResponse {
+  audioBase64: string;
+}
+
+export async function generateVoice(
+  request: VoiceGeneratorRequest
+): Promise<VoiceGeneratorResponse> {
+  const response = await axios.post<VoiceGeneratorResponse>(
+    `${getApiBase()}/dost/voice-generator`,
+    request,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  return response.data;
+}
+
 

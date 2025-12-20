@@ -31,6 +31,7 @@ export interface Level2State {
   selectedGoal: number | null;
   selectedGoalPercentage: number | null;
   isLoading: boolean;
+  level3FeedbackAudio: string | null; // Base64 encoded audio for Level3 Step3 feedback
 }
 
 const initialState: Level2State = {
@@ -38,6 +39,7 @@ const initialState: Level2State = {
   selectedGoal: null,
   selectedGoalPercentage: null,
   isLoading: false,
+  level3FeedbackAudio: null,
 };
 
 const level2Slice = createSlice({
@@ -54,14 +56,18 @@ const level2Slice = createSlice({
     setIsLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
     },
+    setLevel3FeedbackAudio: (state, action: PayloadAction<string | null>) => {
+      state.level3FeedbackAudio = action.payload;
+    },
     clearLevel2State: (state) => {
       state.analysisResult = null;
       state.selectedGoal = null;
       state.selectedGoalPercentage = null;
       state.isLoading = false;
+      state.level3FeedbackAudio = null;
     },
   },
 });
 
-export const { setAnalysisResult, setSelectedGoal, setIsLoading, clearLevel2State } = level2Slice.actions;
+export const { setAnalysisResult, setSelectedGoal, setIsLoading, setLevel3FeedbackAudio, clearLevel2State } = level2Slice.actions;
 export default level2Slice.reducer;
