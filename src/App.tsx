@@ -12,6 +12,7 @@ import DiagnosticsPanel from './components/DiagnosticsPanel';
 import PractitionerInfoScreen from './components/PractitionerInfoScreen';
 import Level1Completion from './levels/level1/Completion';
 import Level2Completion from './levels/level2/Completion';
+import Level3Completion from './levels/level3/Completion';
 import './index.css';
 import LevelRouter from './levels/LevelRouter';
 import StoryCompletion from './components/StoryCompletion';
@@ -88,6 +89,9 @@ function CompletionRouter() {
 
   if (level === '2') {
     return <Level2Completion />;
+  }
+  if (level === '3') {
+    return <Level3Completion />;
   }
   return <Level1Completion />;
 }

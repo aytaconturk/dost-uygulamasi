@@ -15,7 +15,6 @@ import L2Step4 from './level2/Step4';
 import L3Step1 from './level3/Step1';
 import L3Step2 from './level3/Step2';
 import L3Step3 from './level3/Step3';
-import L3Step4 from './level3/Step4';
 import L4Step1 from './level4/Step1';
 import L4Step2 from './level4/Step2';
 import L4Step4 from './level4/Step4';
@@ -42,7 +41,7 @@ import { StepProvider } from '../contexts/StepContext';
 const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 5,
   2: 3,
-  3: 4,
+  3: 3,
   4: 3,
   5: 3,
 };
@@ -64,7 +63,6 @@ const LEVEL3_TITLES = [
   '1. Adım: Model okuma ve İkinci okuma',
   '2. Adım: Üçüncü okuma ve okuma hızı belirleme',
   '3. Adım: Okuma hızı ve Performans geribildirimi',
-  'Tamamlama',
 ];
 
 const LEVEL4_TITLES = [
@@ -207,6 +205,48 @@ export default function LevelRouter() {
 
     setIsSaving(true);
     try {
+      // Special case: Level 2 Step 4 (Summary) should go to completion page
+      if (level === 2 && step === 4) {
+        const nextLevel = level + 1;
+        if (nextLevel <= 5) {
+          // Complete current level and move to next level
+          await updateStudentProgressStep(student.id, storyId, nextLevel, 1, level);
+          
+          // Log level completion
+          if (sessionId) {
+            await logStudentAction(sessionId, student.id, 'level_completed', storyId, level, step, {
+              completed_level: level,
+              next_level: nextLevel
+            });
+          }
+          
+          // Navigate to completion page
+          navigate(`/level/2/completion?storyId=${storyId}`);
+        }
+        return;
+      }
+
+      // Special case: Level 3 Step 3 should go to completion page
+      if (level === 3 && step === 3) {
+        const nextLevel = level + 1;
+        if (nextLevel <= 5) {
+          // Complete current level and move to next level
+          await updateStudentProgressStep(student.id, storyId, nextLevel, 1, level);
+          
+          // Log level completion
+          if (sessionId) {
+            await logStudentAction(sessionId, student.id, 'level_completed', storyId, level, step, {
+              completed_level: level,
+              next_level: nextLevel
+            });
+          }
+          
+          // Navigate to completion page
+          navigate(`/level/3/completion?storyId=${storyId}`);
+        }
+        return;
+      }
+
       // If this is the last step of the level, complete the level and move to next level
       if (step === totalSteps) {
         const nextLevel = level + 1;
@@ -306,7 +346,6 @@ export default function LevelRouter() {
     if (step === 1) content = <L3Step1 />;
     else if (step === 2) content = <L3Step2 />;
     else if (step === 3) content = <L3Step3 />;
-    else if (step === 4) content = <L3Step4 />;
   } else if (level === 4) {
     if (step === 1) content = <L4Step1 />;
     else if (step === 2) content = <L4Step2 />;
@@ -375,7 +414,7 @@ export default function LevelRouter() {
         onPrev={onPrev}
         onNext={onNext}
         hideNext={step === totalSteps} // Hide Next button on last step (Tamamla button will be shown instead)
-        hideFooter={false} // Always show footer on last step to show Tamamla button
+        hideFooter={level === 2 && step === 3 ? true : false} // Hide footer for Level 2 Step 3 (auto-navigation), show for Step 4
         disableNext={!canProceed}
         stepCompleted={stepCompleted}
         onStepCompleted={handleStepCompleted}
