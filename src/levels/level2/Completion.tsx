@@ -1,13 +1,23 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { awardPoints, updateStudentProgressStep } from '../../lib/supabase';
+import { calculatePointsForLevel } from '../../lib/points';
+import PointsAnimation from '../../components/PointsAnimation';
+import type { RootState } from '../../store/store';
 
 export default function Level2Completion() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [completedCards, setCompletedCards] = useState<boolean[]>([false, false, false, false]);
+  const [showPointsAnimation, setShowPointsAnimation] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const [hasAwardedPoints, setHasAwardedPoints] = useState(false);
+  const student = useSelector((state: RootState) => state.user.student);
   const completionAudio = '/src/assets/audios/level1/seviye-1-tamamlandi.mp3';
   
   // Apply playback rate to audio element
@@ -83,16 +93,76 @@ export default function Level2Completion() {
     };
   }, []);
 
-  const handleComplete = () => {
+  // Award points after cards are shown
+  useEffect(() => {
+    if (hasAwardedPoints || !student) return;
+
+    const awardPointsTimeout = setTimeout(async () => {
+      setHasAwardedPoints(true);
+      try {
+        const storyId = Number(searchParams.get('storyId')) || 2;
+        const levelNumber = 2;
+        const points = calculatePointsForLevel(levelNumber, 4); // 4 steps in level 2
+
+        console.log('🎉 Completing level 2...', { studentId: student.id, storyId, levelNumber, points });
+
+        // Award points FIRST
+        const { error: pointsError, data: pointsData } = await awardPoints(
+          student.id,
+          storyId,
+          points,
+          'Seviye 2 tamamlandı'
+        );
+
+        if (pointsError) {
+          console.error('❌ Points error:', pointsError);
+        } else {
+          console.log('✅ Points awarded:', pointsData);
+          setEarnedPoints(points);
+          setShowPointsAnimation(true);
+        }
+
+        // Wait to ensure points are saved to database
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Update progress to level 3 and mark level 2 as completed
+        const progressResult = await updateStudentProgressStep(
+          student.id, 
+          storyId, 
+          3, // currentLevel: move to level 3
+          1, // currentStep: start at step 1 of level 3
+          2  // completedLevel: mark level 2 as completed
+        );
+        console.log('📊 Progress updated:', progressResult);
+
+        if (progressResult.error) {
+          console.error('❌ Progress update error:', progressResult.error);
+        } else {
+          // Dispatch custom event to refresh progress data
+          window.dispatchEvent(new Event('progressUpdated'));
+        }
+      } catch (err) {
+        console.error('Error awarding points or updating progress:', err);
+      }
+    }, 2300); // After last card appears
+
+    return () => {
+      clearTimeout(awardPointsTimeout);
+    };
+  }, [student, hasAwardedPoints, searchParams]);
+
+  const handleNextLevel = () => {
     try {
       window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
     } catch {}
-    navigate('/');
+    const storyId = searchParams.get('storyId') || '2';
+    navigate(`/level/3/intro?storyId=${storyId}`);
   };
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8">
       <audio ref={audioRef} preload="auto" />
+      <PointsAnimation show={showPointsAnimation} points={earnedPoints} />
 
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-purple-800 mb-2">🎉 2. Seviye Tamamlandı!</h1>
@@ -129,10 +199,10 @@ export default function Level2Completion() {
 
       <div className="text-center">
         <button
-          onClick={handleComplete}
-          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-10 py-4 rounded-lg font-bold text-lg shadow-lg transition transform hover:scale-105"
+          onClick={handleNextLevel}
+          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-10 py-4 rounded-lg font-bold text-lg shadow-lg transition transform hover:scale-105"
         >
-          Ana Sayfaya Dön
+          Sonraki Seviye →
         </button>
       </div>
 

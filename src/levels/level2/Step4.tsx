@@ -97,15 +97,6 @@ export default function Level2Step4() {
           </div>
         )}
 
-        {/* Complete Button */}
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={() => navigate('/level/2/completion')}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-12 py-4 rounded-lg font-bold text-xl transition shadow-lg"
-          >
-            🏆 TAMAMLA
-          </button>
-        </div>
       </div>
     </div>
   );

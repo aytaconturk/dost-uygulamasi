@@ -7,6 +7,7 @@ import { submitReadingGoalSelection } from '../../lib/level2-api';
 import type { RootState, AppDispatch } from '../../store/store';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { useStepContext } from '../../contexts/StepContext';
 
 const STORY_ID = 2;
 
@@ -14,6 +15,7 @@ export default function Level2Step3() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { onStepCompleted } = useStepContext();
 
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
