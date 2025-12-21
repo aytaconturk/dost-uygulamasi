@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiBase } from './api';
+import { getVoiceResponseTimeoutSync, getParagraphResponseTimeoutSync } from '../components/SidebarSettings';
 import type {
   Level3Step1Request,
   Level3Step1ParagraphRequest,
@@ -47,6 +48,7 @@ export async function submitParagraphReading(
       headers: {
         'Content-Type': 'application/json',
       },
+      timeout: getParagraphResponseTimeoutSync(), // Use paragraph-specific timeout
     }
   );
   
@@ -97,7 +99,7 @@ export async function getResumeResponse(
       formData,
       {
         withCredentials: false, // No credentials = simpler CORS
-        timeout: 60000, // 60 second timeout
+        timeout: getParagraphResponseTimeoutSync(), // Use paragraph-specific timeout for Level 3
         // NO headers! Let browser set multipart/form-data automatically
       }
     );
@@ -148,7 +150,7 @@ export async function submitReadingSpeedAnalysis(
       formData,
       {
         withCredentials: false,
-        timeout: 90000, // 90 seconds for transcription + AI processing
+        timeout: getVoiceResponseTimeoutSync() * 1.5, // 1.5x timeout for transcription + AI processing
         // NO headers - browser sets multipart/form-data automatically
       }
     );
