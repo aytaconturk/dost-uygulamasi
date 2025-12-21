@@ -7,6 +7,8 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../../store/store';
 import { useStepContext } from '../../contexts/StepContext';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getStoryById } from '../../lib/supabase';
+import { getStoryImageUrl } from '../../lib/image-utils';
 
 export default function Step2() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -20,19 +22,50 @@ export default function Step2() {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [showIntroText, setShowIntroText] = useState(true);
+  const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted } = useStepContext();
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
   const introAudio = '/src/assets/audios/level1/seviye-1-adim-2-fable.mp3';
-  const story = {
-    id: 1,
-    title: 'Oturum 1: Kırıntıların Kahramanları',
-    description: 'Karıncalar hakkında',
-    image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
-  };
+
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (error || !data) {
+          // Fallback to default story - use local image path
+          setStory({
+            id: storyId,
+            title: `Oturum ${storyId}`,
+            description: '',
+            image: `/images/story${storyId}.png`,
+          });
+        } else {
+          // Use image from Supabase if available, otherwise use local path
+          const imagePath = data.image || `/images/story${storyId}.png`;
+          setStory({
+            id: data.id,
+            title: data.title,
+            description: data.description || '',
+            image: imagePath,
+          });
+        }
+      } catch (e) {
+        // Fallback to default story - use local image path
+        setStory({
+          id: storyId,
+          title: `Oturum ${storyId}`,
+          description: '',
+          image: `/images/story${storyId}.png`,
+        });
+      }
+    };
+    loadStory();
+  }, [storyId]);
 
   useEffect(() => {
     if (!started || analysisText) return;
@@ -179,6 +212,7 @@ export default function Step2() {
   };
 
   const handleVoiceSubmit = async (audioBlob: Blob) => {
+    if (!story) return;
     setIsProcessingVoice(true);
     try {
       const response: Level1ChildrenVoiceResponse = await submitChildrenVoice(
@@ -250,13 +284,14 @@ export default function Step2() {
         </div>
       ) : (
         <div className="w-full max-w-6xl mx-auto px-4">
-          <div className="flex flex-col lg:flex-row items-center gap-8">
-            <div className="lg:w-1/2 w-full">
-              <div className="relative">
-                <img src={story.image} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />
+          {story && (
+            <div className="flex flex-col lg:flex-row items-center gap-8">
+              <div className="lg:w-1/2 w-full">
+                <div className="relative">
+                  <img src={getStoryImageUrl(story.image)} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />
+                </div>
+                <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{story.title}</h2>
               </div>
-              <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{story.title}</h2>
-            </div>
 
             <div className="lg:w-1/2 w-full">
               <div className="bg-white rounded-xl shadow-lg p-6">
@@ -322,7 +357,8 @@ export default function Step2() {
                 )}
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

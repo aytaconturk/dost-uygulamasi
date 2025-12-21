@@ -9,12 +9,46 @@ import {
   getFirstThreeParagraphFirstSentences,
   type Paragraph,
 } from '../../data/stories';
+import { useStepContext } from '../../contexts/StepContext';
+import { getStoryById } from '../../lib/supabase';
+import { getStoryImageUrl } from '../../lib/image-utils';
 
 export default function Step3() {
-  const story = {
-    id: 1,
-    title: 'Büyük İşler Küçük Dostlar',
-  };
+  const [story, setStory] = useState<{ id: number; title: string; image: string } | null>(null);
+  const { storyId } = useStepContext();
+
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (error || !data) {
+          // Fallback to default story - use local image path
+          setStory({
+            id: storyId,
+            title: `Oturum ${storyId}`,
+            image: `/images/story${storyId}.png`,
+          });
+        } else {
+          // Use image from Supabase if available, otherwise use local path
+          const imagePath = data.image || `/images/story${storyId}.png`;
+          setStory({
+            id: data.id,
+            title: data.title,
+            image: imagePath,
+          });
+        }
+      } catch (e) {
+        // Fallback to default story - use local image path
+        setStory({
+          id: storyId,
+          title: `Oturum ${storyId}`,
+          image: `/images/story${storyId}.png`,
+        });
+      }
+    };
+    loadStory();
+  }, [storyId]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [phase, setPhase] = useState<'intro' | 'dost' | 'student'>( 'intro' );
@@ -26,11 +60,13 @@ export default function Step3() {
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-3-fable.mp3';
 
-  const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
+  const paragraphs = useMemo(() => story ? getParagraphs(story.id) : [], [story?.id]);
 
   useEffect(() => {
-    getFirstThreeParagraphFirstSentences(story.id).then(setFirstSentences);
-  }, [story.id]);
+    if (story) {
+      getFirstThreeParagraphFirstSentences(story.id).then(setFirstSentences);
+    }
+  }, [story?.id]);
 
   // helpers to compute first sentence length per paragraph
   const firstSentenceLengths = useMemo(() => {
@@ -79,19 +115,7 @@ export default function Step3() {
     };
   }, []);
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'tr-TR';
-      utter.rate = 0.9;
-      utter.pitch = 1;
-      utter.onend = () => setPhase('student');
-      utter.onerror = () => setPhase('student');
-      speechSynthesis.speak(utter);
-    } else {
-      setPhase('student');
-    }
-  };
+  // Text-to-speech removed - only use mp3 files or API base64 audio
 
   const playAudioFromBase64 = async (base64: string) => {
     if (!audioRef.current || !base64) throw new Error('no audio');
@@ -111,6 +135,7 @@ export default function Step3() {
   };
 
   const runDostAnalysis = async () => {
+    if (!story) return;
     setIsAnalyzing(true);
     try {
       const u = getUser();
@@ -127,15 +152,17 @@ export default function Step3() {
           await playAudioFromBase64(audioBase64);
           setPhase('student');
         } catch {
-          speakText(text || 'Metnin ilk cümlelerinden yola çıkarak tahminde bulundum.');
+          // If audio fails, just set phase to student (no text-to-speech)
+          setPhase('student');
         }
       } else {
-        speakText(text || 'Metnin ilk cümlelerinden yola çıkarak tahminde bulundum.');
+        // No audio available, just set phase to student (no text-to-speech)
+        setPhase('student');
       }
     } catch (e) {
       const fallback = 'Metnin ilk cümlelerinden yola çıkarak, karıncaların yaşamı, yapısı ve beslenmesi hakkında bilgi verildiğini tahmin ediyorum.';
       setAnalysisText(fallback);
-      speakText(fallback);
+      setPhase('student');
     } finally {
       setIsAnalyzing(false);
     }
@@ -163,6 +190,7 @@ export default function Step3() {
   };
 
   const handleVoiceSubmit = async (audioBlob: Blob) => {
+    if (!story) return;
     setIsProcessingVoice(true);
     try {
       const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
@@ -175,10 +203,14 @@ export default function Step3() {
       const { data } = await axios.post(`${getApiBase()}/dost/level1/children-voice`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       const responseText = data.message || data.text || data.response || 'Teşekkürler! Tahminlerini dinledim.';
       setChildrenVoiceResponse(responseText);
-      // speak with TTS as we don't have your final audio yet
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance('Harika! Şimdi diğer paragrafların ilk cümlelerini sen oku ve tahminlerini söyle.');
-        u.lang = 'tr-TR'; u.rate = 0.95; u.pitch = 1; window.speechSynthesis.speak(u);
+      // Text-to-speech removed - only use mp3 files or API base64 audio
+      // If API returns audioBase64, play it here
+      if (data?.audioBase64 && data.audioBase64.length > 100) {
+        try {
+          await playAudioFromBase64(data.audioBase64);
+        } catch {
+          // Audio playback failed, continue silently
+        }
       }
     } catch (e) {
       const fallback = 'Çok iyi! Tahminlerin mantıklı görünüyor.';
@@ -188,13 +220,17 @@ export default function Step3() {
     }
   };
 
+  if (!story) {
+    return <div className="w-full max-w-5xl mx-auto px-4">Yükleniyor...</div>;
+  }
+
   return (
     <div className="w-full max-w-5xl mx-auto px-4">
       <audio ref={audioRef} preload="auto" />
       <h2 className="text-2xl font-bold text-purple-800 mb-4">3. Adım: Anlama Çalışması</h2>
 
       <div className="mb-4">
-        <img src={'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png'} alt={story.title} className="w-full max-w-xs mx-auto rounded-xl shadow" />
+        <img src={getStoryImageUrl(story.image)} alt={story.title} className="w-full max-w-xs mx-auto rounded-xl shadow" />
       </div>
 
       <div className="bg-white rounded-xl shadow p-6">

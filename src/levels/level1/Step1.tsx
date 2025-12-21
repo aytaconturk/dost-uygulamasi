@@ -12,6 +12,8 @@ import { useStepContext } from '../../contexts/StepContext';
 import siraSendeAudio from '../../assets/audios/sira-sende-mikrofon.mp3';
 import { useAudioPlaybackRate, applyPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getPlaybackRate } from '../../components/SidebarSettings';
+import { getStoryById } from '../../lib/supabase';
+import { getStoryImageUrl } from '../../lib/image-utils';
 
 export default function Step1() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -26,9 +28,10 @@ export default function Step1() {
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [hasPlayedSiraSende, setHasPlayedSiraSende] = useState(false);
+  const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted } = useStepContext();
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio elements
   useAudioPlaybackRate(audioRef);
@@ -37,18 +40,44 @@ export default function Step1() {
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
   const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
 
-  // Two visual states as requested
-  const preImage = '/src/assets/images/story1.png';
-  const postImage = 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png';
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (error || !data) {
+          // Fallback to default story - use local image path
+          setStory({
+            id: storyId,
+            title: `Oturum ${storyId}`,
+            description: '',
+            image: `/images/story${storyId}.png`,
+          });
+        } else {
+          // Use image from Supabase if available, otherwise use local path
+          const imagePath = data.image || `/images/story${storyId}.png`;
+          setStory({
+            id: data.id,
+            title: data.title,
+            description: data.description || '',
+            image: imagePath,
+          });
+        }
+      } catch (e) {
+        // Fallback to default story - use local image path
+        setStory({
+          id: storyId,
+          title: `Oturum ${storyId}`,
+          description: '',
+          image: `/images/story${storyId}.png`,
+        });
+      }
+    };
+    loadStory();
+  }, [storyId]);
 
-  const story = {
-    id: 1,
-    title: 'Oturum 1: Kırıntıların Kahramanları',
-    description: 'Karıncalar hakkında',
-    image: preImage,
-  };
-
-  const displayedImage = imageAnalysisText ? postImage : story.image;
+  // Use getStoryImageUrl to ensure the image URL works both locally and in production
+  const displayedImage = story ? getStoryImageUrl(story.image) : '';
 
   useEffect(() => {
     if (!started || imageAnalysisText) return;
@@ -106,6 +135,7 @@ export default function Step1() {
 
 
   const handleImageAnalysis = async () => {
+    if (!story) return;
     setIsAnalyzing(true);
     try {
       const u = (await import('../../lib/user')).getUser();
@@ -113,8 +143,11 @@ export default function Step1() {
       const ilkUcParagraf = await getFirstThreeParagraphFirstSentences(story.id);
       const metin = await getFullText(story.id);
 
+      // Get full URL for the image that works both locally and in production
+      const imageUrl = getStoryImageUrl(story.image);
+
       const response: Level1ImageAnalysisResponse = await analyzeStoryImage({
-        imageUrl: postImage,
+        imageUrl,
         stepNum: 1,
         storyTitle: story.title,
         userId: currentStudent?.id || '',
@@ -207,6 +240,7 @@ export default function Step1() {
   };
 
   const handleVoiceSubmit = async (audioBlob: Blob) => {
+    if (!story) return;
     setIsProcessingVoice(true);
     try {
       const response: Level1ChildrenVoiceResponse = await submitChildrenVoice(
@@ -285,7 +319,7 @@ export default function Step1() {
             {/* Image Section */}
             <div className={`${imageAnalysisText ? 'lg:w-1/2' : 'w-full'} transition-all duration-500`}>
               <div className="relative">
-                <img src={displayedImage} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />
+                {story && <img src={displayedImage} alt={story.title} className="w-full max-w-md mx-auto rounded-xl shadow-lg" />}
                 {isAnalyzing && (
                   <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
                     <div className="text-center text-white">

@@ -8,6 +8,8 @@ import type { RootState } from '../../store/store';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getStoryById } from '../../lib/supabase';
+import { getStoryImageUrl } from '../../lib/image-utils';
 
 export default function Step4() {
   const [searchParams] = useSearchParams();
@@ -29,13 +31,43 @@ export default function Step4() {
   // Use storyId from context if available, otherwise from searchParams
   const storyIdFromParams = Number(searchParams.get('storyId')) || 1;
   const finalStoryId = contextStoryId || storyIdFromParams;
-  
-  const story = {
-    id: finalStoryId,
-    title: `Oturum ${finalStoryId}`,
-    description: '',
-    image: 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png',
-  };
+  const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
+
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(finalStoryId);
+        if (error || !data) {
+          // Fallback to default story - use local image path
+          setStory({
+            id: finalStoryId,
+            title: `Oturum ${finalStoryId}`,
+            description: '',
+            image: `/images/story${finalStoryId}.png`,
+          });
+        } else {
+          // Use image from Supabase if available, otherwise use local path
+          const imagePath = data.image || `/images/story${finalStoryId}.png`;
+          setStory({
+            id: data.id,
+            title: data.title,
+            description: data.description || '',
+            image: imagePath,
+          });
+        }
+      } catch (e) {
+        // Fallback to default story - use local image path
+        setStory({
+          id: finalStoryId,
+          title: `Oturum ${finalStoryId}`,
+          description: '',
+          image: `/images/story${finalStoryId}.png`,
+        });
+      }
+    };
+    loadStory();
+  }, [finalStoryId]);
 
   const stepAudio = '/src/assets/audios/level1/seviye-1-adim-4-fable.mp3';
   const navigate = useNavigate();
@@ -216,11 +248,15 @@ export default function Step4() {
     navigate(`/level/1/completion?storyId=${finalStoryId}`);
   };
 
+  if (!story) {
+    return <div className="flex flex-col md:flex-row items-start justify-center gap-6 px-4 md:px-12 relative mt-0">Yükleniyor...</div>;
+  }
+
   return (
     <div className="flex flex-col md:flex-row items-start justify-center gap-6 px-4 md:px-12 relative mt-0">
       <audio ref={audioRef} preload="auto" />
       <div className="flex-shrink-0 mt-4">
-        <img src={story.image} alt={story.title} className="rounded-lg shadow-lg w-64 md:w-80" />
+        <img src={getStoryImageUrl(story.image)} alt={story.title} className="rounded-lg shadow-lg w-64 md:w-80" />
       </div>
       <div className="text-lg text-gray-800 leading-relaxed max-w-xl w-full">
         <h2 className="text-2xl font-bold text-purple-800 mb-4">4. Adım: Okuma amacı belirleme</h2>
