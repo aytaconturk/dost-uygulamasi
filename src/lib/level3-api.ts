@@ -38,7 +38,13 @@ export async function submitParagraphReading(
     ...request,
     audioBase64: request.audioBase64 ? `${request.audioBase64.substring(0, 50)}... (${request.audioBase64.length} chars)` : request.audioBase64
   };
-  console.log('📤 Sending Level 3 Step 1 request (first paragraph):', JSON.stringify(requestForLog, null, 2));
+  console.log('📤 Sending Level 3 Step 1 request (first paragraph):', {
+    sessionId: request.sessionId,
+    studentId: request.studentId, // backward compat
+    paragrafNo: request.paragrafNo,
+    isLatestParagraf: request.isLatestParagraf,
+    audioBase64Length: request.audioBase64?.length || 0,
+  });
   
   const response = await axios.post<Level3Step1Response>(
     `${getApiBase()}/dost/level3/step1`,
@@ -69,6 +75,9 @@ export async function getResumeResponse(
   const finalUrl = resumeUrl;
   
   const payload = {
+    // Primary: sessionId for n8n tracking
+    sessionId: request.sessionId,
+    // Backward compat: also send studentId during transition
     studentId: request.studentId,
     paragrafText: request.paragrafText,
     audioBase64: request.audioBase64,
@@ -128,7 +137,8 @@ export async function submitReadingSpeedAnalysis(
   request: Level3Step2Request
 ): Promise<Level3Step2Response> {
   console.log('📤 Sending Level 3 Step 2 request:', {
-    userId: request.userId,
+    sessionId: request.sessionId,
+    userId: request.userId, // backward compat
     audioFileSize: request.audioFile.size,
     durationMs: request.durationMs,
     hedefOkuma: request.hedefOkuma,
@@ -140,7 +150,12 @@ export async function submitReadingSpeedAnalysis(
     // Use FormData to send audio file + metadata
     const formData = new FormData();
     formData.append('audioFile', request.audioFile, request.fileName || 'recording.webm');
-    formData.append('userId', request.userId);
+    // Primary: sessionId for n8n tracking
+    formData.append('sessionId', request.sessionId);
+    // Backward compatibility: also send userId during transition
+    if (request.userId) {
+      formData.append('userId', request.userId);
+    }
     formData.append('durationMs', String(request.durationMs));
     formData.append('hedefOkuma', String(request.hedefOkuma));
     formData.append('metin', request.metin);
@@ -189,17 +204,28 @@ export async function submitReadingSpeedAnalysis(
 // Level 3 Step 2 - Reading Analysis (same as Level 2 Step 1)
 export async function submitLevel3ReadingAnalysis(
   request: {
+    sessionId: string;
     audioBase64: string;
     text: string;
     recordingStartTime: string;
     recordingEndTime: string;
     selectedWordCount: number;
-    userId: string;
+    userId?: string; // backward compat
   }
 ): Promise<any> {
+  console.log('📤 Sending Level 3 Reading Analysis:', {
+    sessionId: request.sessionId,
+    userId: request.userId,
+    textLength: request.text.length,
+    selectedWordCount: request.selectedWordCount,
+  });
   const response = await axios.post(
     `${getApiBase()}/dost/level3/step2`,
-    request,
+    {
+      ...request,
+      // Ensure sessionId is sent as primary
+      sessionId: request.sessionId,
+    },
     {
       headers: {
         'Content-Type': 'application/json',

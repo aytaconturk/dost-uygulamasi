@@ -15,7 +15,7 @@ import { getPlaybackRate } from '../../components/SidebarSettings';
 export default function L3Step1() {
   const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted } = useStepContext();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [started, setStarted] = useState(false);
@@ -290,6 +290,9 @@ export default function L3Step1() {
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
         const requestData = {
+          // Primary: sessionId for n8n tracking (prevents story mixing)
+          sessionId: sessionId || `anon-${Date.now()}`,
+          // Backward compat: also send studentId during transition
           studentId: student.id,
           paragrafText: paragraphText,
           audioBase64: audioBase64,
@@ -328,6 +331,9 @@ export default function L3Step1() {
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
         const requestData = {
+          // Primary: sessionId for n8n tracking (prevents story mixing)
+          sessionId: sessionId || `anon-${Date.now()}`,
+          // Backward compat: also send studentId during transition
           studentId: student.id,
           paragrafText: paragraphText,
           audioBase64: audioBase64,

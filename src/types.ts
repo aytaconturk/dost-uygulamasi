@@ -108,12 +108,20 @@ export interface Step {
   }
 
   export interface Level2Step1ReadingAnalysisRequest {
-    studentId: string;
+    sessionId: string; // Session ID for tracking (replaces studentId for n8n)
+    studentId?: string; // Optional: for backward compatibility during transition
+    textTitle?: string;
     originalText: string;
-    audioFile: string;
+    audioBase64: string; // Base64 encoded audio data
+    audio?: {
+      base64: string;
+      mimeType: string;
+      fileName: string;
+    };
     startTime: string;
     endTime: string;
-    metadata: RecordingMetadata;
+    selectedWordCount?: number;
+    metadata?: RecordingMetadata;
   }
 
   export interface ReadingDuration {
@@ -186,7 +194,8 @@ export interface Step {
 
   // Level 2 Step 3 - Reading Goal API Types
   export interface Level2Step3GoalSelectionRequest {
-    studentId: string;
+    sessionId: string; // Session ID for tracking
+    studentId?: string; // Optional: for backward compatibility
     storyId: number;
     level: number;
     step: number;
@@ -205,7 +214,8 @@ export interface Step {
   // Level 3 Step 1 - Paragraph Reading API Types
   // New Level 3 Step 1 Request Interface
   export interface Level3Step1Request {
-    studentId: string;
+    sessionId: string; // Session ID for tracking
+    studentId?: string; // Optional: for backward compatibility
     paragrafText: string;
     audioBase64: string;
     isLatestParagraf: boolean;
@@ -213,7 +223,8 @@ export interface Step {
   }
 
   export interface Level3Step1ParagraphRequest {
-    userId: string;
+    sessionId: string; // Session ID for tracking
+    userId?: string; // Optional: for backward compatibility
     paragraphText: string;
     audioBase64: string;
     paragraphNo: number;
@@ -237,7 +248,8 @@ export interface Step {
 
   // Level 3 Step 2 - Reading Speed Analysis API Types
   export interface Level3Step2Request {
-    userId: string;
+    sessionId: string; // Session ID for tracking
+    userId?: string; // Optional: for backward compatibility
     audioFile: Blob;
     durationMs: number;
     hedefOkuma: number;

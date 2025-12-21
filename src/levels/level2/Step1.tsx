@@ -35,7 +35,7 @@ export default function Level2Step1() {
   const currentStudent = useSelector((state: RootState) => state.user.student);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted } = useStepContext();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -300,6 +300,9 @@ export default function Level2Step1() {
 
       // Send with correct field names expected by n8n backend
       const payload = {
+        // Primary: sessionId for n8n tracking (prevents story mixing)
+        sessionId: sessionId || `anon-${Date.now()}`,
+        // Backward compat: also send studentId during transition
         studentId: currentStudent?.id || 'anonymous',
         textTitle: story.title,
         originalText: storyText,
