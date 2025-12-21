@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getRecordingDuration, getPlaybackRate } from '../../components/SidebarSettings';
+import { getRecordingDurationSync, getPlaybackRate } from '../../components/SidebarSettings';
 import { analyzeTitleForStep2, submitChildrenVoice } from '../../lib/level1-api';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Level1TitleAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
@@ -334,7 +334,7 @@ export default function Step2() {
                   <div className="text-center">
                     <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
                     <VoiceRecorder
-                      recordingDurationMs={getRecordingDuration()}
+                      recordingDurationMs={getRecordingDurationSync()}
                       autoSubmit={true}
                       onSave={handleVoiceSubmit}
                       onPlayStart={() => {

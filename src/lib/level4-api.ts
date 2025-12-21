@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getApiBase } from './api';
+import { getVoiceResponseTimeoutSync } from '../components/SidebarSettings';
 import type {
   Level4Step1Request,
   Level4Step1Response,
@@ -96,7 +97,7 @@ export async function getResumeResponse(
       formData,
       {
         withCredentials: false, // No credentials = simpler CORS
-        timeout: 60000, // 60 second timeout
+        timeout: getVoiceResponseTimeoutSync(),
         // NO headers! Let browser set multipart/form-data automatically
       }
     );

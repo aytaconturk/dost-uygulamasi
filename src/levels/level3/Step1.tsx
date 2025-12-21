@@ -7,7 +7,7 @@ import { submitParagraphReading, getResumeResponse } from '../../lib/level3-api'
 import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Paragraph } from '../../data/stories';
-import { getRecordingDuration } from '../../components/SidebarSettings';
+import { getRecordingDurationSync } from '../../components/SidebarSettings';
 import { useStepContext } from '../../contexts/StepContext';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getPlaybackRate } from '../../components/SidebarSettings';
@@ -647,7 +647,7 @@ export default function L3Step1() {
                   </p>
                   <div className="flex justify-center opacity-50 pointer-events-none">
                     <VoiceRecorder
-                      recordingDurationMs={getRecordingDuration()}
+                      recordingDurationMs={getRecordingDurationSync()}
                       autoSubmit={true}
                       onSave={() => {}}
                       onPlayStart={() => {}}
@@ -663,7 +663,7 @@ export default function L3Step1() {
                   </p>
                   <div className="flex justify-center opacity-50 pointer-events-none">
                     <VoiceRecorder
-                      recordingDurationMs={getRecordingDuration()}
+                      recordingDurationMs={getRecordingDurationSync()}
                       autoSubmit={true}
                       onSave={() => {}}
                       onPlayStart={() => {}}
@@ -679,7 +679,7 @@ export default function L3Step1() {
                   </p>
                   <div className="flex justify-center">
                     <VoiceRecorder
-                      recordingDurationMs={getRecordingDuration()}
+                      recordingDurationMs={getRecordingDurationSync()}
                       autoSubmit={true}
                       onSave={handleVoiceSubmit}
                       onPlayStart={() => {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { getApiBase } from '../../lib/api';
 import { analyzeStoryImage, submitChildrenVoice } from '../../lib/level1-api';
-import { getRecordingDuration } from '../../components/SidebarSettings';
+import { getRecordingDurationSync } from '../../components/SidebarSettings';
 import { motion } from 'framer-motion';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import type { Level1ImageAnalysisResponse, Level1ChildrenVoiceResponse } from '../../types';
@@ -386,7 +386,7 @@ export default function Step1() {
 
                           <div className="mt-6">
                             <VoiceRecorder
-                              recordingDurationMs={getRecordingDuration()}
+                              recordingDurationMs={getRecordingDurationSync()}
                               autoSubmit={true}
                               onSave={handleVoiceSubmit}
                               onPlayStart={() => {

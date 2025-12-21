@@ -8,7 +8,7 @@ import { getAppMode } from '../../lib/api';
 import { submitSchemaSectionReading, getResumeResponse } from '../../lib/level4-api';
 import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
-import { getRecordingDuration } from '../../components/SidebarSettings';
+import { getRecordingDurationSync } from '../../components/SidebarSettings';
 
 const STORY_ID = 3;
 
@@ -460,7 +460,7 @@ export default function L4Step1() {
                     </p>
                     <div className="flex justify-center opacity-50 pointer-events-none">
                       <VoiceRecorder
-                        recordingDurationMs={getRecordingDuration()}
+                        recordingDurationMs={getRecordingDurationSync()}
                         autoSubmit={true}
                         onSave={() => {}}
                         onPlayStart={() => {}}
@@ -477,7 +477,7 @@ export default function L4Step1() {
                     </p>
                     <div className="flex justify-center opacity-50 pointer-events-none">
                       <VoiceRecorder
-                        recordingDurationMs={getRecordingDuration()}
+                        recordingDurationMs={getRecordingDurationSync()}
                         autoSubmit={true}
                         onSave={() => {}}
                         onPlayStart={() => {}}
@@ -494,7 +494,7 @@ export default function L4Step1() {
                     </p>
                     <div className="flex justify-center">
                       <VoiceRecorder
-                        recordingDurationMs={getRecordingDuration()}
+                        recordingDurationMs={getRecordingDurationSync()}
                         autoSubmit={true}
                         onSave={handleVoiceSubmit}
                         onPlayStart={() => {
