@@ -132,16 +132,29 @@ export async function submitReadingSpeedAnalysis(
     audioFileSize: request.audioFile.size,
     durationMs: request.durationMs,
     hedefOkuma: request.hedefOkuma,
+    mimeType: request.mimeType,
+    fileName: request.fileName,
   });
   
   try {
     // Use FormData to send audio file + metadata
     const formData = new FormData();
-    formData.append('audioFile', request.audioFile, 'recording.webm');
+    formData.append('audioFile', request.audioFile, request.fileName || 'recording.webm');
     formData.append('userId', request.userId);
     formData.append('durationMs', String(request.durationMs));
     formData.append('hedefOkuma', String(request.hedefOkuma));
     formData.append('metin', request.metin);
+    
+    // Include timing metadata if provided
+    if (request.startTime) {
+      formData.append('startTime', request.startTime);
+    }
+    if (request.endTime) {
+      formData.append('endTime', request.endTime);
+    }
+    if (request.mimeType) {
+      formData.append('mimeType', request.mimeType);
+    }
     
     const response = await axios.post<Level3Step2Response>(
       `${getApiBase()}/dost/level3/step2`,
@@ -158,7 +171,7 @@ export async function submitReadingSpeedAnalysis(
       title: response.data.title,
       speedSummary: response.data.speedSummary,
       reachedTarget: response.data.reachedTarget,
-      wpmCorrect: response.data.metrics.wpmCorrect,
+      wpmCorrect: response.data.metrics?.wpmCorrect,
       audioBase64Length: response.data.audioBase64?.length || 0,
     });
     
