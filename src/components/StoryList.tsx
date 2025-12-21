@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Check } from 'lucide-react';
 import { useReadingProgress } from '../hooks/useReadingProgress';
 import { getAppMode } from '../lib/api';
 import { getStoryImageUrl } from '../lib/image-utils';
@@ -125,18 +125,27 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                 ? `/story/${story.id}/completion`
                                 : `/level/${getCurrentLevel(story.id)}/intro?storyId=${story.id}`
                             }
-                            className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md hover:scale-105 transition-transform"
+                            className={`relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] rounded-xl shadow-md hover:scale-105 transition-transform overflow-hidden ${
+                                isStoryCompleted(story.id)
+                                    ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-400 shadow-lg'
+                                    : 'bg-white text-black border border-gray-200'
+                            }`}
                         >
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">
                                 <img
                                     src={getStoryImageUrl(story.image || `/images/story${story.id}.png`)}
                                     alt={story.title}
-                                    className="w-full h-full object-cover"
+                                    className={`w-full h-full object-cover ${
+                                        isStoryCompleted(story.id) ? 'opacity-90' : ''
+                                    }`}
                                 />
                                 {isStoryCompleted(story.id) ? (
-                                    <div className="absolute top-2 right-2 bg-green-500 rounded-full p-2 shadow-lg">
-                                        <span className="text-2xl">⭐</span>
-                                    </div>
+                                    <>
+                                        <div className="absolute top-2 right-2 bg-green-500 rounded-full p-2 shadow-lg z-10">
+                                            <span className="text-2xl">⭐</span>
+                                        </div>
+                                        <div className="absolute inset-0 bg-gradient-to-t from-green-500/20 to-transparent"></div>
+                                    </>
                                 ) : (
                                     getCurrentLevel(story.id) < 5 && (
                                         <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">
@@ -147,13 +156,24 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                     )
                                 )}
                             </div>
-                            <div className="p-3">
-                                <h3 className="font-bold text-md text-[#512DA8]">{story.title}</h3>
-                                <p className="text-sm text-gray-600">{story.description}</p>
+                            <div className={`p-3 rounded-b-xl ${isStoryCompleted(story.id) ? 'bg-gradient-to-br from-green-50 to-emerald-50' : ''}`}>
+                                <h3 className={`font-bold text-md ${
+                                    isStoryCompleted(story.id) ? 'text-green-800' : 'text-[#512DA8]'
+                                }`}>
+                                    {story.title}
+                                </h3>
+                                <p className={`text-sm ${
+                                    isStoryCompleted(story.id) ? 'text-gray-700' : 'text-gray-600'
+                                }`}>
+                                    {story.description}
+                                </p>
                                 {isStoryCompleted(story.id) ? (
-                                    <p className="text-xs text-green-600 mt-1 font-semibold">
-                                        ✅ Tamamlandı
-                                    </p>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className="text-xs text-green-700 font-bold bg-green-200 px-3 py-1 rounded-full flex items-center gap-1.5">
+                                            <Check className="w-4 h-4 text-green-700" strokeWidth={3} />
+                                            Tamamlandı
+                                        </span>
+                                    </div>
                                 ) : (
                                     <p className="text-xs text-purple-600 mt-1 font-semibold">
                                         Seviye {getCurrentLevel(story.id)}/5
