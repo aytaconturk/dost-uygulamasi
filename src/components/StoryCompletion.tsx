@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getStoryById, getStudentProgressByStory } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
@@ -35,9 +35,11 @@ const LEVEL_TITLES: Record<number, string[]> = {
 
 export default function StoryCompletion() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
-  const storyId = Number(searchParams.get('storyId')) || 1;
+  // Get storyId from URL params first, fallback to searchParams
+  const storyId = Number(id) || Number(searchParams.get('storyId')) || 1;
 
   const [storyTitle, setStoryTitle] = useState<string>('');
   const [totalPoints, setTotalPoints] = useState<number>(0);

@@ -121,7 +121,10 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                     ) : (
                         <Link
                             key={story.id}
-                            to={`/level/${getCurrentLevel(story.id)}/intro?storyId=${story.id}`}
+                            to={isStoryCompleted(story.id) 
+                                ? `/story/${story.id}/completion`
+                                : `/level/${getCurrentLevel(story.id)}/intro?storyId=${story.id}`
+                            }
                             className="relative w-full sm:w-1/2 md:w-1/3 lg:w-1/4 min-w-[240px] max-w-[280px] bg-white text-black rounded-xl shadow-md hover:scale-105 transition-transform"
                         >
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">
@@ -135,17 +138,23 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                                         <span className="text-2xl">⭐</span>
                                     </div>
                                 ) : (
-                                    <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">
-                                        <div className="absolute -bottom-[28px] right-[2px] text-white text-xs font-bold leading-none">
-                                            {Math.min(getCurrentLevel(story.id), 5)}/5
+                                    getCurrentLevel(story.id) < 5 && (
+                                        <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-[#7986CB] border-l-transparent">
+                                            <div className="absolute -bottom-[28px] right-[2px] text-white text-xs font-bold leading-none">
+                                                {Math.min(getCurrentLevel(story.id), 5)}/5
+                                            </div>
                                         </div>
-                                    </div>
+                                    )
                                 )}
                             </div>
                             <div className="p-3">
                                 <h3 className="font-bold text-md text-[#512DA8]">{story.title}</h3>
                                 <p className="text-sm text-gray-600">{story.description}</p>
-                                {!isStoryCompleted(story.id) && (
+                                {isStoryCompleted(story.id) ? (
+                                    <p className="text-xs text-green-600 mt-1 font-semibold">
+                                        ✅ Tamamlandı
+                                    </p>
+                                ) : (
                                     <p className="text-xs text-purple-600 mt-1 font-semibold">
                                         Seviye {getCurrentLevel(story.id)}/5
                                     </p>
