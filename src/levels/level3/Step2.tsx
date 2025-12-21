@@ -8,6 +8,7 @@ import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
+import type { Level3Step2ApiResponse, Level3Step2AnalysisOutput } from '../../types/level3-step2';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -40,6 +41,11 @@ export default function L3Step2() {
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(180); // 3 minutes default
   const [countdownStartTime, setCountdownStartTime] = useState<number | null>(null);
+  
+  // Refs to prevent stale closure and race conditions
+  const recordingMimeTypeRef = useRef<string>('audio/webm');
+  const finishOnceRef = useRef<boolean>(false);
+  const handleFinishRef = useRef<(() => Promise<void>) | null>(null);
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -184,21 +190,36 @@ export default function L3Step2() {
       console.error('Error playing beep:', err);
     }
 
+    // Reset guards for new recording
+    finishOnceRef.current = false;
+    
     setPhase('reading');
     startTimeRef.current = Date.now();
     setCountdownStartTime(Date.now());
     setRecordingStartTime(Date.now());
     setTimeLeft(180); // Reset timer
 
-    // Start audio recording automatically
+    // Start audio recording with MIME type fallback
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       audioChunksRef.current = [];
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
+      // Find supported MIME type
+      const preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+        'audio/mpeg'
+      ];
+      const supportedType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t));
+      recordingMimeTypeRef.current = supportedType || 'audio/webm';
+
+      const mediaRecorder = new MediaRecorder(
+        stream,
+        supportedType ? { mimeType: supportedType } : undefined
+      );
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -269,7 +290,8 @@ export default function L3Step2() {
       setTimeLeft(remaining);
 
       if (remaining === 0) {
-        handleFinish();
+        // Use ref to avoid stale closure
+        handleFinishRef.current?.();
       }
     }, 100);
 
@@ -277,6 +299,12 @@ export default function L3Step2() {
   }, [phase, countdownStartTime]);
 
   const handleFinish = async () => {
+    // Prevent double execution (timeout + user click race)
+    if (finishOnceRef.current) {
+      return;
+    }
+    finishOnceRef.current = true;
+
     if (!startTimeRef.current || !student) return;
 
     setIsRecording(false);
@@ -287,69 +315,151 @@ export default function L3Step2() {
       audioRef.current.currentTime = 0;
     }
 
-    // Stop recording
+    // Stop recording with reliable final chunk capture
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-
-      const stopPromise = new Promise<void>((resolve) => {
-        mediaRecorderRef.current!.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-          }
-          resolve();
-        };
+      const rec = mediaRecorderRef.current;
+      
+      // Request final chunk before stopping
+      if (typeof rec.requestData === 'function') {
+        try {
+          rec.requestData();
+        } catch (e) {
+          // Ignore if requestData fails
+        }
+      }
+      
+      // Use onstop handler for reliable final chunk capture
+      await new Promise<void>((resolve) => {
+        rec.onstop = () => resolve();
+        rec.stop();
       });
-
-      await stopPromise;
     }
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
 
+    // Calculate elapsed time with 0 protection
     const elapsedMs = Date.now() - startTimeRef.current;
-    const elapsedSec = elapsedMs / 1000;
+    const elapsedSec = Math.max(0.1, elapsedMs / 1000); // Prevent division by zero
     const wpm = Math.round((totalWords / elapsedSec) * 60);
 
-    const resultData = { totalWords, elapsedSec, wpm, targetWPM };
-
     try {
-      // Create audio blob from recorded chunks
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      // Get MIME type extension for filename
+      const mimeToExt = (mime: string): string => {
+        if (mime.includes('webm')) return 'webm';
+        if (mime.includes('ogg')) return 'ogg';
+        if (mime.includes('wav')) return 'wav';
+        if (mime.includes('mpeg')) return 'mp3';
+        if (mime.includes('mp4')) return 'm4a';
+        return 'webm';
+      };
+
+      const finalMime = recordingMimeTypeRef.current || 'audio/webm';
+      const audioBlob = new Blob(audioChunksRef.current, { type: finalMime });
       
       console.log('🎤 Sending audio to n8n for analysis:', {
         audioSize: audioBlob.size,
+        mimeType: finalMime,
         duration: elapsedMs,
         targetWPM,
       });
 
-      // Send to n8n for AI analysis
-      const analysisResponse = await submitReadingSpeedAnalysis({
+      // Send to n8n with metadata
+      const rawResponse = await submitReadingSpeedAnalysis({
         userId: student.id,
         audioFile: audioBlob,
-        durationMs: elapsedMs,
+        durationMs: Math.round(elapsedMs),
         hedefOkuma: targetWPM,
         metin: fullText,
+        startTime: new Date(startTimeRef.current).toISOString(),
+        endTime: new Date().toISOString(),
+        mimeType: finalMime,
+        fileName: `recording.${mimeToExt(finalMime)}`,
       });
 
-      console.log('✅ Received analysis from n8n:', analysisResponse);
+      console.log('✅ Received raw analysis from n8n:', rawResponse);
+
+      // Safe response parsing - handle various formats
+      let analysisOutput: Level3Step2AnalysisOutput | null = null;
+      
+      // Try parsing as structured response
+      const apiResponse = rawResponse as Level3Step2ApiResponse;
+      
+      if (apiResponse.output) {
+        analysisOutput = apiResponse.output;
+      } else if (apiResponse.ok !== false && apiResponse.userId) {
+        // Legacy format - convert to output structure
+        analysisOutput = {
+          userId: apiResponse.userId || student.id,
+          kidName: apiResponse.kidName || '',
+          title: apiResponse.title || story.title,
+          hedefOkuma: apiResponse.hedefOkuma || targetWPM,
+          speedSummary: apiResponse.speedSummary || '',
+          reachedTarget: apiResponse.reachedTarget || false,
+          analysisText: apiResponse.analysisText || '',
+          metrics: apiResponse.metrics || {
+            durationSec: elapsedSec,
+            durationMMSS: `${Math.floor(elapsedSec / 60)}:${Math.floor(elapsedSec % 60).toString().padStart(2, '0')}`,
+            targetWordCount: totalWords,
+            spokenWordCount: 0,
+            matchedWordCount: 0,
+            accuracyPercent: 0,
+            wpmSpoken: wpm,
+            wpmCorrect: 0,
+            wpmTarget: targetWPM,
+          },
+          coachText: apiResponse.coachText || '',
+          audioBase64: apiResponse.audioBase64,
+          transcriptText: apiResponse.transcriptText || '',
+          resumeUrl: apiResponse.resumeUrl,
+        };
+      } else if (typeof rawResponse === 'string') {
+        // Handle stringified JSON
+        try {
+          const parsed = JSON.parse(rawResponse);
+          analysisOutput = parsed.output || parsed;
+        } catch (e) {
+          console.error('Failed to parse stringified response:', e);
+        }
+      }
+
+      if (!analysisOutput) {
+        console.error('Could not parse analysis output from response:', rawResponse);
+        throw new Error('Invalid response format from n8n');
+      }
+
+      console.log('📊 Parsed analysis output:', analysisOutput);
+
+      // Calculate progress delta
+      const progressDelta = (analysisOutput.metrics?.wpmCorrect || wpm) - targetWPM;
 
       // Save reading log to Supabase
       await insertReadingLog(student.id, storyId, 3, wpm, totalWords, totalWords);
 
-      // Mark step as completed with result data
+      // Mark step as completed with full analysis
       if (onStepCompleted) {
         await onStepCompleted({
-          ...resultData,
-          analysis: analysisResponse,
+          totalWords,
+          elapsedSec,
+          wpm,
+          targetWPM,
+          analysis: analysisOutput,
+          progressDelta,
         });
       }
     } catch (err) {
       console.error('Failed to save reading data or get analysis:', err);
+      // Don't block user - still mark as done
     }
 
     setPhase('done');
   };
+
+  // Keep handleFinishRef in sync with latest handleFinish
+  useEffect(() => {
+    handleFinishRef.current = handleFinish;
+  });
 
   const finishReading = handleFinish;
 

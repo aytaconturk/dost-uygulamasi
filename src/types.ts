@@ -242,6 +242,10 @@ export interface Step {
     durationMs: number;
     hedefOkuma: number;
     metin: string;
+    startTime?: string; // ISO timestamp
+    endTime?: string; // ISO timestamp
+    mimeType?: string; // e.g., 'audio/webm', 'audio/mp4'
+    fileName?: string; // e.g., 'recording.webm'
   }
 
   export interface Level3Step2Response {
