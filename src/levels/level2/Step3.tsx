@@ -109,7 +109,9 @@ export default function Level2Step3() {
 
     try {
       // Call API to get audio feedback
-      // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+      // ⚠️ n8n workflow "studentId" alanını bekliyor
+      // Değer olarak sessionId gönderiliyor (her session için unique)
+      // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const apiResponse = await submitReadingGoalSelection({
         studentId: sessionId || `anon-${Date.now()}`,
         storyId: STORY_ID,

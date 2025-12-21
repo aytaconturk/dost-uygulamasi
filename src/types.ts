@@ -107,10 +107,22 @@ export interface Step {
     sessionId: string;
   }
 
-  // NOT: Alan adları n8n'in beklediği gibi kalıyor (studentId, userId)
-  // Ama değer olarak sessionId gönderilecek (her session unique)
+  /**
+   * ⚠️ ÖNEMLİ: n8n API Entegrasyonu için Alan Adlandırma Kuralı
+   * 
+   * n8n workflow'ları "studentId" veya "userId" alan adlarını bekliyor.
+   * Ancak değer olarak sessionId gönderiliyor (her session için unique UUID).
+   * 
+   * Neden?
+   * - Aynı kullanıcı (student) farklı hikayelerde çalışabilir
+   * - userId ile gönderildiğinde hikayeler n8n tarafında karışıyordu
+   * - sessionId ile her oturum unique olarak takip ediliyor
+   * 
+   * Alan adı: studentId/userId (n8n bunu bekliyor - DEĞİŞTİRME!)
+   * Değer: sessionId (StepContext'ten alınıyor)
+   */
   export interface Level2Step1ReadingAnalysisRequest {
-    studentId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
+    studentId: string; // ⚠️ n8n bu alanı bekliyor - değer olarak sessionId gönderilecek
     textTitle?: string;
     originalText: string;
     audioBase64: string; // Base64 encoded audio data
@@ -195,7 +207,7 @@ export interface Step {
 
   // Level 2 Step 3 - Reading Goal API Types
   export interface Level2Step3GoalSelectionRequest {
-    studentId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
+    studentId: string; // ⚠️ n8n bu alanı bekliyor - değer olarak sessionId gönderilecek
     storyId: number;
     level: number;
     step: number;
@@ -214,7 +226,7 @@ export interface Step {
   // Level 3 Step 1 - Paragraph Reading API Types
   // New Level 3 Step 1 Request Interface
   export interface Level3Step1Request {
-    studentId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
+    studentId: string; // ⚠️ n8n bu alanı bekliyor - değer olarak sessionId gönderilecek
     paragrafText: string;
     audioBase64: string;
     isLatestParagraf: boolean;
@@ -222,7 +234,7 @@ export interface Step {
   }
 
   export interface Level3Step1ParagraphRequest {
-    userId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
+    userId: string; // ⚠️ n8n bu alanı bekliyor - değer olarak sessionId gönderilecek
     paragraphText: string;
     audioBase64: string;
     paragraphNo: number;
@@ -246,7 +258,7 @@ export interface Step {
 
   // Level 3 Step 2 - Reading Speed Analysis API Types
   export interface Level3Step2Request {
-    userId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
+    userId: string; // ⚠️ n8n bu alanı bekliyor - değer olarak sessionId gönderilecek
     audioFile: Blob;
     durationMs: number;
     hedefOkuma: number;

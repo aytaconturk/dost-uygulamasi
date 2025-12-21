@@ -289,7 +289,9 @@ export default function L3Step1() {
         // Check if this is the last paragraph
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
-        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         const requestData = {
           studentId: sessionId || `anon-${Date.now()}`,
           paragrafText: paragraphText,
@@ -328,7 +330,9 @@ export default function L3Step1() {
         // Check if this is the last paragraph
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
-        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         const requestData = {
           studentId: sessionId || `anon-${Date.now()}`,
           paragrafText: paragraphText,

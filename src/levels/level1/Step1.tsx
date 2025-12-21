@@ -150,7 +150,9 @@ export default function Step1() {
         imageUrl,
         stepNum: 1,
         storyTitle: story.title,
-        // Alan adı "userId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        // ⚠️ n8n workflow "userId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         userId: sessionId || `anon-${Date.now()}`,
         userName: currentStudent?.first_name + " " + currentStudent?.last_name,
         ilkUcParagraf,

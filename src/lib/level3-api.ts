@@ -30,6 +30,12 @@ function toFormData(payload: Record<string, any>): FormData {
   return fd;
 }
 
+/**
+ * Level 3 Step 1 - Paragraf okuma API'si
+ * ⚠️ NOT: n8n workflow "studentId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function submitParagraphReading(
   request: Level3Step1Request
 ): Promise<Level3Step1Response> {
@@ -39,7 +45,7 @@ export async function submitParagraphReading(
     audioBase64: request.audioBase64 ? `${request.audioBase64.substring(0, 50)}... (${request.audioBase64.length} chars)` : request.audioBase64
   };
   console.log('📤 Sending Level 3 Step 1 request (first paragraph):', {
-    studentId: request.studentId, // Bu aslında sessionId değeri
+    studentId: request.studentId, // ⚠️ Aslında sessionId değeri - n8n "studentId" bekliyor
     paragrafNo: request.paragrafNo,
     isLatestParagraf: request.isLatestParagraf,
     audioBase64Length: request.audioBase64?.length || 0,
@@ -65,6 +71,12 @@ export async function submitParagraphReading(
   return response.data;
 }
 
+/**
+ * Level 3 Step 1 - Resume response (sonraki paragraflar için)
+ * ⚠️ NOT: n8n workflow "studentId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function getResumeResponse(
   resumeUrl: string,
   request: Level3Step1Request
@@ -74,7 +86,7 @@ export async function getResumeResponse(
   const finalUrl = resumeUrl;
   
   const payload = {
-    // n8n "studentId" alanını bekliyor, değer olarak sessionId gönderiliyor
+    // ⚠️ n8n "studentId" alanını bekliyor - değer olarak sessionId gönderiliyor
     studentId: request.studentId,
     paragrafText: request.paragrafText,
     audioBase64: request.audioBase64,
@@ -130,11 +142,17 @@ export async function getResumeResponse(
   }
 }
 
+/**
+ * Level 3 Step 2 - Okuma hızı analizi API'si
+ * ⚠️ NOT: n8n workflow "userId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function submitReadingSpeedAnalysis(
   request: Level3Step2Request
 ): Promise<Level3Step2Response> {
   console.log('📤 Sending Level 3 Step 2 request:', {
-    userId: request.userId, // Bu aslında sessionId değeri
+    userId: request.userId, // ⚠️ Aslında sessionId değeri - n8n "userId" bekliyor
     audioFileSize: request.audioFile.size,
     durationMs: request.durationMs,
     hedefOkuma: request.hedefOkuma,

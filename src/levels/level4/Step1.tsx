@@ -230,7 +230,9 @@ export default function L4Step1() {
       let response;
       if (resumeUrl) {
         // Resume from n8n webhook wait
-        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         response = await getResumeResponse(resumeUrl, {
           studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
@@ -241,7 +243,9 @@ export default function L4Step1() {
         });
       } else {
         // First section - initial webhook call
-        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         response = await submitSchemaSectionReading({
           studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,

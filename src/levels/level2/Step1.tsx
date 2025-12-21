@@ -299,7 +299,9 @@ export default function Level2Step1() {
       const currentSelectedIndex = selectedWordIndexRef.current;
 
       // Send with correct field names expected by n8n backend
-      // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+      // ⚠️ n8n workflow "studentId" alanını bekliyor
+      // Değer olarak sessionId gönderiliyor (her session için unique)
+      // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const payload = {
         studentId: sessionId || `anon-${Date.now()}`,
         textTitle: story.title,

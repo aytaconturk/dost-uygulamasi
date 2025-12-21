@@ -7,11 +7,17 @@ import type {
   Level2Step3GoalSelectionResponse,
 } from '../types';
 
+/**
+ * Level 2 Step 1 - Okuma analizi API'si
+ * ⚠️ NOT: n8n workflow "studentId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function submitReadingAnalysis(
   request: Level2Step1ReadingAnalysisRequest
 ): Promise<Level2Step1ReadingAnalysisResponse> {
   console.log('📤 Sending Level 2 Step 1 reading analysis:', {
-    studentId: request.studentId, // Bu aslında sessionId değeri
+    studentId: request.studentId, // ⚠️ Aslında sessionId değeri - n8n "studentId" bekliyor
     textTitle: request.textTitle,
     originalTextLength: request.originalText?.length || 0,
     audioBase64Length: request.audioBase64?.length || 0,
@@ -37,11 +43,17 @@ export async function submitReadingAnalysis(
   return response.data;
 }
 
+/**
+ * Level 2 Step 3 - Hedef seçimi API'si
+ * ⚠️ NOT: n8n workflow "studentId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function submitReadingGoalSelection(
   request: Level2Step3GoalSelectionRequest
 ): Promise<Level2Step3GoalSelectionResponse> {
   console.log('📤 Sending Level 2 Step 3 goal selection:', {
-    studentId: request.studentId, // Bu aslında sessionId değeri
+    studentId: request.studentId, // ⚠️ Aslında sessionId değeri - n8n "studentId" bekliyor
     targetWpm: request.targetWpm,
     percentage: request.percentage,
   });
