@@ -41,6 +41,16 @@ export default function Level2Step1() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  
+  // Refs to prevent stale closure in timer
+  const selectedWordIndexRef = useRef<number | null>(null);
+  const handleFinishRef = useRef<(() => Promise<void>) | null>(null);
+  
+  // Guard against double execution (timeout + user click)
+  const finishOnceRef = useRef<boolean>(false);
+  
+  // Store supported MIME type
+  const recordingMimeTypeRef = useRef<string>('audio/webm');
 
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -55,6 +65,11 @@ export default function Level2Step1() {
   const [recordingStartTime, setRecordingStartTime] = useState('');
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
   const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedWordIndexRef.current = selectedWordIndex;
+  }, [selectedWordIndex]);
   const [timeUp, setTimeUp] = useState(false);
   const [beeped60, setBeeped60] = useState(false);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
@@ -143,6 +158,14 @@ export default function Level2Step1() {
   };
 
   const handleStart = async () => {
+    // Reset all states for clean restart
+    setTimeUp(false);
+    setBeeped60(false);
+    setTimeLeft(TOTAL_SECONDS);
+    setSelectedWordIndex(null);
+    audioChunksRef.current = [];
+    finishOnceRef.current = false;
+    
     // In dev mode, always stop audio. In prod mode, only if playing
     if (audioRef.current && (appMode === 'dev' || introAudioPlaying)) {
       audioRef.current.pause();
@@ -161,15 +184,27 @@ export default function Level2Step1() {
     setCountdownStartTime(Date.now());
     setRecordingStartTime(new Date().toISOString());
 
-    // Start audio recording
+    // Start audio recording with MIME type fallback
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       audioChunksRef.current = [];
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
+      // Find supported MIME type
+      const preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+        'audio/mpeg'
+      ];
+      const supportedType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t));
+      recordingMimeTypeRef.current = supportedType || 'audio/webm';
+
+      const mediaRecorder = new MediaRecorder(
+        stream,
+        supportedType ? { mimeType: supportedType } : undefined
+      );
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -197,7 +232,9 @@ export default function Level2Step1() {
       }
 
       if (remaining === 0) {
-        handleFinish();
+        setTimeUp(true);
+        // Use ref to avoid stale closure
+        handleFinishRef.current?.();
       }
     }, 100);
 
@@ -205,22 +242,32 @@ export default function Level2Step1() {
   }, [reading, countdownStartTime, beeped60]);
 
   const handleFinish = async () => {
+    // Prevent double execution (timeout + user click race)
+    if (finishOnceRef.current) {
+      return;
+    }
+    finishOnceRef.current = true;
+
     setReading(false);
     setIsProcessing(true);
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-
-      const stopPromise = new Promise<void>((resolve) => {
-        mediaRecorderRef.current!.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-          }
-          resolve();
-        };
+      const rec = mediaRecorderRef.current;
+      
+      // Request final chunk before stopping
+      if (typeof rec.requestData === 'function') {
+        try {
+          rec.requestData();
+        } catch (e) {
+          // Ignore if requestData fails
+        }
+      }
+      
+      // Use onstop handler for reliable final chunk capture
+      await new Promise<void>((resolve) => {
+        rec.onstop = () => resolve();
+        rec.stop();
       });
-
-      await stopPromise;
     }
 
     if (streamRef.current) {
@@ -228,22 +275,49 @@ export default function Level2Step1() {
     }
 
     try {
-      const audioBlob = new Blob(audioChunksRef.current, {
-        type: 'audio/webm;codecs=opus',
-      });
-      const base64Audio = await blobToBase64(audioBlob);
-      const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
-      const wordsRead = Math.ceil((storyText.split(/\s+/).length * elapsed) / TOTAL_SECONDS);
-      const wpm = Math.ceil((wordsRead / elapsed) * 60);
+      // Get MIME type extension for filename
+      const mimeToExt = (mime: string): string => {
+        if (mime.includes('webm')) return 'webm';
+        if (mime.includes('ogg')) return 'ogg';
+        if (mime.includes('wav')) return 'wav';
+        if (mime.includes('mpeg')) return 'mp3';
+        if (mime.includes('mp4')) return 'm4a';
+        return 'webm';
+      };
 
-      const response: any = await submitReadingAnalysis({
+      const finalMime = recordingMimeTypeRef.current || 'audio/webm';
+      const audioBlob = new Blob(audioChunksRef.current, { type: finalMime });
+      const base64Audio = await blobToBase64(audioBlob);
+      
+      // Fix elapsed=0 bug: use safeElapsed to prevent division by zero
+      const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
+      const safeElapsed = Math.max(1, elapsed);
+      const wordsRead = Math.ceil((storyText.split(/\s+/).length * elapsed) / TOTAL_SECONDS);
+      const wpm = Math.ceil((wordsRead / safeElapsed) * 60);
+
+      // Use current ref value to avoid stale state
+      const currentSelectedIndex = selectedWordIndexRef.current;
+
+      // Send with correct field names expected by n8n backend
+      const payload = {
+        studentId: currentStudent?.id || 'anonymous',
+        textTitle: story.title,
+        originalText: storyText,
+        startTime: recordingStartTime,
+        endTime: new Date().toISOString(),
+        // New audio object with metadata for n8n
+        audio: {
+          base64: base64Audio,
+          mimeType: finalMime,
+          fileName: `recording.${mimeToExt(finalMime)}`
+        },
+        // Keep audioBase64 for backward compatibility
         audioBase64: base64Audio,
-        text: storyText,
-        recordingStartTime: recordingStartTime,
-        recordingEndTime: new Date().toISOString(),
-        selectedWordCount: selectedWordIndex ? selectedWordIndex + 1 : wordsRead,
-        userId: currentStudent?.id || '',
-      });
+        selectedWordCount: currentSelectedIndex !== null ? currentSelectedIndex + 1 : wordsRead,
+      };
+
+      setIsUploading(true);
+      const response = await submitReadingAnalysis(payload) as Level2Step1ReadingAnalysisResponse;
 
       setResult({ wordsRead, wpm, wordsPerSecond: wpm / 60 });
 
@@ -263,12 +337,17 @@ export default function Level2Step1() {
         });
       }
     } catch (error) {
-      console.log('Error during recording or upload:', error);
+      console.error('Error during recording or upload:', error);
     } finally {
       setIsProcessing(false);
       setIsUploading(false);
     }
   };
+
+  // Keep handleFinishRef in sync with latest handleFinish
+  useEffect(() => {
+    handleFinishRef.current = handleFinish;
+  });
 
   const CountdownBadge = ({ secondsLeft, total }: { secondsLeft: number; total: number }) => {
     const size = 64;
@@ -411,49 +490,59 @@ export default function Level2Step1() {
                   <button
                     onClick={() => {
                       console.log('Devam Et clicked. Full analysis response:', analysis);
-                      // API returns 'output' not 'data'
-                      const responseData = (analysis as any)?.output || (analysis as any)?.data;
-                      const analysisData = responseData?.analysis;
-                      const transcript = responseData?.transcript || '';
-
-                      console.log('Extracted analysisData:', analysisData);
-                      console.log('Extracted transcript:', transcript);
-
-                      if (analysisData) {
-                        const resultData = {
-                          ...analysisData,
-                          transcript: transcript,
-                          readingSpeed: {
-                            wordsPerMinute: analysisData.wordsPerMinute || 0,
-                            correctWordsPerMinute: analysisData.correctWordsPerMinute || 0,
-                          },
-                          wordCount: {
-                            original: analysisData.originalWordCount || 0,
-                            spoken: analysisData.spokenWordCount || 0,
-                            correct: analysisData.correctWordCount || 0,
-                          },
-                          pronunciation: {
-                            accuracy: analysisData.pronunciationAccuracy || 0,
-                            errors: analysisData.errors || [],
-                          },
-                          qualityRules: {
-                            speechRate: analysisData.speechRate || { score: 0, feedback: '' },
-                            correctWords: analysisData.correctWords || { score: 0, feedback: '' },
-                            punctuation: analysisData.punctuation || { score: 0, feedback: '' },
-                            expressiveness: analysisData.expressiveness || { score: 0, feedback: '' },
-                          },
-                          overallScore: analysisData.overallScore || analysisData.wordsPerMinute || 0,
-                          recommendations: analysisData.recommendations || [],
-                        };
-                        console.log('Step1: Dispatching analysis result:', resultData);
-                        dispatch(setAnalysisResult(resultData));
-                        setTimeout(() => {
-                          navigate('/level/2/step/2');
-                        }, 100);
-                      } else {
-                        console.error('No analysis data found in response:', analysis);
+                      
+                      // ✅ Simplified parse - only use response.output
+                      const out = (analysis as any)?.output;
+                      
+                      if (!out) {
+                        console.error('No output found in response:', analysis);
                         alert('Analiz verisi bulunamadı. Lütfen tekrar deneyin.');
+                        return;
                       }
+                      
+                      const analysisData = out.analysis || {};
+                      
+                      console.log('Extracted output:', out);
+                      console.log('Extracted analysis:', analysisData);
+                      
+                      // Redux store format - standardized structure
+                      const resultData = {
+                        transcript: out.transcript || '',
+                        
+                        readingSpeed: {
+                          wordsPerMinute: analysisData.wordsPerMinute || 0,
+                          correctWordsPerMinute: analysisData.correctWordsPerMinute || 0,
+                        },
+                        
+                        wordCount: {
+                          original: analysisData.originalWordCount || 0,
+                          spoken: analysisData.spokenWordCount || 0,
+                          correct: analysisData.correctWordCount || 0,
+                        },
+                        
+                        pronunciation: {
+                          accuracy: analysisData.pronunciationAccuracy || 0,
+                          errors: analysisData.errors || [],
+                        },
+                        
+                        // Quality scores from output root (NOT from inside analysis)
+                        qualityRules: {
+                          speechRate: out.speechRate || { score: 0, feedback: '' },
+                          correctWords: out.correctWords || { score: 0, feedback: '' },
+                          punctuation: out.punctuation || { score: 0, feedback: '' },
+                          expressiveness: out.expressiveness || { score: 0, feedback: '' },
+                        },
+                        
+                        overallScore: out.overallScore ?? analysisData.wordsPerMinute ?? 0,
+                        recommendations: out.recommendations || [],
+                      };
+                      
+                      console.log('Step1: Dispatching analysis result:', resultData);
+                      dispatch(setAnalysisResult(resultData));
+                      
+                      setTimeout(() => {
+                        navigate('/level/2/step/2');
+                      }, 100);
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
                   >
