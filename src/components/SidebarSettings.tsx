@@ -1,11 +1,72 @@
 import { useEffect, useState } from 'react';
 import { getApiBase, getApiEnv, setApiEnv, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
+import { supabase } from '../lib/supabase';
 
 const RECORDING_DURATION_KEY = 'voice_recording_duration_ms';
 const PLAYBACK_RATE_KEY = 'audio_playback_rate';
+const VOICE_RESPONSE_TIMEOUT_KEY = 'voice_response_timeout_ms';
+const PARAGRAPH_RESPONSE_TIMEOUT_KEY = 'paragraph_response_timeout_ms';
 
-export function getRecordingDuration(): number {
+// Cache for settings to avoid repeated Supabase calls
+let recordingDurationCache: number | null = null;
+let voiceResponseTimeoutCache: number | null = null;
+let paragraphResponseTimeoutCache: number | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 60000; // 1 minute cache
+
+async function fetchSettingFromSupabase(key: string, defaultValue: number): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', key)
+      .single();
+
+    if (!error && data?.value) {
+      return parseInt(data.value) || defaultValue;
+    }
+  } catch (err) {
+    console.warn(`Failed to fetch ${key} from Supabase:`, err);
+  }
+  return defaultValue;
+}
+
+export async function getRecordingDuration(): Promise<number> {
+  const now = Date.now();
+  
+  // Return cached value if available and fresh
+  if (recordingDurationCache !== null && (now - cacheTimestamp) < CACHE_DURATION) {
+    return recordingDurationCache;
+  }
+
+  // Try Supabase first
+  try {
+    const value = await fetchSettingFromSupabase(RECORDING_DURATION_KEY, 10000);
+    recordingDurationCache = value;
+    cacheTimestamp = now;
+    // Also update localStorage for backward compatibility
+    localStorage.setItem(RECORDING_DURATION_KEY, String(value));
+    return value;
+  } catch {
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem(RECORDING_DURATION_KEY);
+      const value = stored ? parseInt(stored, 10) : 10000;
+      recordingDurationCache = value;
+      cacheTimestamp = now;
+      return value;
+    } catch {
+      return 10000;
+    }
+  }
+}
+
+// Synchronous version for backward compatibility (uses cache or localStorage)
+export function getRecordingDurationSync(): number {
+  if (recordingDurationCache !== null) {
+    return recordingDurationCache;
+  }
   try {
     const stored = localStorage.getItem(RECORDING_DURATION_KEY);
     return stored ? parseInt(stored, 10) : 10000;
@@ -17,7 +78,95 @@ export function getRecordingDuration(): number {
 export function setRecordingDuration(ms: number): void {
   try {
     localStorage.setItem(RECORDING_DURATION_KEY, String(ms));
+    recordingDurationCache = ms;
+    cacheTimestamp = Date.now();
   } catch {}
+}
+
+export async function getVoiceResponseTimeout(): Promise<number> {
+  const now = Date.now();
+  
+  // Return cached value if available and fresh
+  if (voiceResponseTimeoutCache !== null && (now - cacheTimestamp) < CACHE_DURATION) {
+    return voiceResponseTimeoutCache;
+  }
+
+  // Try Supabase first
+  try {
+    const value = await fetchSettingFromSupabase(VOICE_RESPONSE_TIMEOUT_KEY, 60000);
+    voiceResponseTimeoutCache = value;
+    cacheTimestamp = now;
+    // Also update localStorage for backward compatibility
+    localStorage.setItem(VOICE_RESPONSE_TIMEOUT_KEY, String(value));
+    return value;
+  } catch {
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem(VOICE_RESPONSE_TIMEOUT_KEY);
+      const value = stored ? parseInt(stored, 10) : 60000;
+      voiceResponseTimeoutCache = value;
+      cacheTimestamp = now;
+      return value;
+    } catch {
+      return 60000;
+    }
+  }
+}
+
+// Synchronous version for backward compatibility
+export function getVoiceResponseTimeoutSync(): number {
+  if (voiceResponseTimeoutCache !== null) {
+    return voiceResponseTimeoutCache;
+  }
+  try {
+    const stored = localStorage.getItem(VOICE_RESPONSE_TIMEOUT_KEY);
+    return stored ? parseInt(stored, 10) : 60000;
+  } catch {
+    return 60000;
+  }
+}
+
+export async function getParagraphResponseTimeout(): Promise<number> {
+  const now = Date.now();
+  
+  // Return cached value if available and fresh
+  if (paragraphResponseTimeoutCache !== null && (now - cacheTimestamp) < CACHE_DURATION) {
+    return paragraphResponseTimeoutCache;
+  }
+
+  // Try Supabase first
+  try {
+    const value = await fetchSettingFromSupabase(PARAGRAPH_RESPONSE_TIMEOUT_KEY, 60000);
+    paragraphResponseTimeoutCache = value;
+    cacheTimestamp = now;
+    // Also update localStorage for backward compatibility
+    localStorage.setItem(PARAGRAPH_RESPONSE_TIMEOUT_KEY, String(value));
+    return value;
+  } catch {
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem(PARAGRAPH_RESPONSE_TIMEOUT_KEY);
+      const value = stored ? parseInt(stored, 10) : 60000;
+      paragraphResponseTimeoutCache = value;
+      cacheTimestamp = now;
+      return value;
+    } catch {
+      return 60000;
+    }
+  }
+}
+
+// Synchronous version for backward compatibility
+export function getParagraphResponseTimeoutSync(): number {
+  if (paragraphResponseTimeoutCache !== null) {
+    return paragraphResponseTimeoutCache;
+  }
+  try {
+    const stored = localStorage.getItem(PARAGRAPH_RESPONSE_TIMEOUT_KEY);
+    return stored ? parseInt(stored, 10) : 60000;
+  } catch {
+    return 60000;
+  }
 }
 
 export function getPlaybackRate(): number {
@@ -55,14 +204,30 @@ interface Props {
 export default function SidebarSettings({ open, onClose }: Props) {
   const [env, setEnv] = useState<ApiEnv>(getApiEnv());
   const [appMode, setAppModeState] = useState<AppMode>(getAppMode());
-  const [recordingDuration, setRecordingDurationState] = useState<number>(getRecordingDuration());
+  const [recordingDuration, setRecordingDurationState] = useState<number>(getRecordingDurationSync());
   const [playbackRate, setPlaybackRateState] = useState<number>(getPlaybackRate());
 
   useEffect(() => {
     setEnv(getApiEnv());
     setAppModeState(getAppMode());
-    setRecordingDurationState(getRecordingDuration());
+    setRecordingDurationState(getRecordingDurationSync());
     setPlaybackRateState(getPlaybackRate());
+    
+    // Listen for settings updates from admin panel
+    const handleSettingsUpdate = async () => {
+      // Clear cache and reload
+      recordingDurationCache = null;
+      voiceResponseTimeoutCache = null;
+      paragraphResponseTimeoutCache = null;
+      cacheTimestamp = 0;
+      const duration = await getRecordingDuration();
+      setRecordingDurationState(duration);
+    };
+    
+    window.addEventListener('settingsUpdated', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('settingsUpdated', handleSettingsUpdate);
+    };
   }, [open]);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -181,9 +346,6 @@ export default function SidebarSettings({ open, onClose }: Props) {
               </div>
             </div>
 
-            <hr className="my-4" />
-
-            <TypographySettings />
           </aside>
         </div>
       )}

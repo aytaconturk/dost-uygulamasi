@@ -2,6 +2,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { clearUser, setStudent } from '../store/userSlice';
 import type { RootState, AppDispatch } from '../store/store';
+import TypographySettings from './SidebarSettingsTypography';
 
 interface Props {
   open: boolean;
@@ -41,7 +42,9 @@ export default function UserSidebar({ open, onClose }: Props) {
           {teacher && (
             <div className="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
               <p className="text-xs text-gray-600 uppercase font-semibold mb-2">Öğretmen</p>
-              <h3 className="text-lg font-bold text-purple-800">{teacher.name}</h3>
+              <h3 className="text-lg font-bold text-purple-800">
+                {teacher.first_name} {teacher.last_name}
+              </h3>
               <p className="text-sm text-gray-600">{teacher.email}</p>
             </div>
           )}
@@ -54,13 +57,9 @@ export default function UserSidebar({ open, onClose }: Props) {
             </div>
           )}
 
-          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-            <p className="font-semibold mb-2">Oturum Bilgisi:</p>
-            <ul className="space-y-1 text-xs">
-              <li>🔒 Verileriniz Supabase'de güvenli şekilde saklanmaktadır</li>
-              <li>📊 Tüm ilerleme ve okuma değerlendirmeleri otomatik kaydedilir</li>
-            </ul>
-          </div>
+          <hr className="my-4" />
+
+          <TypographySettings />
         </div>
 
         <div className="mt-6 space-y-2">

@@ -28,7 +28,9 @@ export default function Header({ stories }: { stories: Story[] }) {
         <>
         <header className="flex items-center justify-between p-4 bg-[#9575CD] text-white shadow-md gap-4">
             <div className="flex items-center gap-2">
-                <button className="text-2xl font-bold cursor-pointer" onClick={() => setOpen(true)}>☰</button>
+                {import.meta.env.MODE !== 'production' && (
+                  <button className="text-2xl font-bold cursor-pointer" onClick={() => setOpen(true)}>☰</button>
+                )}
                 <span className="text-xl font-semibold cursor-pointer" onClick={goHome}>DOST</span>
             </div>
 
@@ -47,7 +49,9 @@ export default function Header({ stories }: { stories: Story[] }) {
                 </button>
             </div>
         </header>
-        <SidebarSettings open={open} onClose={() => setOpen(false)} />
+        {import.meta.env.MODE !== 'production' && (
+          <SidebarSettings open={open} onClose={() => setOpen(false)} />
+        )}
         <UserSidebar open={userOpen} onClose={() => setUserOpen(false)} />
         </>
     );
