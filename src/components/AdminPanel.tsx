@@ -18,7 +18,7 @@ import { signOut } from '../lib/auth';
 import { clearUser } from '../store/userSlice';
 import type { AppDispatch } from '../store/store';
 
-type TabType = 'teachers' | 'students' | 'logs' | 'stories';
+type TabType = 'teachers' | 'students' | 'logs' | 'stories' | 'settings';
 
 export default function AdminPanel() {
   const dispatch = useDispatch<AppDispatch>();
@@ -119,7 +119,15 @@ export default function AdminPanel() {
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Admin Paneli</h1>
+          <div>
+            <h1 className="text-3xl font-bold">Admin Paneli</h1>
+            {import.meta.env.MODE === 'production' && (
+              <p className="text-sm text-purple-200 mt-1">
+                Versiyon: {import.meta.env.VITE_APP_VERSION || '1.0.0'} 
+                {import.meta.env.VITE_GIT_COMMIT && ` (${import.meta.env.VITE_GIT_COMMIT.substring(0, 7)})`}
+              </p>
+            )}
+          </div>
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
@@ -132,7 +140,7 @@ export default function AdminPanel() {
       {/* Tab Navigation */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 flex gap-8">
-          {(['teachers', 'students', 'logs', 'stories'] as TabType[]).map((tab) => (
+          {(['teachers', 'students', 'logs', 'stories', 'settings'] as TabType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -146,6 +154,7 @@ export default function AdminPanel() {
               {tab === 'students' && 'Öğrenciler'}
               {tab === 'logs' && 'Aktivite Günlükleri'}
               {tab === 'stories' && 'Hikayeler'}
+              {tab === 'settings' && 'Ayarlar'}
             </button>
           ))}
         </div>
@@ -163,6 +172,8 @@ export default function AdminPanel() {
           <StudentsTab students={students} />
         ) : activeTab === 'logs' ? (
           <LogsTab logs={logs} />
+        ) : activeTab === 'settings' ? (
+          <SettingsTab />
         ) : (
           <StoriesTab />
         )}
@@ -1355,6 +1366,243 @@ function QuestionsModal({
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsTab() {
+  const [settings, setSettings] = useState({
+    recording_duration_ms: 10000,
+    voice_response_timeout_ms: 60000,
+    paragraph_response_timeout_ms: 60000,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    try {
+      // Try to get from Supabase app_settings table
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'recording_duration_ms')
+        .single();
+
+      if (!error && data) {
+        setSettings(prev => ({
+          ...prev,
+          recording_duration_ms: parseInt(data.value) || 10000,
+        }));
+      } else {
+        // Fallback to localStorage
+        const stored = localStorage.getItem('voice_recording_duration_ms');
+        if (stored) {
+          setSettings(prev => ({
+            ...prev,
+            recording_duration_ms: parseInt(stored) || 10000,
+          }));
+        }
+      }
+
+      // Try to get voice_response_timeout_ms
+      const { data: timeoutData, error: timeoutError } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'voice_response_timeout_ms')
+        .single();
+
+      if (!timeoutError && timeoutData) {
+        setSettings(prev => ({
+          ...prev,
+          voice_response_timeout_ms: parseInt(timeoutData.value) || 60000,
+        }));
+      }
+
+      // Try to get paragraph_response_timeout_ms
+      const { data: paragraphTimeoutData, error: paragraphTimeoutError } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'paragraph_response_timeout_ms')
+        .single();
+
+      if (!paragraphTimeoutError && paragraphTimeoutData) {
+        setSettings(prev => ({
+          ...prev,
+          paragraph_response_timeout_ms: parseInt(paragraphTimeoutData.value) || 60000,
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+      // Fallback to defaults
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      // Save to Supabase app_settings table
+      const { error: recordingError } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'recording_duration_ms',
+          value: String(settings.recording_duration_ms),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'key',
+        });
+
+      if (recordingError) throw recordingError;
+
+      const { error: timeoutError } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'voice_response_timeout_ms',
+          value: String(settings.voice_response_timeout_ms),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'key',
+        });
+
+      if (timeoutError) throw timeoutError;
+
+      const { error: paragraphTimeoutError } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'paragraph_response_timeout_ms',
+          value: String(settings.paragraph_response_timeout_ms),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'key',
+        });
+
+      if (paragraphTimeoutError) throw paragraphTimeoutError;
+
+      // Also update localStorage for backward compatibility
+      localStorage.setItem('voice_recording_duration_ms', String(settings.recording_duration_ms));
+      localStorage.setItem('voice_response_timeout_ms', String(settings.voice_response_timeout_ms));
+      localStorage.setItem('paragraph_response_timeout_ms', String(settings.paragraph_response_timeout_ms));
+
+      setMessage({ type: 'success', text: 'Ayarlar başarıyla kaydedildi!' });
+      
+      // Dispatch event to notify other components
+      window.dispatchEvent(new Event('settingsUpdated'));
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      setMessage({ type: 'error', text: 'Ayarlar kaydedilirken hata oluştu.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-8 text-center">
+        <p className="text-gray-600">Ayarlar yükleniyor...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow p-8">
+      <h2 className="text-2xl font-bold text-purple-800 mb-6">Uygulama Ayarları</h2>
+
+      {message && (
+        <div className={`mb-4 p-4 rounded-lg ${
+          message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {/* Recording Duration */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Ses Kaydı Süresi (milisaniye)
+          </label>
+          <input
+            type="number"
+            min="3000"
+            max="120000"
+            step="1000"
+            value={settings.recording_duration_ms}
+            onChange={(e) => setSettings(prev => ({
+              ...prev,
+              recording_duration_ms: parseInt(e.target.value) || 10000,
+            }))}
+            className="w-full border border-gray-300 rounded-lg p-2"
+          />
+          <p className="mt-2 text-xs text-gray-600">
+            Mikrofon kaydı {settings.recording_duration_ms / 1000} saniye sonra otomatik olarak gönderilir.
+            (Min: 3 saniye, Max: 120 saniye)
+          </p>
+        </div>
+
+        {/* Voice Response Timeout */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Ses Cevap Verme Timeout Süresi (milisaniye)
+          </label>
+          <input
+            type="number"
+            min="10000"
+            max="300000"
+            step="5000"
+            value={settings.voice_response_timeout_ms}
+            onChange={(e) => setSettings(prev => ({
+              ...prev,
+              voice_response_timeout_ms: parseInt(e.target.value) || 60000,
+            }))}
+            className="w-full border border-gray-300 rounded-lg p-2"
+          />
+          <p className="mt-2 text-xs text-gray-600">
+            API'ye gönderilen ses kayıtları için {settings.voice_response_timeout_ms / 1000} saniye timeout süresi kullanılacak.
+            (Min: 10 saniye, Max: 300 saniye)
+          </p>
+        </div>
+
+        {/* Paragraph Response Timeout */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Paragraf Cevap Verme Timeout Süresi (milisaniye) - Level 3
+          </label>
+          <input
+            type="number"
+            min="10000"
+            max="300000"
+            step="5000"
+            value={settings.paragraph_response_timeout_ms}
+            onChange={(e) => setSettings(prev => ({
+              ...prev,
+              paragraph_response_timeout_ms: parseInt(e.target.value) || 60000,
+            }))}
+            className="w-full border border-gray-300 rounded-lg p-2"
+          />
+          <p className="mt-2 text-xs text-gray-600">
+            Level 3 paragraf okuma kısmında API'ye gönderilen ses kayıtları için {settings.paragraph_response_timeout_ms / 1000} saniye timeout süresi kullanılacak.
+            (Min: 10 saniye, Max: 300 saniye)
+          </p>
+        </div>
+
+        <div className="pt-4">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Kaydediliyor...' : 'Ayarları Kaydet'}
+          </button>
         </div>
       </div>
     </div>

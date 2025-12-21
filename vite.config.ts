@@ -3,9 +3,27 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa';
 import tailwindcss from '@tailwindcss/vite';
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+
+// Get version from package.json
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
+const version = packageJson.version || '1.0.0';
+
+// Get git commit hash (only in production builds)
+let gitCommit = '';
+try {
+  gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+} catch {
+  // Git not available or not a git repo
+}
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
+    'import.meta.env.VITE_GIT_COMMIT': JSON.stringify(gitCommit),
+  },
   plugins: [
     react(),
     tailwindcss(),
