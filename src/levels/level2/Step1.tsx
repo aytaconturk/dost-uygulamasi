@@ -299,11 +299,9 @@ export default function Level2Step1() {
       const currentSelectedIndex = selectedWordIndexRef.current;
 
       // Send with correct field names expected by n8n backend
+      // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
       const payload = {
-        // Primary: sessionId for n8n tracking (prevents story mixing)
-        sessionId: sessionId || `anon-${Date.now()}`,
-        // Backward compat: also send studentId during transition
-        studentId: currentStudent?.id || 'anonymous',
+        studentId: sessionId || `anon-${Date.now()}`,
         textTitle: story.title,
         originalText: storyText,
         startTime: recordingStartTime,

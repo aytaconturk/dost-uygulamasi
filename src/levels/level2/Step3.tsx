@@ -15,7 +15,7 @@ export default function Level2Step3() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted } = useStepContext();
 
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
@@ -109,8 +109,9 @@ export default function Level2Step3() {
 
     try {
       // Call API to get audio feedback
+      // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
       const apiResponse = await submitReadingGoalSelection({
-        studentId: student.id,
+        studentId: sessionId || `anon-${Date.now()}`,
         storyId: STORY_ID,
         level: 2,
         step: 3,

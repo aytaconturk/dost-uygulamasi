@@ -289,11 +289,9 @@ export default function L3Step1() {
         // Check if this is the last paragraph
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
+        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
         const requestData = {
-          // Primary: sessionId for n8n tracking (prevents story mixing)
-          sessionId: sessionId || `anon-${Date.now()}`,
-          // Backward compat: also send studentId during transition
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           paragrafText: paragraphText,
           audioBase64: audioBase64,
           isLatestParagraf: isLatestParagraf,
@@ -330,11 +328,9 @@ export default function L3Step1() {
         // Check if this is the last paragraph
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
+        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
         const requestData = {
-          // Primary: sessionId for n8n tracking (prevents story mixing)
-          sessionId: sessionId || `anon-${Date.now()}`,
-          // Backward compat: also send studentId during transition
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           paragrafText: paragraphText,
           audioBase64: audioBase64,
           isLatestParagraf: isLatestParagraf,

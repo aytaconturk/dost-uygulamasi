@@ -15,7 +15,7 @@ import { getStoryImageUrl } from '../../lib/image-utils';
 
 export default function Step3() {
   const [story, setStory] = useState<{ id: number; title: string; image: string } | null>(null);
-  const { storyId } = useStepContext();
+  const { sessionId, storyId } = useStepContext();
 
   // Load story data from Supabase
   useEffect(() => {
@@ -139,9 +139,10 @@ export default function Step3() {
     setIsAnalyzing(true);
     try {
       const u = getUser();
+      // Alan adı "userId" kalıyor (n8n bunu bekliyor) ama değer sessionId
       const { data } = await axios.post(
         `${getApiBase()}/dost/level1/step3`,
-        { title: story.title, firstSentences, step: 3, userId: u?.userId || '' },
+        { title: story.title, firstSentences, step: 3, userId: sessionId || `anon-${Date.now()}` },
         { headers: { 'Content-Type': 'application/json' } }
       );
       const text = data.answer || data.message || data.text || data.response || '';

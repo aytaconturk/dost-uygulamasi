@@ -39,8 +39,7 @@ export async function submitParagraphReading(
     audioBase64: request.audioBase64 ? `${request.audioBase64.substring(0, 50)}... (${request.audioBase64.length} chars)` : request.audioBase64
   };
   console.log('📤 Sending Level 3 Step 1 request (first paragraph):', {
-    sessionId: request.sessionId,
-    studentId: request.studentId, // backward compat
+    studentId: request.studentId, // Bu aslında sessionId değeri
     paragrafNo: request.paragrafNo,
     isLatestParagraf: request.isLatestParagraf,
     audioBase64Length: request.audioBase64?.length || 0,
@@ -75,9 +74,7 @@ export async function getResumeResponse(
   const finalUrl = resumeUrl;
   
   const payload = {
-    // Primary: sessionId for n8n tracking
-    sessionId: request.sessionId,
-    // Backward compat: also send studentId during transition
+    // n8n "studentId" alanını bekliyor, değer olarak sessionId gönderiliyor
     studentId: request.studentId,
     paragrafText: request.paragrafText,
     audioBase64: request.audioBase64,
@@ -137,8 +134,7 @@ export async function submitReadingSpeedAnalysis(
   request: Level3Step2Request
 ): Promise<Level3Step2Response> {
   console.log('📤 Sending Level 3 Step 2 request:', {
-    sessionId: request.sessionId,
-    userId: request.userId, // backward compat
+    userId: request.userId, // Bu aslında sessionId değeri
     audioFileSize: request.audioFile.size,
     durationMs: request.durationMs,
     hedefOkuma: request.hedefOkuma,
@@ -150,12 +146,8 @@ export async function submitReadingSpeedAnalysis(
     // Use FormData to send audio file + metadata
     const formData = new FormData();
     formData.append('audioFile', request.audioFile, request.fileName || 'recording.webm');
-    // Primary: sessionId for n8n tracking
-    formData.append('sessionId', request.sessionId);
-    // Backward compatibility: also send userId during transition
-    if (request.userId) {
-      formData.append('userId', request.userId);
-    }
+    // n8n "userId" alanını bekliyor, değer olarak sessionId gönderiliyor
+    formData.append('userId', request.userId);
     formData.append('durationMs', String(request.durationMs));
     formData.append('hedefOkuma', String(request.hedefOkuma));
     formData.append('metin', request.metin);

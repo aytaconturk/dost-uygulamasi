@@ -359,20 +359,17 @@ export default function L3Step2() {
       const audioBlob = new Blob(audioChunksRef.current, { type: finalMime });
       
       console.log('🎤 Sending audio to n8n for analysis:', {
-        sessionId,
-        userId: student.id,
+        userId: sessionId,
         audioSize: audioBlob.size,
         mimeType: finalMime,
         duration: elapsedMs,
         targetWPM,
       });
 
-      // Send to n8n with metadata - sessionId is primary identifier
+      // Send to n8n with metadata
+      // Alan adı "userId" kalıyor (n8n bunu bekliyor) ama değer sessionId
       const rawResponse = await submitReadingSpeedAnalysis({
-        // Primary: sessionId for n8n tracking (prevents story mixing)
-        sessionId: sessionId || `anon-${Date.now()}`,
-        // Backward compat: also send userId during transition
-        userId: student.id,
+        userId: sessionId || `anon-${Date.now()}`,
         audioFile: audioBlob,
         durationMs: Math.round(elapsedMs),
         hedefOkuma: targetWPM,

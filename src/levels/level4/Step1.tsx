@@ -25,7 +25,7 @@ export default function L4Step1() {
   const [isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
-  const { onStepCompleted, storyId } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -230,8 +230,9 @@ export default function L4Step1() {
       let response;
       if (resumeUrl) {
         // Resume from n8n webhook wait
+        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
         response = await getResumeResponse(resumeUrl, {
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
           sectionText,
           audioBase64,
@@ -240,8 +241,9 @@ export default function L4Step1() {
         });
       } else {
         // First section - initial webhook call
+        // Alan adı "studentId" kalıyor (n8n bunu bekliyor) ama değer sessionId
         response = await submitSchemaSectionReading({
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
           sectionText,
           audioBase64,

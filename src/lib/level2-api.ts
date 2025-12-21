@@ -11,8 +11,7 @@ export async function submitReadingAnalysis(
   request: Level2Step1ReadingAnalysisRequest
 ): Promise<Level2Step1ReadingAnalysisResponse> {
   console.log('📤 Sending Level 2 Step 1 reading analysis:', {
-    sessionId: request.sessionId,
-    studentId: request.studentId, // backward compat
+    studentId: request.studentId, // Bu aslında sessionId değeri
     textTitle: request.textTitle,
     originalTextLength: request.originalText?.length || 0,
     audioBase64Length: request.audioBase64?.length || 0,
@@ -42,10 +41,9 @@ export async function submitReadingGoalSelection(
   request: Level2Step3GoalSelectionRequest
 ): Promise<Level2Step3GoalSelectionResponse> {
   console.log('📤 Sending Level 2 Step 3 goal selection:', {
-    sessionId: request.sessionId,
-    studentId: request.studentId, // backward compat
-    hedefNo: request.hedefNo,
-    selectedGoal: request.selectedGoal,
+    studentId: request.studentId, // Bu aslında sessionId değeri
+    targetWpm: request.targetWpm,
+    percentage: request.percentage,
   });
   
   const response = await axios.post<Level2Step3GoalSelectionResponse>(

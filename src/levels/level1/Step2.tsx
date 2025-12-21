@@ -24,7 +24,7 @@ export default function Step2() {
   const [showIntroText, setShowIntroText] = useState(true);
   const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted, storyId } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -178,7 +178,8 @@ export default function Step2() {
     try {
       const response: Level1TitleAnalysisResponse = await analyzeTitleForStep2({
         stepNum: 2,
-        userId: currentStudent?.id || '',
+        // Alan adı "userId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        userId: sessionId || `anon-${Date.now()}`,
       });
 
       const text =

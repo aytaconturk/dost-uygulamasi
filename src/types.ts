@@ -107,9 +107,10 @@ export interface Step {
     sessionId: string;
   }
 
+  // NOT: Alan adları n8n'in beklediği gibi kalıyor (studentId, userId)
+  // Ama değer olarak sessionId gönderilecek (her session unique)
   export interface Level2Step1ReadingAnalysisRequest {
-    sessionId: string; // Session ID for tracking (replaces studentId for n8n)
-    studentId?: string; // Optional: for backward compatibility during transition
+    studentId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
     textTitle?: string;
     originalText: string;
     audioBase64: string; // Base64 encoded audio data
@@ -194,8 +195,7 @@ export interface Step {
 
   // Level 2 Step 3 - Reading Goal API Types
   export interface Level2Step3GoalSelectionRequest {
-    sessionId: string; // Session ID for tracking
-    studentId?: string; // Optional: for backward compatibility
+    studentId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
     storyId: number;
     level: number;
     step: number;
@@ -214,8 +214,7 @@ export interface Step {
   // Level 3 Step 1 - Paragraph Reading API Types
   // New Level 3 Step 1 Request Interface
   export interface Level3Step1Request {
-    sessionId: string; // Session ID for tracking
-    studentId?: string; // Optional: for backward compatibility
+    studentId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
     paragrafText: string;
     audioBase64: string;
     isLatestParagraf: boolean;
@@ -223,8 +222,7 @@ export interface Step {
   }
 
   export interface Level3Step1ParagraphRequest {
-    sessionId: string; // Session ID for tracking
-    userId?: string; // Optional: for backward compatibility
+    userId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
     paragraphText: string;
     audioBase64: string;
     paragraphNo: number;
@@ -248,8 +246,7 @@ export interface Step {
 
   // Level 3 Step 2 - Reading Speed Analysis API Types
   export interface Level3Step2Request {
-    sessionId: string; // Session ID for tracking
-    userId?: string; // Optional: for backward compatibility
+    userId: string; // n8n bu alanı bekliyor, değer olarak sessionId gönderilecek
     audioFile: Blob;
     durationMs: number;
     hedefOkuma: number;

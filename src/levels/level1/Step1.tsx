@@ -31,7 +31,7 @@ export default function Step1() {
   const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted, storyId } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio elements
   useAudioPlaybackRate(audioRef);
@@ -150,7 +150,8 @@ export default function Step1() {
         imageUrl,
         stepNum: 1,
         storyTitle: story.title,
-        userId: currentStudent?.id || '',
+        // Alan adı "userId" kalıyor (n8n bunu bekliyor) ama değer sessionId
+        userId: sessionId || `anon-${Date.now()}`,
         userName: currentStudent?.first_name + " " + currentStudent?.last_name,
         ilkUcParagraf,
         metin,
