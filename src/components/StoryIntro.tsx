@@ -5,6 +5,7 @@ import { getStudentProgressByStory, initializeStudentProgress, logActivity } fro
 import type { RootState } from '../store/store';
 import StrategyIntroVideo from './StrategyIntroVideo';
 import { getAppMode } from '../lib/api';
+import { getStoryImageUrl } from '../lib/image-utils';
 
 interface Story {
   id: number;
@@ -130,7 +131,7 @@ export default function StoryIntro({ stories }: Props) {
       
       {/* Main Story Intro Content */}
       <div className="max-w-5xl mx-auto mt-5 grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-white bg-opacity-90 rounded-xl p-6 shadow-xl">
-      <img src={story.image} alt={story.title} className="w-full rounded-xl" />
+      <img src={getStoryImageUrl(story.image || `/images/story${story.id}.png`)} alt={story.title} className="w-full rounded-xl" />
       <div>
         <h2 className="text-3xl font-bold mb-4">{story.title}</h2>
         <div className="flex flex-wrap gap-2 text-sm mb-4">

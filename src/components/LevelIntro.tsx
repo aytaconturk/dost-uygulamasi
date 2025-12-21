@@ -5,6 +5,7 @@ import { getStoryById, logActivity } from '../lib/supabase';
 import type { RootState } from '../store/store';
 import StrategyIntroVideo from './StrategyIntroVideo';
 import { getAppMode } from '../lib/api';
+import { getStoryImageUrl } from '../lib/image-utils';
 
 const LEVEL_DESCRIPTIONS: Record<number, string> = {
   1: 'Metnin görselini, başlığını ve içeriğini inceleyerek okuma öncesi hazırlık yapacağız.',
@@ -123,8 +124,8 @@ export default function LevelIntro() {
   const levelDescription = LEVEL_DESCRIPTIONS[levelNumber] || 'Bu seviyeyi tamamlayarak okuma becerilerini geliştireceksin.';
   const levelTitle = LEVEL_TITLES[levelNumber] || `Seviye ${levelNumber}`;
 
-  // Get story image (using storyId to determine which image)
-  const storyImage = `https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story${storyId}.png`;
+  // Get story image using helper function (works both locally and in production)
+  const storyImage = getStoryImageUrl(`/images/story${storyId}.png`);
 
   return (
     <>
@@ -145,7 +146,7 @@ export default function LevelIntro() {
         className="w-full rounded-xl" 
         onError={(e) => {
           // Fallback image if story image fails
-          (e.target as HTMLImageElement).src = 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story1.png';
+          (e.target as HTMLImageElement).src = getStoryImageUrl('/images/story1.png');
         }}
       />
       <div>

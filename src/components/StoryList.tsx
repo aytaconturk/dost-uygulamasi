@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { useReadingProgress } from '../hooks/useReadingProgress';
 import { getAppMode } from '../lib/api';
+import { getStoryImageUrl } from '../lib/image-utils';
 
 interface Story {
     id: number;
@@ -104,7 +105,7 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                         >
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">
                                 <img
-                                    src={story.image}
+                                    src={getStoryImageUrl(story.image || `/images/story${story.id}.png`)}
                                     alt={story.title}
                                     className="w-full h-full object-cover"
                                 />
@@ -125,7 +126,7 @@ export default function StoryList({ stories }: { stories: Story[] }) {
                         >
                             <div className="w-full h-40 overflow-hidden rounded-t-xl relative">
                                 <img
-                                    src={story.image}
+                                    src={getStoryImageUrl(story.image || `/images/story${story.id}.png`)}
                                     alt={story.title}
                                     className="w-full h-full object-cover"
                                 />
