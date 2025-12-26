@@ -4,8 +4,6 @@ import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 
-const STORY_ID = 3;
-
 export default function L4Step3() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
@@ -13,12 +11,12 @@ export default function L4Step3() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string>('');
-  const { onStepCompleted } = useStepContext();
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const questions = getComprehensionQuestions(STORY_ID);
+  const questions = getComprehensionQuestions(storyId || 1);
 
   useEffect(() => {
     return () => { try { window.speechSynthesis.cancel(); } catch {} };

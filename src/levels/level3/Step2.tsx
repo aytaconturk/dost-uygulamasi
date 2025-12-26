@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { getParagraphs, paragraphToPlain } from '../../data/stories';
-import { insertReadingLog, getLatestReadingGoal } from '../../lib/supabase';
+import { insertReadingLog, getLatestReadingGoal, getStoryById } from '../../lib/supabase';
 import type { RootState } from '../../store/store';
 import { getAppMode } from '../../lib/api';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getStoryImageUrl } from '../../lib/image-utils';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
 import type { Level3Step2ApiResponse, Level3Step2AnalysisOutput } from '../../types/level3-step2';
 
@@ -18,9 +19,40 @@ function countWords(text: string) {
 export default function L3Step2() {
   const student = useSelector((state: RootState) => state.user.student);
   const { sessionId, storyId, onStepCompleted } = useStepContext();
+  const [story, setStory] = useState<{ id: number; title: string; image: string } | null>(null);
 
-  const story = { id: storyId, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
-  const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (!error && data) {
+          setStory({
+            id: storyId,
+            title: data.title,
+            image: data.image || `/images/story${storyId}.png`,
+          });
+        } else {
+          // Fallback
+          setStory({
+            id: storyId,
+            title: `Oturum ${storyId}`,
+            image: `/images/story${storyId}.png`,
+          });
+        }
+      } catch (err) {
+        console.error('Error loading story:', err);
+        setStory({
+          id: storyId,
+          title: `Oturum ${storyId}`,
+          image: `/images/story${storyId}.png`,
+        });
+      }
+    };
+    loadStory();
+  }, [storyId]);
+
+  const paragraphs = useMemo(() => story ? getParagraphs(story.id) : [], [story?.id]);
   const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
   const totalWords = useMemo(() => countWords(fullText), [fullText]);
   const words = useMemo(() => fullText.split(/\s+/).filter(w => w.length > 0), [fullText]);
@@ -397,7 +429,7 @@ export default function L3Step2() {
         analysisOutput = {
           userId: apiResponse.userId || student.id,
           kidName: apiResponse.kidName || '',
-          title: apiResponse.title || story.title,
+          title: apiResponse.title || story?.title || `Oturum ${storyId}`,
           hedefOkuma: apiResponse.hedefOkuma || targetWPM,
           speedSummary: apiResponse.speedSummary || '',
           reachedTarget: apiResponse.reachedTarget || false,
@@ -494,9 +526,9 @@ export default function L3Step2() {
         <div className="text-center bg-white rounded-xl shadow p-10 text-6xl font-bold text-purple-700">{count}</div>
       )}
 
-      {phase === 'reading' && (
+      {phase === 'reading' && story && (
         <div className="flex flex-col md:flex-row gap-5 items-start">
-          <img src={story.image} alt={story.title} className="rounded-xl shadow w-48 md:w-64" />
+          <img src={getStoryImageUrl(story.image)} alt={story.title} className="rounded-xl shadow w-48 md:w-64" />
           <div className="bg-white rounded-xl shadow p-5 flex-1">
             {/* Recording status and timer */}
             <div className="mb-4 space-y-2">

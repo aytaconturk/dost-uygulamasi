@@ -55,9 +55,11 @@ export default function L3Step3() {
   const rawAnalysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
   const navigate = useNavigate();
-  const { onStepCompleted } = useStepContext();
-  const storyId = searchParams.get('storyId') || '3';
-  const storyIdNum = parseInt(storyId);
+  const { onStepCompleted, storyId: contextStoryId } = useStepContext();
+  // Use storyId from context if available, otherwise from searchParams, fallback to 1
+  const storyIdFromParams = Number(searchParams.get('storyId')) || 1;
+  const storyId = contextStoryId || storyIdFromParams;
+  const storyIdNum = storyId;
   const appMode = getAppMode();
 
   // Use mock data in dev mode if no analysis result

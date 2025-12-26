@@ -9,13 +9,11 @@ import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { useStepContext } from '../../contexts/StepContext';
 
-const STORY_ID = 2;
-
 export default function Level2Step3() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { sessionId, onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
 
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
@@ -114,7 +112,7 @@ export default function Level2Step3() {
       // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const apiResponse = await submitReadingGoalSelection({
         studentId: sessionId || `anon-${Date.now()}`,
-        storyId: STORY_ID,
+        storyId: storyId,
         level: 2,
         step: 3,
         targetWpm: wpm,
@@ -125,7 +123,7 @@ export default function Level2Step3() {
       // Save to Supabase
       const result = await insertReadingGoal(
         student.id,
-        STORY_ID,
+        storyId,
         2,
         wpm,
         percentage,

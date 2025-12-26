@@ -87,7 +87,8 @@ export default function LevelRouter() {
   const stepStr = params.step || '1';
   const level = Number(levelStr);
   const step = Number(stepStr);
-  const storyId = Number(searchParams.get('storyId')) || level; // storyId varsa onu kullan, yoksa level'ı kullan
+  // storyId must come from URL params, never use level as fallback
+  const storyId = Number(searchParams.get('storyId')) || 1; // Default to 1 if not provided
 
   const totalSteps = LEVEL_STEPS_COUNT[level] || 1;
 

@@ -10,8 +10,6 @@ import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import { getRecordingDuration } from '../../components/SidebarSettings';
 
-const STORY_ID = 3;
-
 export default function L4Step1() {
   const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -30,7 +28,7 @@ export default function L4Step1() {
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+  const schema = useMemo(() => getSchema(storyId || 1), [storyId]);
   const appMode = getAppMode();
 
   const instruction = 'Şimdi dördüncü seviyeye geçiyoruz. Bu seviyede okuma öncesinde metni gözden geçirirken yaptığımız tahminlerimiz ve belirlediğimiz okuma amacımız doğru muymuş? Bunları düşünerek şemada yer alan bilgileri numara sırasına göre oku.';
@@ -113,7 +111,7 @@ export default function L4Step1() {
       if (!el) return;
 
       const section = schema.sections[currentSection];
-      const audioPath = `/audios/level4/schema-${storyId || STORY_ID}-${section.id}.mp3`;
+      const audioPath = `/audios/level4/schema-${storyId || 1}-${section.id}.mp3`;
       
       console.log(`🎵 Playing section ${currentSection + 1} audio:`, audioPath);
       setIsPlayingSectionAudio(true);

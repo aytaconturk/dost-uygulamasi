@@ -10,8 +10,9 @@ import type { RootState, AppDispatch } from '../../store/store';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getStoryById } from '../../lib/supabase';
+import { getStoryImageUrl } from '../../lib/image-utils';
 
-const STORY_ID = 2;
 const TOTAL_SECONDS = 60;
 
 // Turkish translations for quality metrics
@@ -27,15 +28,47 @@ const getApiEnv = () => {
 };
 
 export default function Level2Step1() {
-  const story = { id: STORY_ID, title: 'Avucumun İçindeki Akıllı Kutu' };
-  const storyText = getParagraphs(story.id)
-    .map(p => p.map(seg => seg.text).join(''))
-    .join(' ');
-
   const currentStudent = useSelector((state: RootState) => state.user.student);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { sessionId, onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
+  const [story, setStory] = useState<{ id: number; title: string; image: string } | null>(null);
+  
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (!error && data) {
+          setStory({
+            id: storyId,
+            title: data.title,
+            image: data.image || `/images/story${storyId}.png`,
+          });
+        } else {
+          // Fallback
+          setStory({
+            id: storyId,
+            title: `Oturum ${storyId}`,
+            image: `/images/story${storyId}.png`,
+          });
+        }
+      } catch (err) {
+        console.error('Error loading story:', err);
+        setStory({
+          id: storyId,
+          title: `Oturum ${storyId}`,
+          image: `/images/story${storyId}.png`,
+        });
+      }
+    };
+    loadStory();
+  }, [storyId]);
+  
+  // Calculate storyText from storyId, not from story object (to avoid hook order issues)
+  const storyText = storyId ? getParagraphs(storyId)
+    .map(p => p.map(seg => seg.text).join(''))
+    .join(' ') : '';
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -74,8 +107,8 @@ export default function Level2Step1() {
   const [beeped60, setBeeped60] = useState(false);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
 
-  const paragraphs = getParagraphs(story.id);
-  const displayTitle = story.title;
+  const paragraphs = story ? getParagraphs(story.id) : [];
+  const displayTitle = story?.title || `Oturum ${storyId}`;
   const appMode = getAppMode();
 
   // Play intro audio on component mount
@@ -304,7 +337,7 @@ export default function Level2Step1() {
       // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const payload = {
         studentId: sessionId || `anon-${Date.now()}`,
-        textTitle: story.title,
+        textTitle: story?.title || `Oturum ${storyId}`,
         originalText: storyText,
         startTime: recordingStartTime,
         endTime: new Date().toISOString(),
@@ -375,6 +408,18 @@ export default function Level2Step1() {
 
   const introText = 'Şimdi ikinci seviyeye geçiyoruz. Bu seviyede metni ilk kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basarsanız metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde oku.';
 
+  // Don't render until story is loaded (after all hooks)
+  if (!story) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full mx-auto px-4">
       <audio ref={audioRef} preload="auto" />
@@ -413,10 +458,12 @@ export default function Level2Step1() {
 
           <div className="flex flex-col lg:flex-row gap-0">
             {/* Left sticky image */}
-            <div className="hidden lg:sticky lg:top-0 lg:w-1/4 lg:flex flex-col items-center justify-start p-4 h-screen overflow-y-auto flex-shrink-0">
-              <img src="https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story2.png" alt={displayTitle} className="w-full max-w-xs rounded-xl shadow-lg" />
-              <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{displayTitle}</h2>
-            </div>
+            {story && (
+              <div className="hidden lg:sticky lg:top-0 lg:w-1/4 lg:flex flex-col items-center justify-start p-4 h-screen overflow-y-auto flex-shrink-0">
+                <img src={getStoryImageUrl(story.image)} alt={displayTitle} className="w-full max-w-xs rounded-xl shadow-lg" />
+                <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{displayTitle}</h2>
+              </div>
+            )}
 
             {/* Center text */}
             <div className="flex-1 bg-white shadow p-6 leading-relaxed text-gray-800">

@@ -10,8 +10,6 @@ import { submitSchemaSummary, getResumeResponseStep2 } from '../../lib/level4-ap
 import type { RootState } from '../../store/store';
 import { getRecordingDuration } from '../../components/SidebarSettings';
 
-const STORY_ID = 3;
-
 export default function L4Step2() {
   const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -28,7 +26,7 @@ export default function L4Step2() {
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+  const schema = useMemo(() => getSchema(storyId || 1), [storyId]);
 
   useEffect(() => {
     return () => { 
