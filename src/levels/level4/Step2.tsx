@@ -232,7 +232,8 @@ export default function L4Step2() {
     try {
       const section = schema.sections[currentSection];
       // Step2'de sadece başlık gönderiliyor, içerik gösterilmiyor
-      const sectionText = section.title;
+      // n8n paragrafText field'ı bekliyor
+      const paragrafText = section.title;
       
       // Convert audio blob to base64
       const reader = new FileReader();
@@ -249,7 +250,7 @@ export default function L4Step2() {
       const isLastSection = currentSection === schema.sections.length - 1;
       
       console.log(`📤 Submitting section ${currentSection + 1}/${schema.sections.length} summary`, {
-        sectionNo: currentSection + 1,
+        paragrafNo: currentSection + 1,
         isLastSection,
         audioSize: audioBlob.size,
       });
@@ -263,10 +264,10 @@ export default function L4Step2() {
         response = await getResumeResponseStep2(resumeUrl, {
           studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle: section.title,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       } else {
         // First section - initial webhook call
@@ -276,10 +277,10 @@ export default function L4Step2() {
         response = await submitSchemaSummary({
           studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle: section.title,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       }
 

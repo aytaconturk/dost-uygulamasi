@@ -294,13 +294,14 @@ export interface Step {
 
   // Level 4 Step 1 - Schema Section Reading API Types
   // Level 4 Step 2 - Summary API Types (Step1 ile aynı yapı)
+  // ⚠️ NOT: n8n workflow paragrafText, isLatestParagraf, paragrafNo bekliyor
   export interface Level4Step2Request {
     studentId: string;
     sectionTitle: string;
-    sectionText: string;
+    paragrafText: string; // n8n bu field'ı bekliyor
     audioBase64: string;
-    isLatestSection: boolean;
-    sectionNo: number;
+    isLatestParagraf: boolean; // n8n bu field'ı bekliyor
+    paragrafNo: number; // n8n bu field'ı bekliyor
   }
 
   export interface Level4Step2Response {
@@ -310,13 +311,14 @@ export interface Step {
     title?: string;
   }
 
+  // ⚠️ NOT: n8n workflow paragrafText, isLatestParagraf, paragrafNo bekliyor
   export interface Level4Step1Request {
     studentId: string;
     sectionTitle: string;
-    sectionText: string;
+    paragrafText: string; // n8n bu field'ı bekliyor
     audioBase64: string;
-    isLatestSection: boolean;
-    sectionNo: number;
+    isLatestParagraf: boolean; // n8n bu field'ı bekliyor
+    paragrafNo: number; // n8n bu field'ı bekliyor
   }
 
   export interface Level4Step1Response {

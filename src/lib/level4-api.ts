@@ -69,10 +69,10 @@ export async function getResumeResponse(
   const payload = {
     studentId: request.studentId,
     sectionTitle: request.sectionTitle,
-    sectionText: request.sectionText,
+    paragrafText: request.paragrafText, // n8n bu field'ı bekliyor
     audioBase64: request.audioBase64,
-    isLatestSection: request.isLatestSection,
-    sectionNo: request.sectionNo,
+    isLatestParagraf: request.isLatestParagraf, // n8n bu field'ı bekliyor
+    paragrafNo: request.paragrafNo, // n8n bu field'ı bekliyor
   };
 
   // Log request without full audioBase64
@@ -160,10 +160,10 @@ export async function getResumeResponseStep2(
   const payload = {
     studentId: request.studentId,
     sectionTitle: request.sectionTitle,
-    sectionText: request.sectionText,
+    paragrafText: request.paragrafText, // n8n bu field'ı bekliyor
     audioBase64: request.audioBase64,
-    isLatestSection: request.isLatestSection,
-    sectionNo: request.sectionNo,
+    isLatestParagraf: request.isLatestParagraf, // n8n bu field'ı bekliyor
+    paragrafNo: request.paragrafNo, // n8n bu field'ı bekliyor
   };
 
   const requestForLog = {

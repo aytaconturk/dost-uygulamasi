@@ -205,7 +205,7 @@ export default function L4Step1() {
       const section = schema.sections[currentSection];
       const sectionTitle = section.title;
       const sectionItems = section.items.join('\n');
-      const sectionText = `${sectionTitle}\n${sectionItems}`;
+      const paragrafText = `${sectionTitle}\n${sectionItems}`; // n8n bu field'ı bekliyor
       
       // Convert audio blob to base64
       const reader = new FileReader();
@@ -222,7 +222,7 @@ export default function L4Step1() {
       const isLastSection = currentSection === schema.sections.length - 1;
       
       console.log(`📤 Submitting section ${currentSection + 1}/${schema.sections.length}`, {
-        sectionNo: currentSection + 1,
+        paragrafNo: currentSection + 1,
         isLastSection,
         audioSize: audioBlob.size,
       });
@@ -236,10 +236,10 @@ export default function L4Step1() {
         response = await getResumeResponse(resumeUrl, {
           studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       } else {
         // First section - initial webhook call
@@ -249,10 +249,10 @@ export default function L4Step1() {
         response = await submitSchemaSectionReading({
           studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       }
 

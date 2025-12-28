@@ -70,8 +70,17 @@ export default function Step2() {
   useEffect(() => {
     if (!started || analysisText) return;
 
-    const safety = window.setTimeout(() => {
+    let analysisStarted = false;
+    
+    const startAnalysis = () => {
+      if (analysisStarted) return;
+      analysisStarted = true;
+      window.clearTimeout(safety);
       handleTitleAnalysis();
+    };
+
+    const safety = window.setTimeout(() => {
+      startAnalysis();
     }, 2000);
 
     if (audioRef.current) {
@@ -84,17 +93,17 @@ export default function Step2() {
             'ended',
             () => {
               setMascotState('listening');
-              handleTitleAnalysis();
+              startAnalysis();
             },
             { once: true }
           );
         })
         .catch(() => {
           setMascotState('listening');
-          handleTitleAnalysis();
+          startAnalysis();
         });
     } else {
-      handleTitleAnalysis();
+      startAnalysis();
     }
 
     return () => {
