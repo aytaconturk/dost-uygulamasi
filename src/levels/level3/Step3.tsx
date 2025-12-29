@@ -9,6 +9,8 @@ import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getAppMode } from '../../lib/api';
 import type { ReadingAnalysisResult } from '../../store/level2Slice';
+import { useBadges } from '../../hooks/useBadges';
+import BadgeAnimation from '../../components/BadgeAnimation';
 
 const QUALITY_METRIC_LABELS: Record<string, string> = {
   speechRate: 'Okuma Hızı',
@@ -55,10 +57,11 @@ export default function L3Step3() {
   const rawAnalysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
   const navigate = useNavigate();
-  const { onStepCompleted } = useStepContext();
+  const { onStepCompleted, sessionId } = useStepContext();
   const storyId = searchParams.get('storyId') || '3';
   const storyIdNum = parseInt(storyId);
   const appMode = getAppMode();
+  const { checkForNewBadges, newBadges, clearNewBadges } = useBadges();
 
   // Use mock data in dev mode if no analysis result
   const analysisResult = rawAnalysisResult || (appMode === 'dev' ? MOCK_ANALYSIS_RESULT : null);
@@ -194,6 +197,26 @@ export default function L3Step3() {
         
         await audioRef.current.play();
         setHasPlayedResultVoice(true);
+
+        // Check for badges after audio finishes
+        if (student?.id && analysisResult) {
+          const wpm = analysisResult.readingSpeed?.wordsPerMinute || 0;
+          const accuracy = analysisResult.pronunciation?.accuracy || 0;
+          
+          const earnedBadges = await checkForNewBadges(
+            storyIdNum,
+            3,
+            sessionId,
+            {
+              wpm,
+              accuracy,
+              goalAchieved,
+              completedLevels: [1, 2, 3]
+            }
+          );
+
+          console.log(`🏆 Earned ${earnedBadges.length} badges in Level 3 Step 3`);
+        }
       } catch (err) {
         console.error('Error playing result audio:', err);
         setHasPlayedResultVoice(true);
@@ -201,7 +224,7 @@ export default function L3Step3() {
     };
 
     playResultAudio();
-  }, [hasPlayedFirstVoice, hasPlayedResultVoice, goalAchieved]);
+  }, [hasPlayedFirstVoice, hasPlayedResultVoice, goalAchieved, student?.id, analysisResult, storyIdNum, sessionId, checkForNewBadges]);
 
   console.log('Step3: analysisResult from Redux:', analysisResult);
 
@@ -383,6 +406,15 @@ export default function L3Step3() {
           )}
         </div>
       </div>
+
+      {/* Badge Animation */}
+      {newBadges.length > 0 && (
+        <BadgeAnimation 
+          badge={newBadges[0]} 
+          show={true}
+          onClose={clearNewBadges}
+        />
+      )}
     </div>
   );
 }

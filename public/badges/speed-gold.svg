@@ -1,0 +1,40 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="speed-gold-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+    <radialGradient id="shine-speed">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#speed-gold-bg)" filter="url(#shadow)"/>
+  
+  <!-- Shine effect -->
+  <circle cx="50" cy="50" r="25" fill="url(#shine-speed)"/>
+  
+  <!-- Inner circle -->
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#CC8400" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Wind/speed swoosh -->
+  <path d="M30 45 Q50 40 70 45 T110 50" 
+        fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  <path d="M25 60 Q50 55 75 60 T115 65" 
+        fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <path d="M30 75 Q50 70 70 75 T110 80" 
+        fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  
+  <!-- Stars showing speed -->
+  <path d="M85 35 L87 40 L92 40 L88 43 L90 48 L85 45 L80 48 L82 43 L78 40 L83 40 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1"/>
+  <path d="M100 50 L102 55 L107 55 L103 58 L105 63 L100 60 L95 63 L97 58 L93 55 L98 55 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1"/>
+  <path d="M95 75 L97 80 L102 80 L98 83 L100 88 L95 85 L90 88 L92 83 L88 80 L93 80 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1"/>
+</svg>

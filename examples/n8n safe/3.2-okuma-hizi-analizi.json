@@ -1,0 +1,384 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 3.b\n",
+        "height": 96,
+        "width": 256
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1328,
+        4992
+      ],
+      "typeVersion": 1,
+      "id": "ba996592-6321-416e-be69-6946b149ac0b",
+      "name": "Sticky Note13"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dost/level3/step2",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "binaryPropertyName": "audioFile"
+        }
+      },
+      "id": "a741ae4a-7e41-459f-8ca3-158a8cce4e2f",
+      "name": "Webhook Okuma (Çocuk Ses)2",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        4992
+      ],
+      "webhookId": "dost-level1-step5-reading-webhook"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1TKURG2rqqcWeuqAxPqHA8XMUZX2POyHI4K-sPUikwLs",
+          "mode": "list",
+          "cachedResultName": "Dost_Database",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TKURG2rqqcWeuqAxPqHA8XMUZX2POyHI4K-sPUikwLs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TKURG2rqqcWeuqAxPqHA8XMUZX2POyHI4K-sPUikwLs/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "uniqueCode",
+              "lookupValue": "={{ $('Webhook Okuma (Çocuk Ses)2').item.json.body.userId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2128,
+        4992
+      ],
+      "id": "8786624a-5458-400f-96c0-89bf8e48aab8",
+      "name": "Get row(s) in sheet (Metin)2",
+      "credentials": {
+        "googleApi": {
+          "id": "Bg6YQwJcYikAom66",
+          "name": "Google Service Account Limitless"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "unique",
+              "value": "={{ $('Webhook Okuma (Çocuk Ses)2').item.json.body.userId }}"
+            },
+            {
+              "name": "kidName",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "title",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "targetText",
+              "value": "={{ $json.text }}"
+            },
+            {
+              "name": "durationMs",
+              "value": "={{ $('Webhook Okuma (Çocuk Ses)2').item.json.body.durationMs }}"
+            },
+            {
+              "name": "hedefOkuma",
+              "value": "={{ $('Webhook Okuma (Çocuk Ses)2').item.json.body.hedefOkuma }}"
+            },
+            {
+              "name": "transcriptText",
+              "value": "={{ $('Transcribe (Whisper)2').item.json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1d87f02-4e94-43a9-942d-abbfbb357559",
+      "name": "Set Okuma Context2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        4992
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "binaryPropertyName": "={{ Object.keys($binary || {})[0] || 'data' }}",
+        "options": {
+          "language": "tr",
+          "temperature": 0
+        }
+      },
+      "id": "65668cc8-2476-436c-bbcd-e015e5774a3d",
+      "name": "Transcribe (Whisper)2",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        1904,
+        4992
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "openAiApi": {
+          "id": "FZgui2RH3YmSYhBU",
+          "name": "Openapi-quality"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node (JS) - Whisper WPM + metin bitirme kontrolü + kesilme yeri + DOST analiz metni\n// Mode: Run Once for All Items\n\nfunction toNumber(v) {\n  if (v === null || v === undefined) return null;\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  const s = String(v).trim().replace(',', '.');\n  const n = Number(s);\n  return Number.isFinite(n) ? n : null;\n}\n\nfunction normalizeTrToAscii(s) {\n  if (!s) return '';\n  return String(s)\n    .toLowerCase()\n    .replace(/â/g, 'a').replace(/î/g, 'i').replace(/û/g, 'u')\n    .replace(/ç/g, 'c')\n    .replace(/ğ/g, 'g')\n    .replace(/ı/g, 'i')\n    .replace(/ö/g, 'o')\n    .replace(/ş/g, 's')\n    .replace(/ü/g, 'u')\n    .replace(/['’`´\\\"]/g, '')\n    .replace(/[^a-z0-9\\s]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction tokenizeWords(s) {\n  const n = normalizeTrToAscii(s);\n  if (!n) return [];\n  return n.split(' ').filter(Boolean);\n}\n\n// LCS length (memory optimized) -> \"doğru kelime\" sayısı için daha adil\nfunction lcsLength(a, b) {\n  const n = a.length, m = b.length;\n  if (n === 0 || m === 0) return 0;\n  if (m > n) return lcsLength(b, a);\n  const dp = new Array(b.length + 1).fill(0);\n  for (let i = 1; i <= a.length; i++) {\n    let prev = 0;\n    for (let j = 1; j <= b.length; j++) {\n      const tmp = dp[j];\n      if (a[i - 1] === b[j - 1]) dp[j] = prev + 1;\n      else dp[j] = Math.max(dp[j], dp[j - 1]);\n      prev = tmp;\n    }\n  }\n  return dp[b.length];\n}\n\n// \"Nerede koptu\" tespiti: transcript kelimelerini metin içinde sıralı yakalayıp\n// en son eşleştiği metin kelimesinin index'ini bulur (greedy subsequence).\nfunction findCutPoint(targetWords, spokenWords) {\n  let t = 0;\n  let lastMatchedIdx = -1;\n  let matchedGreedy = 0;\n\n  for (const w of spokenWords) {\n    for (let k = t; k < targetWords.length; k++) {\n      if (targetWords[k] === w) {\n        matchedGreedy++;\n        lastMatchedIdx = k;\n        t = k + 1;\n        break;\n      }\n    }\n  }\n\n  const unreadWords =\n    lastMatchedIdx >= 0 ? targetWords.slice(lastMatchedIdx + 1) : targetWords.slice();\n\n  return { lastMatchedIdx, matchedGreedy, unreadWords };\n}\n\nfunction fmtTime(sec) {\n  sec = Math.max(0, Math.round(sec));\n  const mm = String(Math.floor(sec / 60)).padStart(2, '0');\n  const ss = String(sec % 60).padStart(2, '0');\n  return `${mm}:${ss}`;\n}\n\nfunction safeRound(n) {\n  return (n === null || n === undefined || !Number.isFinite(n)) ? null : Math.round(n);\n}\n\ntry {\n  const items = $input.all().map(i => i.json);\n\n  // Whisper item'ını yakala (örnek: { text, usage: { type:'duration', seconds: 8 } })\n  const whisperItem =\n    items.find(o => typeof o?.text === 'string' && o?.usage && (o.usage.seconds !== undefined || o.usage.type)) || null;\n\n  // Webhook item'ını yakala (örnek: { body: { durationMs, hedefOkuma, Metin } })\n  const webhookItem =\n    items.find(o => o?.body && (o.body.durationMs !== undefined || o.body.hedefOkuma !== undefined || o.body.Metin !== undefined || o.body.metin !== undefined)) || null;\n\n  // Tek item geldiyse fallback\n  const single = items[0] || {};\n\n  const transcriptText =\n    (whisperItem?.text)\n    ?? single.transcriptText\n    ?? single.text\n    ?? single.body?.transcriptText\n    ?? single.body?.text\n    ?? '';\n\n  const targetText =\n    (webhookItem?.body?.Metin)\n    ?? (webhookItem?.body?.metin)\n    ?? single.Metin\n    ?? single.metin\n    ?? single.targetText\n    ?? single.body?.Metin\n    ?? single.body?.metin\n    ?? single.body?.targetText\n    ?? '';\n\n  // durationMs öncelik: webhook body.durationMs, sonra root.durationMs, sonra whisper usage.seconds\n  let durationMs =\n    toNumber(webhookItem?.body?.durationMs)\n    ?? toNumber(single.durationMs)\n    ?? toNumber(single.body?.durationMs)\n    ?? (toNumber(whisperItem?.usage?.seconds) !== null ? toNumber(whisperItem.usage.seconds) * 1000 : null);\n\n  // bazı clientlar saniye gönderiyor; 1-600 arasıysa saniye kabul et\n  if (durationMs !== null && durationMs > 0 && durationMs < 600) durationMs = durationMs * 1000;\n\n  const durationSec = durationMs ? (durationMs / 1000) : null;\n  const minutes = durationSec ? (durationSec / 60) : null;\n\n  const hedefOkuma =\n    toNumber(webhookItem?.body?.hedefOkuma)\n    ?? toNumber(single.hedefOkuma)\n    ?? toNumber(single.body?.hedefOkuma);\n\n  const userId =\n    webhookItem?.body?.userId\n    ?? single.userId\n    ?? single.body?.userId;\n\n  // Tokenize\n  const targetWords = tokenizeWords(targetText);\n  const spokenWords = tokenizeWords(transcriptText);\n\n  // Doğru kelime sayısı (LCS)\n  const matchedWordsLCS = lcsLength(targetWords, spokenWords);\n\n  // Kesilme yeri (greedy) + okunmayan kısım\n  const cut = findCutPoint(targetWords, spokenWords);\n\n  // WPM\n  const wpmSpoken = minutes ? (spokenWords.length / minutes) : null;      // Whisper transcript'e göre\n  const wpmCorrect = minutes ? (matchedWordsLCS / minutes) : null;        // Metinle uyumlu \"doğru okuma\"\n  const accuracy = targetWords.length ? (matchedWordsLCS / targetWords.length) : null;\n\n  // Bitirdi mi? (it_mach)\n  // Tolerans: küçük hatalara rağmen \"bitirdi\" saymak için\n  const tolWords = Math.max(3, Math.ceil(targetWords.length * 0.03)); // %3 veya min 3 kelime\n  const greedyCoverage = targetWords.length ? (cut.matchedGreedy / targetWords.length) : 1;\n\n  const finished =\n    targetWords.length === 0\n      ? true\n      : (cut.unreadWords.length <= tolWords) && (greedyCoverage >= 0.80);\n\n  const it_mach = finished;\n\n  // Eğer bitirmediyse okunmayan kısmı yaz\n  const unreadText =\n"
+      },
+      "id": "9c259159-d920-4bd1-b892-4353338014d3",
+      "name": "Compute Reading Metrics2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2592,
+        4992
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Çocuğun adı: {{ $json.kidName }}\nMetnin başlığı: {{ $json.title }}\nMetin: {{ $json.targetText }}\nÇocuğun okumasının yazıya dökülmüş hali: {{ $json.transcriptText }}\nOkuma hızı özeti: {{ $json.speedSummary }}\n\nİstek: 3-4 cümleyi geçme. Doğal konuş. Önce çabasını överek başla. Sonra okuma hızına göre minicik bir tavsiye ver (çok hızlıysa biraz yavaşlamasını, çok yavaşsa biraz daha akıcı olmasını söyle). Eğer meaning/anlam bozan net bir fark görürsen sadece 1 örnek seç ve “bence burası şöyle okunsa daha tatlı olur” gibi yumuşak bir dille düzelt. En sonda mutlaka şu kapanış cümlesini aynen kullan: Harikasın, bir sonraki okumada daha da şahane olacak!",
+        "options": {
+          "systemMessage": "=Sen, öğrenme güçlüğü olan 6–10 yaş çocuklarıyla çalışan, çok sabırlı, şefkatli ve profesyonel bir okuma koçusun. Türkçe konuş.\n\nTemel Kuralların:\n1. Yanıtlarını \"doğal bir sohbet\" gibi yaz. ASLA madde işareti, tire (-) veya \"1)\" gibi numaralar kullanma.\n2. \"Sandviç Tekniği\" uygula: Önce çocuğun çabasını öv, sonra (varsa) küçük bir düzeltme yap, en sonda tekrar motive et.\n3. Hata Düzeltme: Eğer metin ile okuma arasında anlamı bozan bir fark varsa, bunu \"yanlış yaptın\" demeden, \"bence burası şöyle okunsa daha tatlı olur\" gibi yumuşak bir dille ifade et.\n4. Hata Yoksa: Harika okuduğunu ve çok akıcı olduğunu söyle.\n5. Kısa Tut: Çocuğun dikkati dağılmasın, cevabın en fazla 3-4 cümle olsun.\n6. Kapanış: Sana aşağıda (User Message kısmında) verilen kapanış cümlesini aynen kullan."
+        }
+      },
+      "id": "e443cc1a-9327-4e24-9b33-5c0eb20ee300",
+      "name": "AI Koç (Hız + Düzeltme)2",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        2816,
+        4992
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2784,
+        5168
+      ],
+      "id": "84cda77f-5ea9-411b-9e55-37eada62d2ee",
+      "name": "OpenAI Chat Model (Koç)2",
+      "credentials": {
+        "openAiApi": {
+          "id": "FZgui2RH3YmSYhBU",
+          "name": "Openapi-quality"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "input": "={{ $json.output }}",
+        "voice": "fable",
+        "options": {}
+      },
+      "id": "ac4688ba-0b0c-4fbc-9f96-b8e7a461e85b",
+      "name": "Generate audio (Koç)2",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [
+        3168,
+        4992
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "openAiApi": {
+          "id": "FZgui2RH3YmSYhBU",
+          "name": "Openapi-quality"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        3392,
+        4992
+      ],
+      "id": "a5dcf978-7c28-47ae-8111-53aed384a946",
+      "name": "Extract from File (TTS->Base64)2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  kidName: $('Compute Reading Metrics2').item.json.kidName,\n  title: $('Compute Reading Metrics2').item.json.title,\n  speedSummary: $('Compute Reading Metrics2').item.json.speedSummary,\n  hedefOkuma: $('Compute Reading Metrics2').item.json.hedefOkuma,\n  reachedTarget: $('Compute Reading Metrics2').item.json.reachedTarget,\n  analysisText: $('Compute Reading Metrics2').item.json.analysisText,\n  metrics: {\n    durationSec: $('Compute Reading Metrics2').item.json.durationSec,\n    durationMMSS: $('Compute Reading Metrics2').item.json.durationMMSS,\n    targetWordCount: $('Compute Reading Metrics2').item.json.targetWordCount,\n    spokenWordCount: $('Compute Reading Metrics2').item.json.spokenWordCount,\n    matchedWordCount: $('Compute Reading Metrics2').item.json.matchedWordCount,\n    accuracyPercent: $('Compute Reading Metrics2').item.json.accuracyPercent,\n    wpmSpoken: $('Compute Reading Metrics2').item.json.wpmSpoken,\n    wpmCorrect: $('Compute Reading Metrics2').item.json.wpmCorrect,\n    wpmTarget: $('Compute Reading Metrics2').item.json.wpmTarget\n  },\n  coachText: $('AI Koç (Hız + Düzeltme)2').item.json.output,\n  audioBase64: $json.data,\n  transcriptText: $('Compute Reading Metrics2').item.json.transcriptText,\n  resumeUrl: $execution.resumeUrl\n}) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, Authorization"
+              },
+              {
+                "name": "Access-Control-Allow-Credentials",
+                "value": "false"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3616,
+        4992
+      ],
+      "id": "44914f7a-81c7-474a-a21b-be098cff75ea",
+      "name": "Respond to Webhook (Okuma Hızı)2"
+    }
+  ],
+  "connections": {
+    "Webhook Okuma (Çocuk Ses)2": {
+      "main": [
+        [
+          {
+            "node": "Transcribe (Whisper)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet (Metin)2": {
+      "main": [
+        [
+          {
+            "node": "Set Okuma Context2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Okuma Context2": {
+      "main": [
+        [
+          {
+            "node": "Compute Reading Metrics2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe (Whisper)2": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet (Metin)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Reading Metrics2": {
+      "main": [
+        [
+          {
+            "node": "AI Koç (Hız + Düzeltme)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Koç (Hız + Düzeltme)2": {
+      "main": [
+        [
+          {
+            "node": "Generate audio (Koç)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model (Koç)2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Koç (Hız + Düzeltme)2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate audio (Koç)2": {
+      "main": [
+        [
+          {
+            "node": "Extract from File (TTS->Base64)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File (TTS->Base64)2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook (Okuma Hızı)2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f8b51c68e6052f7623d9c06205b08d4aaab476654d3c2fad2270b3239906ec61"
+  }
+}

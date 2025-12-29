@@ -8,6 +8,8 @@ import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { playSoundEffect } from '../../lib/soundEffects';
 import type { RootState } from '../../store/store';
 import PointsAnimation from '../../components/PointsAnimation';
+import { useBadges } from '../../hooks/useBadges';
+import BadgeAnimation from '../../components/BadgeAnimation';
 
 interface QuestionData {
   question: string;
@@ -36,6 +38,7 @@ export default function L5Step1() {
   const [showPointsAnimation, setShowPointsAnimation] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
   const { onStepCompleted, storyId, sessionId } = useStepContext();
+  const { checkForNewBadges, newBadges, clearNewBadges } = useBadges();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -174,8 +177,23 @@ export default function L5Step1() {
         correctCount,
         answers
       });
+
+      // Check for perfect quiz badge
+      if (student?.id && correctCount === questions.length) {
+        checkForNewBadges(
+          storyId || 3,
+          5,
+          sessionId,
+          { 
+            quizScore: 100,
+            completedLevels: [1, 2, 3, 4, 5]
+          }
+        ).then(badges => {
+          console.log(`🏆 Earned ${badges.length} badges for perfect quiz`);
+        });
+      }
     }
-  }, [answers.length, questions.length, onStepCompleted, answers, questions]);
+  }, [answers.length, questions.length, onStepCompleted, answers, questions, student?.id, storyId, sessionId, checkForNewBadges]);
 
   // Ses dosyası oynat (public/audios/sorular dizininden)
   const playAudioFile = async (audioPath: string): Promise<void> => {
@@ -593,6 +611,15 @@ export default function L5Step1() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Badge Animation */}
+      {newBadges.length > 0 && (
+        <BadgeAnimation 
+          badge={newBadges[0]} 
+          show={true}
+          onClose={clearNewBadges}
+        />
       )}
     </div>
   );

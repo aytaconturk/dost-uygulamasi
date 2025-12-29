@@ -1,0 +1,25 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bronze-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#CD7F32;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B87333;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bronze-bg)" filter="url(#shadow)"/>
+  
+  <!-- Inner circle -->
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#8B5A2B" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Star -->
+  <path d="M64 20 L71 45 L96 45 L76 60 L84 85 L64 70 L44 85 L52 60 L32 45 L57 45 Z" 
+        fill="#FFEAA7" stroke="#8B5A2B" stroke-width="2"/>
+  
+  <!-- Number 1 -->
+  <text x="64" y="74" font-family="Arial, sans-serif" font-size="32" font-weight="bold" 
+        fill="#FFEAA7" text-anchor="middle" stroke="#8B5A2B" stroke-width="1">1</text>
+</svg>
