@@ -154,7 +154,6 @@ export default function StoryCompletion() {
       window.removeEventListener('progressUpdated', handleProgressUpdate);
     };
   }, [student?.id, storyId]);
-  }, [student?.id, storyId]);
 
   if (loading) {
     return (
