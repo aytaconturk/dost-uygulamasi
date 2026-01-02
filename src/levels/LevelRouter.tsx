@@ -266,7 +266,7 @@ export default function LevelRouter() {
           navigate(`/level/${nextLevel}/intro?storyId=${storyId}`);
         } else {
           // All levels completed (level 5), go to story completion screen
-          await updateStudentProgressStep(student.id, storyId, level, step);
+      await updateStudentProgressStep(student.id, storyId, level, step);
           // Mark story as completed
           if (sessionId) {
             await completeStory(student.id, storyId);
@@ -408,11 +408,11 @@ export default function LevelRouter() {
       step={step}
       onStepCompleted={handleStepCompleted}
     >
-      <StepLayout
-        currentStep={step}
-        totalSteps={totalSteps}
-        onPrev={onPrev}
-        onNext={onNext}
+    <StepLayout
+      currentStep={step}
+      totalSteps={totalSteps}
+      onPrev={onPrev}
+      onNext={onNext}
         hideNext={step === totalSteps} // Hide Next button on last step (Tamamla button will be shown instead)
         hideFooter={level === 2 && step === 3 ? true : false} // Hide footer for Level 2 Step 3 (auto-navigation), show for Step 4
         disableNext={!canProceed}
@@ -420,14 +420,14 @@ export default function LevelRouter() {
         onStepCompleted={handleStepCompleted}
         storyTitle={storyTitle}
         level={level}
-      >
-        {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
-        {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}
-        {level === 3 ? renderLevelChecklist(LEVEL3_TITLES) : null}
-        {level === 4 ? renderLevelChecklist(LEVEL4_TITLES) : null}
-        {level === 5 ? renderLevelChecklist(LEVEL5_TITLES) : null}
-        {content}
-      </StepLayout>
+    >
+      {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
+      {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}
+      {level === 3 ? renderLevelChecklist(LEVEL3_TITLES) : null}
+      {level === 4 ? renderLevelChecklist(LEVEL4_TITLES) : null}
+      {level === 5 ? renderLevelChecklist(LEVEL5_TITLES) : null}
+      {content}
+    </StepLayout>
     </StepProvider>
   );
 }
