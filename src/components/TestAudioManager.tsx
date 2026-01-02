@@ -3,7 +3,12 @@ import { StepContext } from '../contexts/StepContext';
 
 const VOICE_API_URL = 'https://arge.aquateknoloji.com/webhook/dost/voice-generator';
 
-// LocalStorage keys
+// IndexedDB Constants
+const DB_NAME = 'DostTestAudioDB';
+const DB_VERSION = 1;
+const AUDIO_STORE_NAME = 'audioFiles';
+
+// LocalStorage keys - Sadece metin ve checkbox için
 const getStorageKey = (storyId: number, level: number, step: number) => 
   `test_audio_${storyId}_level${level}_step${step}`;
 
@@ -15,6 +20,121 @@ const getCheckboxStorageKey = (storyId: number, level: number, step: number) =>
 
 // Global checkbox key (kullanıcı her girdiğinde false olsun)
 const GLOBAL_USE_TEST_AUDIO_KEY = 'use_test_audio_global';
+
+// IndexedDB fonksiyonları
+const initIndexedDB = async (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      
+      request.onerror = () => {
+        console.error('❌ IndexedDB açılırken hata:', request.error);
+        reject(request.error);
+      };
+      
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+      
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(AUDIO_STORE_NAME)) {
+          db.createObjectStore(AUDIO_STORE_NAME, { keyPath: 'id' });
+          console.log('✅ IndexedDB object store oluşturuldu');
+        }
+      };
+    } catch (err) {
+      console.error('❌ IndexedDB init hatası:', err);
+      reject(err);
+    }
+  });
+};
+
+const saveAudioToIndexedDB = async (storyId: number, level: number, step: number, base64: string): Promise<void> => {
+  try {
+    const db = await initIndexedDB();
+    const transaction = db.transaction([AUDIO_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(AUDIO_STORE_NAME);
+    const id = `${storyId}_${level}_${step}`;
+    
+    const data = {
+      id,
+      storyId,
+      level,
+      step,
+      base64,
+      timestamp: Date.now()
+    };
+    
+    return new Promise((resolve, reject) => {
+      const request = store.put(data);
+      request.onsuccess = () => {
+        console.log(`✅ Ses IndexedDB'ye kaydedildi: ${id}`);
+        resolve();
+      };
+      request.onerror = () => {
+        console.error(`❌ IndexedDB kayıt hatası: ${id}`, request.error);
+        reject(request.error);
+      };
+    });
+  } catch (err) {
+    console.error('❌ saveAudioToIndexedDB hatası:', err);
+    throw err;
+  }
+};
+
+const getAudioFromIndexedDB = async (storyId: number, level: number, step: number): Promise<string | null> => {
+  try {
+    const db = await initIndexedDB();
+    const transaction = db.transaction([AUDIO_STORE_NAME], 'readonly');
+    const store = transaction.objectStore(AUDIO_STORE_NAME);
+    const id = `${storyId}_${level}_${step}`;
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(id);
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result && result.base64) {
+          console.log(`✅ Ses IndexedDB'den alındı: ${id}`);
+          resolve(result.base64);
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => {
+        console.error(`❌ IndexedDB okuma hatası: ${id}`, request.error);
+        reject(request.error);
+      };
+    });
+  } catch (err) {
+    console.error('❌ getAudioFromIndexedDB hatası:', err);
+    return null;
+  }
+};
+
+const deleteAudioFromIndexedDB = async (storyId: number, level: number, step: number): Promise<void> => {
+  try {
+    const db = await initIndexedDB();
+    const transaction = db.transaction([AUDIO_STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(AUDIO_STORE_NAME);
+    const id = `${storyId}_${level}_${step}`;
+    
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => {
+        console.log(`✅ Ses IndexedDB'den silindi: ${id}`);
+        resolve();
+      };
+      request.onerror = () => {
+        console.error(`❌ IndexedDB silme hatası: ${id}`, request.error);
+        reject(request.error);
+      };
+    });
+  } catch (err) {
+    console.error('❌ deleteAudioFromIndexedDB hatası:', err);
+    throw err;
+  }
+};
 
 export interface TestAudioConfig {
   storyId: number;
@@ -35,10 +155,10 @@ export function isTestAudioEnabled(storyId: number, level: number, step: number)
   }
 }
 
-export function getTestAudioBlob(storyId: number, level: number, step: number): Blob | null {
+export async function getTestAudioBlob(storyId: number, level: number, step: number): Promise<Blob | null> {
   try {
-    const key = getStorageKey(storyId, level, step);
-    const base64 = localStorage.getItem(key);
+    // Önce IndexedDB'den oku
+    const base64 = await getAudioFromIndexedDB(storyId, level, step);
     if (!base64) return null;
     
     // Base64'ü Blob'a çevir
@@ -55,10 +175,10 @@ export function getTestAudioBlob(storyId: number, level: number, step: number): 
   }
 }
 
-export function hasTestAudio(storyId: number, level: number, step: number): boolean {
+export async function hasTestAudio(storyId: number, level: number, step: number): Promise<boolean> {
   try {
-    const key = getStorageKey(storyId, level, step);
-    return localStorage.getItem(key) !== null;
+    const base64 = await getAudioFromIndexedDB(storyId, level, step);
+    return base64 !== null;
   } catch {
     return false;
   }
@@ -272,24 +392,33 @@ export default function TestAudioManager({ initialStoryId, initialLevel, initial
 
   // Seçim değiştiğinde veya reload tetiklendiğinde verileri yükle
   useEffect(() => {
-    const textKey = getTextStorageKey(selectedStory, selectedLevel, selectedStep);
-    const audioKey = getStorageKey(selectedStory, selectedLevel, selectedStep);
-    const enabledKey = getCheckboxStorageKey(selectedStory, selectedLevel, selectedStep);
+    const loadData = async () => {
+      const textKey = getTextStorageKey(selectedStory, selectedLevel, selectedStep);
+      const enabledKey = getCheckboxStorageKey(selectedStory, selectedLevel, selectedStep);
 
-    const savedText = localStorage.getItem(textKey);
-    const savedAudio = localStorage.getItem(audioKey);
-    const savedEnabled = localStorage.getItem(enabledKey) === 'true';
+      try {
+        const savedText = localStorage.getItem(textKey);
+        const savedEnabled = localStorage.getItem(enabledKey) === 'true';
+        
+        // IndexedDB'den ses kontrolü
+        const hasAudio = await getAudioFromIndexedDB(selectedStory, selectedLevel, selectedStep);
 
-    // Eğer kayıtlı metin yoksa, default metni kullan
-    const textToUse = savedText !== null ? savedText : getDefaultText(selectedStory, selectedLevel, selectedStep);
-    
-    console.log(`📝 Metin yüklendi (${selectedStory}_${selectedLevel}_${selectedStep}):`, textToUse ? textToUse.substring(0, 50) + '...' : 'BOŞ');
-    
-    setText(textToUse);
-    setAudioExists(savedAudio !== null);
-    setIsEnabled(savedEnabled);
-    setError(null);
-    setSuccess(null);
+        // Eğer kayıtlı metin yoksa, default metni kullan
+        const textToUse = savedText !== null ? savedText : getDefaultText(selectedStory, selectedLevel, selectedStep);
+        
+        console.log(`📝 Metin yüklendi (${selectedStory}_${selectedLevel}_${selectedStep}):`, textToUse ? textToUse.substring(0, 50) + '...' : 'BOŞ');
+        
+        setText(textToUse);
+        setAudioExists(hasAudio !== null);
+        setIsEnabled(savedEnabled);
+        setError(null);
+        setSuccess(null);
+      } catch (err) {
+        console.error('Veri yükleme hatası:', err);
+      }
+    };
+
+    loadData();
   }, [selectedStory, selectedLevel, selectedStep, reloadTrigger]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -355,9 +484,8 @@ export default function TestAudioManager({ initialStoryId, initialLevel, initial
         throw new Error('API yanıtında audioBase64 bulunamadı');
       }
 
-      // Base64'ü localStorage'a kaydet
-      const audioKey = getStorageKey(selectedStory, selectedLevel, selectedStep);
-      localStorage.setItem(audioKey, data.audioBase64);
+      // IndexedDB'ye kaydet
+      await saveAudioToIndexedDB(selectedStory, selectedLevel, selectedStep, data.audioBase64);
       
       setAudioExists(true);
       setSuccess(`✅ Ses başarıyla oluşturuldu! (${Math.round(data.audioBase64.length / 1024)} KB)`);
@@ -371,33 +499,38 @@ export default function TestAudioManager({ initialStoryId, initialLevel, initial
     }
   };
 
-  const handlePlayAudio = () => {
-    const audioKey = getStorageKey(selectedStory, selectedLevel, selectedStep);
-    const base64 = localStorage.getItem(audioKey);
-    
-    if (!base64) {
-      setError('⚠️ Ses dosyası bulunamadı!');
-      return;
-    }
-
+  const handlePlayAudio = async () => {
     try {
+      const base64 = await getAudioFromIndexedDB(selectedStory, selectedLevel, selectedStep);
+      
+      if (!base64) {
+        setError('⚠️ Ses dosyası bulunamadı!');
+        return;
+      }
+
       const audio = new Audio(`data:audio/mp3;base64,${base64}`);
       audio.play();
     } catch (err) {
+      console.error('❌ Ses oynatma hatası:', err);
       setError('❌ Ses oynatılamadı');
     }
   };
 
-  const handleDeleteAudio = () => {
-    const audioKey = getStorageKey(selectedStory, selectedLevel, selectedStep);
-    const enabledKey = getCheckboxStorageKey(selectedStory, selectedLevel, selectedStep);
-    
-    localStorage.removeItem(audioKey);
-    localStorage.setItem(enabledKey, 'false');
-    
-    setAudioExists(false);
-    setIsEnabled(false);
-    setSuccess('🗑️ Ses dosyası silindi');
+  const handleDeleteAudio = async () => {
+    try {
+      const enabledKey = getCheckboxStorageKey(selectedStory, selectedLevel, selectedStep);
+      
+      // IndexedDB'den sil
+      await deleteAudioFromIndexedDB(selectedStory, selectedLevel, selectedStep);
+      localStorage.setItem(enabledKey, 'false');
+      
+      setAudioExists(false);
+      setIsEnabled(false);
+      setSuccess('🗑️ Ses dosyası silindi');
+    } catch (err) {
+      console.error('❌ Ses silme hatası:', err);
+      setError('❌ Ses silinirken hata oluştu');
+    }
   };
 
   // Toplu ses oluşturma
@@ -439,8 +572,8 @@ export default function TestAudioManager({ initialStoryId, initialLevel, initial
 
       try {
         // Ses zaten varsa atla
-        const audioKey = getStorageKey(combo.story, combo.level, combo.step);
-        if (localStorage.getItem(audioKey)) {
+        const existingAudio = await getAudioFromIndexedDB(combo.story, combo.level, combo.step);
+        if (existingAudio) {
           console.log(`⏭️ Atlandı: Hikaye ${combo.story}, Seviye ${combo.level}, Adım ${combo.step} (zaten mevcut)`);
           successCount++;
           continue;
@@ -468,7 +601,7 @@ export default function TestAudioManager({ initialStoryId, initialLevel, initial
 
         // Kaydet
         const textKey = getTextStorageKey(combo.story, combo.level, combo.step);
-        localStorage.setItem(audioKey, data.audioBase64);
+        await saveAudioToIndexedDB(combo.story, combo.level, combo.step, data.audioBase64);
         localStorage.setItem(textKey, combo.text);
         
         successCount++;

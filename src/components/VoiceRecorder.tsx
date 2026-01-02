@@ -69,13 +69,14 @@ export default function VoiceRecorder({
   }, [storyId, level, step]);
 
   // Test audio kullanarak kayıt simüle et
-  const useTestAudio = () => {
-    if (!hasTestAudio(storyId, level, step)) {
+  const useTestAudio = async () => {
+    const audioExists = await hasTestAudio(storyId, level, step);
+    if (!audioExists) {
       alert('⚠️ Bu kombinasyon için test sesi bulunamadı! Önce Ayarlar → Test Ses Yönetimi bölümünden ses oluşturun.');
       return;
     }
 
-    const testBlob = getTestAudioBlob(storyId, level, step);
+    const testBlob = await getTestAudioBlob(storyId, level, step);
     if (!testBlob) {
       alert('⚠️ Test ses dosyası okunamadı!');
       return;
