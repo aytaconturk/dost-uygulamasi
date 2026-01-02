@@ -10,6 +10,7 @@ import type { RootState } from '../../store/store';
 import PointsAnimation from '../../components/PointsAnimation';
 import { useBadges } from '../../hooks/useBadges';
 import BadgeAnimation from '../../components/BadgeAnimation';
+import { TestTube } from 'lucide-react';
 
 interface QuestionData {
   question: string;
@@ -37,11 +38,40 @@ export default function L5Step1() {
   const [totalScore, setTotalScore] = useState(0);
   const [showPointsAnimation, setShowPointsAnimation] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const { onStepCompleted, storyId, sessionId } = useStepContext();
   const { checkForNewBadges, newBadges, clearNewBadges } = useBadges();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Load questions from Supabase, fallback to static data, then select random 5
   useEffect(() => {
@@ -480,7 +510,14 @@ export default function L5Step1() {
                 Beşinci seviyeye geçiyoruz. Şimdi sana metinle ilgili {questions.length} tane okuduğunu anlama sorusu soracağım ve cevaplarının doğruluğunu kontrol edeceğim. Sen cevap vermeden diğer soruya geçmeyeceğim. Başlıyorum.
               </p>
             </div>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
+              {testAudioActive && (
+                <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                  <TestTube className="w-4 h-4" />
+                  <span>🧪 Test modu: Hazır ses kullanılacak</span>
+                </div>
+              )}
+              
               <button 
                 onClick={startFlow} 
                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"

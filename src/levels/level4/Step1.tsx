@@ -9,6 +9,7 @@ import { submitSchemaSectionReading, getResumeResponse } from '../../lib/level4-
 import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import { getRecordingDuration } from '../../components/SidebarSettings';
+import { TestTube } from 'lucide-react';
 
 const STORY_ID = 3;
 
@@ -25,6 +26,7 @@ export default function L4Step1() {
   const [isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
@@ -32,6 +34,34 @@ export default function L4Step1() {
 
   const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
   const appMode = getAppMode();
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   const instruction = 'Şimdi dördüncü seviyeye geçiyoruz. Bu seviyede okuma öncesinde metni gözden geçirirken yaptığımız tahminlerimiz ve belirlediğimiz okuma amacımız doğru muymuş? Bunları düşünerek şemada yer alan bilgileri numara sırasına göre oku.';
 
@@ -371,7 +401,14 @@ export default function L4Step1() {
                 {instruction}
               </p>
             </div>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
+              {testAudioActive && (
+                <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                  <TestTube className="w-4 h-4" />
+                  <span>🧪 Test modu: Hazır ses kullanılacak</span>
+                </div>
+              )}
+              
               {appMode === 'prod' && introAudioPlaying ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>

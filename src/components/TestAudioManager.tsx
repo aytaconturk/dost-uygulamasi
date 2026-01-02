@@ -443,6 +443,9 @@ export default function TestAudioManager({ initialStoryId, initialLevel, initial
     const enabledKey = getCheckboxStorageKey(selectedStory, selectedLevel, selectedStep);
     localStorage.setItem(enabledKey, String(checked));
     
+    // Global key'e de yaz (tüm step'lerde çalışması için)
+    localStorage.setItem(GLOBAL_USE_TEST_AUDIO_KEY, String(checked));
+    
     // Diğer component'lere bildir (storage event sadece farklı sekmelerde çalışır)
     window.dispatchEvent(new CustomEvent('testAudioChanged', { 
       detail: { storyId: selectedStory, level: selectedLevel, step: selectedStep, enabled: checked } 

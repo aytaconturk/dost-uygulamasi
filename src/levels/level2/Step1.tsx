@@ -10,6 +10,8 @@ import type { RootState, AppDispatch } from '../../store/store';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { TestTube } from 'lucide-react';
+import { getTestAudioBlob } from '../../components/TestAudioManager';
 
 const STORY_ID = 2;
 const TOTAL_SECONDS = 60;
@@ -73,10 +75,39 @@ export default function Level2Step1() {
   const [timeUp, setTimeUp] = useState(false);
   const [beeped60, setBeeped60] = useState(false);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
+  const [testAudioActive, setTestAudioActive] = useState(false);
 
   const paragraphs = getParagraphs(story.id);
   const displayTitle = story.title;
   const appMode = getAppMode();
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Play intro audio on component mount
   useEffect(() => {
@@ -172,7 +203,82 @@ export default function Level2Step1() {
       audioRef.current.currentTime = 0;
       setIntroAudioPlaying(false);
     }
-    // Play beep first
+    
+    // Test audio aktifse, mikrofon açma - direkt hazır sesi kullan
+    if (testAudioActive) {
+      console.log('🧪 Test modu aktif - hazır ses kullanılacak');
+      
+      try {
+        // IndexedDB'den test audio'yu al
+        const testBlob = await getTestAudioBlob(STORY_ID, 2, 1);
+        
+        if (testBlob) {
+          console.log('✅ Test audio bulundu, analiz başlatılıyor...');
+          
+          // Direkt analiz ekranına geç
+          setStarted(true);
+          setReading(false);
+          setIsProcessing(true);
+          
+          // Test audio'yu base64'e çevir
+          const base64Audio = await blobToBase64(testBlob);
+          const mimeType = testBlob.type || 'audio/webm';
+          
+          // Varsayılan değerler
+          const wordsRead = storyText.split(/\s+/).length;
+          const elapsed = 30; // Test için varsayılan süre
+          const wpm = Math.ceil((wordsRead / elapsed) * 60);
+          
+          // API'ye gönder - aynı format kullan
+          const payload = {
+            studentId: sessionId || `anon-${Date.now()}`,
+            textTitle: story.title,
+            originalText: storyText,
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+            audio: {
+              base64: base64Audio,
+              mimeType: mimeType,
+              fileName: `test-recording.webm`
+            },
+            audioBase64: base64Audio,
+            selectedWordCount: wordsRead,
+          };
+          
+          setResult({ wordsRead, wpm, wordsPerSecond: wpm / 60 });
+          setIsUploading(true);
+          
+          try {
+            const response = await submitReadingAnalysis(payload) as Level2Step1ReadingAnalysisResponse;
+            
+            console.log('✅ Test audio analiz yanıtı:', response);
+            setAnalysis(response);
+            
+            if (onStepCompleted) {
+              await onStepCompleted({
+                wordsRead,
+                wpm,
+                wordsPerSecond: wpm / 60,
+                analysis: response
+              });
+            }
+          } catch (err) {
+            console.error('❌ Test audio analiz hatası:', err);
+          } finally {
+            setIsUploading(false);
+            setIsProcessing(false);
+          }
+          
+          return; // Mikrofon açmadan çık
+        } else {
+          console.warn('⚠️ Test audio bulunamadı, normal akışa devam ediliyor');
+        }
+      } catch (err) {
+        console.error('❌ Test audio alınamadı:', err);
+      }
+    }
+    
+    // Play beep first (sadece gerçek kayıt için)
     try {
       await playBeep();
     } catch (err) {
@@ -386,7 +492,15 @@ export default function Level2Step1() {
           <div className="bg-white rounded-xl shadow p-5 mb-6">
             <p className="text-gray-800 text-lg">{introText}</p>
           </div>
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3">
+            {/* Test Audio Aktif Göstergesi */}
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            
             {appMode === 'prod' && introAudioPlaying ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>

@@ -9,6 +9,7 @@ import { playTts } from '../../lib/playTts';
 import { submitSchemaSummary, getResumeResponseStep2 } from '../../lib/level4-api';
 import type { RootState } from '../../store/store';
 import { getRecordingDuration } from '../../components/SidebarSettings';
+import { TestTube } from 'lucide-react';
 
 const STORY_ID = 3;
 
@@ -23,12 +24,41 @@ export default function L4Step2() {
   const [isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
   const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   useEffect(() => {
     return () => { 
@@ -397,12 +427,21 @@ export default function L4Step2() {
       <div className="flex flex-col items-center justify-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-purple-800">2. Adım: Özetleme</h2>
         {!started && (
-          <button 
-            onClick={startFlow} 
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
-          >
-            Başla
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            
+            <button 
+              onClick={startFlow} 
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+            >
+              Başla
+            </button>
+          </div>
         )}
       </div>
 

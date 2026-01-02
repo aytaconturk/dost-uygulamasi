@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { TestTube } from 'lucide-react';
 
 export type CountdownProps = {
   onStart: () => void;
@@ -9,7 +10,36 @@ export type CountdownProps = {
 export default function Countdown({ onStart, onComplete, duration = 180 }: CountdownProps) {
   const [counting, setCounting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(duration);
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   useEffect(() => {
     if (!counting) return;
@@ -56,12 +86,21 @@ export default function Countdown({ onStart, onComplete, duration = 180 }: Count
       <audio ref={audioRef} preload="auto" />
       
       {!counting ? (
-        <button
-          onClick={startCountdown}
-          className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-lg font-bold text-lg"
-        >
-          Başla
-        </button>
+        <div className="flex flex-col items-center gap-3">
+          {testAudioActive && (
+            <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+              <TestTube className="w-4 h-4" />
+              <span>🧪 Test modu: Hazır ses kullanılacak</span>
+            </div>
+          )}
+          
+          <button
+            onClick={startCountdown}
+            className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-lg font-bold text-lg"
+          >
+            Başla
+          </button>
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-4">
           <div className="text-6xl font-bold text-purple-600 tabular-nums">

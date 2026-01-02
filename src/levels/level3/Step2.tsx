@@ -9,6 +9,7 @@ import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
 import type { Level3Step2ApiResponse, Level3Step2AnalysisOutput } from '../../types/level3-step2';
+import { TestTube } from 'lucide-react';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -52,7 +53,36 @@ export default function L3Step2() {
   const [audioDuration, setAudioDuration] = useState(0);
   const [highlightedWordIdx, setHighlightedWordIdx] = useState<number | null>(null);
   const [introAudioEnded, setIntroAudioEnded] = useState(false);
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const appMode = getAppMode();
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Load target WPM from Supabase (from Level 2 reading goal)
   useEffect(() => {
@@ -479,14 +509,23 @@ export default function L3Step2() {
           <div className="bg-white rounded-xl shadow p-5 w-full">
             <p className="text-gray-800 mb-6">Şimdi hedefine ulaşıp ulaşmadığını değerlendirmek için metni üçüncü kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni yine bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basar basmaz metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde metni oku. Okuman bitince "Bitir" butonuna bas.</p>
           </div>
-          {(appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
-            <button 
-              onClick={startCountdown} 
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
-            >
-              Başla
-            </button>
-          )}
+          <div className="flex flex-col items-center gap-3">
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            
+            {(appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
+              <button 
+                onClick={startCountdown} 
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+              >
+                Başla
+              </button>
+            )}
+          </div>
         </div>
       )}
 
