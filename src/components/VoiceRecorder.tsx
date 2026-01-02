@@ -28,6 +28,8 @@ export default function VoiceRecorder({
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTimeLeft, setRecordingTimeLeft] = useState<number | null>(null);
   const [testAudioActive, setTestAudioActive] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -35,6 +37,23 @@ export default function VoiceRecorder({
   const keepAliveRef = useRef<NodeJS.Timeout | null>(null);
   const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const testAudioAutoTriggeredRef = useRef(false);
+
+  // Test audio aktifse otomatik olarak çalıştır
+  useEffect(() => {
+    if (testAudioActive && !isRecording && !isProcessing && !reading && !isUploading && !testAudioAutoTriggeredRef.current) {
+      console.log('[VoiceRecorder] Test audio otomatik başlatılıyor...');
+      testAudioAutoTriggeredRef.current = true;
+      useTestAudio();
+    }
+  }, [testAudioActive, isRecording, isProcessing, reading, isUploading]);
+
+  // Test audio inaktif olunca flag'i reset et
+  useEffect(() => {
+    if (!testAudioActive) {
+      testAudioAutoTriggeredRef.current = false;
+    }
+  }, [testAudioActive]);
 
   // Test audio durumunu kontrol et
   useEffect(() => {
