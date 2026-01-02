@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Square } from 'lucide-react';
+import { Mic, Square, TestTube } from 'lucide-react';
+import { isTestAudioEnabled, getTestAudioBlob, hasTestAudio } from './TestAudioManager';
 
 interface Props {
   onSave: (blob: Blob) => void;
@@ -7,12 +8,26 @@ interface Props {
   recordingDurationMs?: number;
   autoSubmit?: boolean;
   compact?: boolean;
+  // Test audio için eklenen props
+  storyId?: number;
+  level?: number;
+  step?: number;
 }
 
-export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs = 10000, autoSubmit = true, compact = false }: Props) {
+export default function VoiceRecorder({ 
+  onSave, 
+  onPlayStart, 
+  recordingDurationMs = 10000, 
+  autoSubmit = true, 
+  compact = false,
+  storyId = 1,
+  level = 2,
+  step = 1
+}: Props) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTimeLeft, setRecordingTimeLeft] = useState<number | null>(null);
+  const [testAudioActive, setTestAudioActive] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -21,7 +36,74 @@ export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs
   const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Test audio durumunu kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const enabled = isTestAudioEnabled(storyId, level, step);
+      setTestAudioActive(enabled);
+      console.log(`[VoiceRecorder] Test audio durum kontrol: ${enabled ? 'AKTIF' : 'PASİF'} (Hikaye: ${storyId}, Seviye: ${level}, Adım: ${step})`);
+    };
+    
+    checkTestAudio();
+    
+    // Storage değişikliklerini dinle (farklı sekmeler için)
+    const handleStorageChange = () => {
+      console.log('[VoiceRecorder] Storage event - kontrol ediliyor...');
+      checkTestAudio();
+    };
+    
+    // Custom event dinle (aynı sayfa için)
+    const handleTestAudioChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      console.log('[VoiceRecorder] Test audio değişti:', customEvent.detail);
+      checkTestAudio();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleTestAudioChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleTestAudioChange);
+    };
+  }, [storyId, level, step]);
+
+  // Test audio kullanarak kayıt simüle et
+  const useTestAudio = () => {
+    if (!hasTestAudio(storyId, level, step)) {
+      alert('⚠️ Bu kombinasyon için test sesi bulunamadı! Önce Ayarlar → Test Ses Yönetimi bölümünden ses oluşturun.');
+      return;
+    }
+
+    const testBlob = getTestAudioBlob(storyId, level, step);
+    if (!testBlob) {
+      alert('⚠️ Test ses dosyası okunamadı!');
+      return;
+    }
+
+    console.log('[Recorder] 🧪 Test audio kullanılıyor, size:', testBlob.size);
+    setIsProcessing(true);
+    
+    // Kısa bir gecikme ile gönder (gerçek kayıt gibi görünsün)
+    setTimeout(() => {
+      try {
+        onSave(testBlob);
+      } catch (error) {
+        console.error('[Recorder] Test audio submit error:', error);
+        alert('Test sesi gönderilirken hata oluştu.');
+      } finally {
+        setIsProcessing(false);
+      }
+    }, 500);
+  };
+
   const startRecording = async () => {
+    // Test audio aktifse, mikrofon yerine hazır sesi kullan
+    if (testAudioActive) {
+      useTestAudio();
+      return;
+    }
+
     try {
       console.log('[Recorder] Requesting microphone access...');
       
@@ -249,9 +331,17 @@ export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs
 
   return (
     <div className={`voice-recorder p-0 ${compact ? 'compact' : ''}`}>
+      {/* Test Audio Aktif Göstergesi */}
+      {testAudioActive && (
+        <div className="mb-2 px-3 py-1.5 bg-yellow-100 border border-yellow-300 rounded-lg text-xs text-yellow-800 flex items-center gap-2">
+          <TestTube className="w-4 h-4" />
+          <span>🧪 Test modu: Hazır ses kullanılacak</span>
+        </div>
+      )}
+      
       <div className="recording-controls">
         <button
-          className={`record-button ${isRecording ? 'recording' : ''}`}
+          className={`record-button ${isRecording ? 'recording' : ''} ${testAudioActive ? 'test-mode' : ''}`}
           onClick={isRecording ? stopRecording : startRecording}
           disabled={isProcessing}
         >
@@ -259,6 +349,11 @@ export default function VoiceRecorder({ onSave, onPlayStart, recordingDurationMs
             <>
               <Square className="icon" />
               Kaydı Durdur
+            </>
+          ) : testAudioActive ? (
+            <>
+              <TestTube className="icon" />
+              Test Sesi Gönder
             </>
           ) : (
             <>

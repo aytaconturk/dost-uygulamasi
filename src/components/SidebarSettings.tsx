@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getApiBase, getApiEnv, setApiEnv, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
+import TestAudioManager from './TestAudioManager';
 
 const RECORDING_DURATION_KEY = 'voice_recording_duration_ms';
 const PLAYBACK_RATE_KEY = 'audio_playback_rate';
@@ -53,10 +55,31 @@ interface Props {
 }
 
 export default function SidebarSettings({ open, onClose }: Props) {
+  const location = useLocation();
   const [env, setEnv] = useState<ApiEnv>(getApiEnv());
   const [appMode, setAppModeState] = useState<AppMode>(getAppMode());
   const [recordingDuration, setRecordingDurationState] = useState<number>(getRecordingDuration());
   const [playbackRate, setPlaybackRateState] = useState<number>(getPlaybackRate());
+
+  // URL'den story, level, step bilgilerini çıkar
+  const getCurrentContext = () => {
+    const path = location.pathname;
+    const searchParams = new URLSearchParams(location.search);
+    
+    // URL pattern: /level/:level/step/:step veya /story/:storyId
+    const levelMatch = path.match(/\/level\/(\d+)/);
+    const stepMatch = path.match(/\/step\/(\d+)/);
+    const storyMatch = path.match(/\/story\/(\d+)/);
+    
+    // Query params'dan da kontrol et
+    const storyIdParam = searchParams.get('storyId');
+    
+    return {
+      storyId: storyMatch ? parseInt(storyMatch[1]) : (storyIdParam ? parseInt(storyIdParam) : null),
+      level: levelMatch ? parseInt(levelMatch[1]) : null,
+      step: stepMatch ? parseInt(stepMatch[1]) : null,
+    };
+  };
 
   useEffect(() => {
     setEnv(getApiEnv());
@@ -184,6 +207,14 @@ export default function SidebarSettings({ open, onClose }: Props) {
             <hr className="my-4" />
 
             <TypographySettings />
+
+            <hr className="my-4" />
+
+            <TestAudioManager 
+              initialStoryId={getCurrentContext().storyId}
+              initialLevel={getCurrentContext().level}
+              initialStep={getCurrentContext().step}
+            />
           </aside>
         </div>
       )}

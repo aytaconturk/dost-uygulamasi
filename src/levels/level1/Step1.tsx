@@ -397,6 +397,9 @@ export default function Step1() {
                                   window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
                                 } catch {}
                               }}
+                              storyId={storyId}
+                              level={1}
+                              step={1}
                             />
                             {isProcessingVoice && (
                               <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>

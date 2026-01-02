@@ -488,6 +488,9 @@ export default function L4Step2() {
                       onSave={() => {}}
                       onPlayStart={() => {}}
                       compact={true}
+                      storyId={storyId}
+                      level={4}
+                      step={2}
                     />
                   </div>
                 </>
@@ -509,6 +512,9 @@ export default function L4Step2() {
                         } catch {}
                       }}
                       compact={true}
+                      storyId={storyId}
+                      level={4}
+                      step={2}
                     />
                   </div>
                 </>

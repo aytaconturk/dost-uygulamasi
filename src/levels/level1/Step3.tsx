@@ -247,7 +247,13 @@ export default function Step3() {
         {phase === 'student' && !childrenVoiceResponse && (
           <div className="mt-6 text-center">
             <p className="mb-4 text-xl font-bold text-green-700">Hadi sıra sende! Mikrofona konuş</p>
-            <VoiceRecorder onSave={handleVoiceSubmit} onPlayStart={() => { try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {} }} />
+            <VoiceRecorder 
+              onSave={handleVoiceSubmit} 
+              onPlayStart={() => { try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {} }} 
+              storyId={storyId}
+              level={1}
+              step={3}
+            />
             {isProcessingVoice && (
               <p className="mt-2 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
             )}

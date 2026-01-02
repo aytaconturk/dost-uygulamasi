@@ -657,6 +657,9 @@ export default function L3Step1() {
                       autoSubmit={true}
                       onSave={() => {}}
                       onPlayStart={() => {}}
+                      storyId={storyId || 1}
+                      level={3}
+                      step={1}
                     />
                   </div>
                 </>
@@ -673,6 +676,9 @@ export default function L3Step1() {
                       autoSubmit={true}
                       onSave={() => {}}
                       onPlayStart={() => {}}
+                      storyId={storyId || 1}
+                      level={3}
+                      step={1}
                     />
                   </div>
                 </>
@@ -693,6 +699,9 @@ export default function L3Step1() {
                           window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
                         } catch {}
                       }}
+                      storyId={storyId || 1}
+                      level={3}
+                      step={1}
                     />
                   </div>
                 </>
