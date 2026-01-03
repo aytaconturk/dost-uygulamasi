@@ -18,7 +18,7 @@ export default function Level2Completion() {
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [hasAwardedPoints, setHasAwardedPoints] = useState(false);
   const student = useSelector((state: RootState) => state.user.student);
-  const completionAudio = '/src/assets/audios/level1/seviye-1-tamamlandi.mp3';
+  const completionAudio = '/src/assets/audios/level2/seviye-2-tamamlandi.mp3';
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
