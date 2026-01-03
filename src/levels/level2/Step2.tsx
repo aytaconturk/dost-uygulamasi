@@ -14,7 +14,7 @@ const QUALITY_METRIC_LABELS: Record<string, string> = {
 export default function Level2Step2() {
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const navigate = useNavigate();
-  const { onStepCompleted } = useStepContext();
+  const { onStepCompleted, storyId } = useStepContext();
 
   console.log('Step2: analysisResult from Redux:', analysisResult);
 
@@ -34,7 +34,7 @@ export default function Level2Step2() {
           <p className="text-xl text-gray-800 mb-4 font-semibold">⚠️ Henüz okuma analizi sonucu yok</p>
           <p className="text-gray-600 mb-6">Lütfen önce 1. Adımı tamamla.</p>
           <button
-            onClick={() => navigate('/level/2/step/1')}
+            onClick={() => navigate(`/level/2/step/1?storyId=${storyId}`)}
             className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
           >
             1. Adıma Git
@@ -53,15 +53,15 @@ export default function Level2Step2() {
           {/* Overall Score */}
           <div className="md:col-span-2 lg:col-span-1 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
             <h4 className="font-bold text-blue-900 mb-2">Genel Puan</h4>
-            <p className="text-3xl font-bold text-blue-600">{analysisResult?.overallScore || 0}</p>
+            <p className="text-3xl font-bold text-blue-600">{Math.round(analysisResult?.overallScore || 0)}</p>
           </div>
 
           {/* Reading Speed */}
           {analysisResult?.readingSpeed && (
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
               <h4 className="font-bold text-green-900 mb-2">Okuma Hızı</h4>
-              <p className="text-gray-700">Dakikadaki Sözcük: <span className="font-bold text-green-700">{analysisResult.readingSpeed.wordsPerMinute}</span></p>
-              <p className="text-gray-700">Doğru Sözcük/Dakika: <span className="font-bold text-green-700">{analysisResult.readingSpeed.correctWordsPerMinute}</span></p>
+              <p className="text-gray-700">Dakikadaki Sözcük: <span className="font-bold text-green-700">{Math.round(analysisResult.readingSpeed.wordsPerMinute || 0)}</span></p>
+              <p className="text-gray-700">Doğru Sözcük/Dakika: <span className="font-bold text-green-700">{Math.round(analysisResult.readingSpeed.correctWordsPerMinute || 0)}</span></p>
             </div>
           )}
 
@@ -140,7 +140,7 @@ export default function Level2Step2() {
         {/* Navigation Button */}
         <div className="flex justify-center mt-6">
           <button
-            onClick={() => navigate('/level/2/step/3')}
+            onClick={() => navigate(`/level/2/step/3?storyId=${storyId}`)}
             className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
           >
             Hedef Belirle →
