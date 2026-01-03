@@ -87,7 +87,9 @@ export default function LevelRouter() {
   const stepStr = params.step || '1';
   const level = Number(levelStr);
   const step = Number(stepStr);
-  const storyId = Number(searchParams.get('storyId')) || level; // storyId varsa onu kullan, yoksa level'ı kullan
+  const storyIdParam = searchParams.get('storyId');
+  const storyId = storyIdParam ? Number(storyIdParam) : level; // storyId varsa onu kullan, yoksa level'ı kullan
+  console.log('LevelRouter: storyId from URL:', storyIdParam, 'final storyId:', storyId, 'level:', level);
 
   const totalSteps = LEVEL_STEPS_COUNT[level] || 1;
 
@@ -101,30 +103,50 @@ export default function LevelRouter() {
   // Fetch story title
   useEffect(() => {
     const fetchStoryTitle = async () => {
+      if (!storyId) {
+        setStoryTitle('');
+        return;
+      }
+
       try {
+        console.log('LevelRouter: Fetching story title for storyId:', storyId);
         const { data, error } = await getStoryById(storyId);
-        if (!error && data) {
+        console.log('LevelRouter: getStoryById response:', { data, error, requestedStoryId: storyId, returnedDataId: data?.id, returnedTitle: data?.title });
+        
+        if (error) {
+          console.error('LevelRouter: Error fetching story:', error);
+          setStoryTitle(`Oturum ${storyId}`);
+          return;
+        }
+
+        if (!data) {
+          console.warn('LevelRouter: No data returned for storyId:', storyId);
+          setStoryTitle(`Oturum ${storyId}`);
+          return;
+        }
+
+        // Verify that returned data ID matches requested storyId
+        if (data.id !== storyId) {
+          console.error(`LevelRouter: Data mismatch! Requested storyId: ${storyId}, but got data with id: ${data.id}`);
+          setStoryTitle(`Oturum ${storyId}`);
+          return;
+        }
+
+        // Use the title from Supabase directly
+        if (data.title) {
+          console.log('LevelRouter: Setting story title from Supabase:', data.title);
           setStoryTitle(data.title);
         } else {
-          // Fallback to FALLBACK_STORIES if Supabase fails
-          const FALLBACK_STORIES: Record<number, string> = {
-            1: 'Kırıntıların Kahramanları',
-            2: 'Avucumun İçindeki Akıllı Kutu',
-            3: 'Hurma Ağacı',
-            4: 'Akdeniz Bölgesi',
-            5: 'Çöl Gemisi',
-          };
-          setStoryTitle(FALLBACK_STORIES[storyId] || `Oturum ${storyId}`);
+          console.warn('LevelRouter: Story title is empty for storyId:', storyId);
+          setStoryTitle(`Oturum ${storyId}`);
         }
       } catch (err) {
-        console.error('Error fetching story title:', err);
+        console.error('LevelRouter: Exception fetching story title:', err);
         setStoryTitle(`Oturum ${storyId}`);
       }
     };
 
-    if (storyId) {
-      fetchStoryTitle();
-    }
+    fetchStoryTitle();
   }, [storyId]);
 
   // Initialize session and check step completion on mount/change
