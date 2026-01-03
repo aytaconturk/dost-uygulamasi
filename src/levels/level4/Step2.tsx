@@ -11,8 +11,6 @@ import type { RootState } from '../../store/store';
 import { getRecordingDuration } from '../../components/SidebarSettings';
 import { TestTube } from 'lucide-react';
 
-const STORY_ID = 3;
-
 export default function L4Step2() {
   const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -30,7 +28,7 @@ export default function L4Step2() {
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+  const schema = useMemo(() => getSchema(storyId), [storyId]);
 
   // Test audio aktif mi kontrol et
   useEffect(() => {

@@ -5,8 +5,6 @@ import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { TestTube } from 'lucide-react';
 
-const STORY_ID = 3;
-
 export default function L4Step3() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [started, setStarted] = useState(false);
@@ -15,7 +13,7 @@ export default function L4Step3() {
   const [answers, setAnswers] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string>('');
   const [testAudioActive, setTestAudioActive] = useState(false);
-  const { onStepCompleted } = useStepContext();
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -48,7 +46,7 @@ export default function L4Step3() {
     };
   }, []);
 
-  const questions = getComprehensionQuestions(STORY_ID);
+  const questions = getComprehensionQuestions(storyId);
 
   useEffect(() => {
     return () => { try { window.speechSynthesis.cancel(); } catch {} };

@@ -11,8 +11,6 @@ import VoiceRecorder from '../../components/VoiceRecorder';
 import { getRecordingDuration } from '../../components/SidebarSettings';
 import { TestTube, Mic } from 'lucide-react';
 
-const STORY_ID = 3;
-
 export default function L4Step1() {
   const student = useSelector((state: RootState) => state.user.student);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -32,7 +30,7 @@ export default function L4Step1() {
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+  const schema = useMemo(() => getSchema(storyId), [storyId]);
   const appMode = getAppMode();
 
   // Test audio aktif mi kontrol et
@@ -146,8 +144,8 @@ export default function L4Step1() {
       // Önce schema-{storyId}-{sectionId}-prompt.mp3 formatını dene (mevcut dosyalar)
       // Fallback: schema-{storyId}-{sectionId}.mp3
       const audioPaths = [
-        `/audios/level4/schema-${storyId || STORY_ID}-${section.id}-prompt.mp3`,
-        `/audios/level4/schema-${storyId || STORY_ID}-${section.id}.mp3`
+        `/audios/level4/schema-${storyId}-${section.id}-prompt.mp3`,
+        `/audios/level4/schema-${storyId}-${section.id}.mp3`
       ];
       
       console.log(`🎵 Playing section ${currentSection + 1} audio, trying:`, audioPaths);
