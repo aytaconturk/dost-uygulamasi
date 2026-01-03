@@ -12,6 +12,9 @@ import type {
   Level1ObjectiveAnalysisResponse,
 } from '../types';
 
+// Re-export for convenience
+export type { Level1ChildrenVoiceResponse } from '../types';
+
 /**
  * Analyzes the story image and returns explanation, audio, and resumeUrl
  */
