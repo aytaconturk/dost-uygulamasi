@@ -193,6 +193,7 @@ const LEVEL_STEPS: { level: number; steps: { step: number; name: string }[] }[] 
       { step: 2, name: 'Başlık İnceleme' },
       { step: 3, name: 'Cümle Okuma' },
       { step: 4, name: 'Okuma Amacı' },
+      { step: 5, name: 'Seviye Tamamlama' },
     ]
   },
   { 
@@ -201,6 +202,7 @@ const LEVEL_STEPS: { level: number; steps: { step: number; name: string }[] }[] 
       { step: 1, name: 'Birinci Okuma' },
       { step: 2, name: 'Okuma Hızı' },
       { step: 3, name: 'Hedef Belirleme' },
+      { step: 4, name: 'Seviye Tamamlama' },
     ]
   },
   { 
@@ -209,6 +211,7 @@ const LEVEL_STEPS: { level: number; steps: { step: number; name: string }[] }[] 
       { step: 1, name: 'Model Okuma' },
       { step: 2, name: 'Üçüncü Okuma' },
       { step: 3, name: 'Performans' },
+      { step: 4, name: 'Seviye Tamamlama' },
     ]
   },
   { 
@@ -216,14 +219,16 @@ const LEVEL_STEPS: { level: number; steps: { step: number; name: string }[] }[] 
     steps: [
       { step: 1, name: 'Beyin Fırtınası' },
       { step: 2, name: 'Özetleme' },
+      { step: 3, name: 'Görselleştirme' },
+      { step: 4, name: 'Seviye Tamamlama' },
     ]
   },
   { 
     level: 5, 
     steps: [
       { step: 1, name: 'Anlama Soruları' },
-      { step: 2, name: 'Ödül' },
-      { step: 3, name: 'Sonlandırma' },
+      { step: 2, name: 'Oyunlar' },
+      { step: 3, name: 'Ödül & Tamamlama' },
     ]
   },
 ];
@@ -264,6 +269,13 @@ const DEFAULT_TEST_TEXTS: Record<string, string> = {
   '5_1_3': 'Develer hörgüçlerinde su ve yağ depolayabilirler. Bu özellik onların susuz kalmasını sağlar.',
   '5_1_4': 'Bu metni okurken develerin çöl şartlarına nasıl uyum sağladığını öğrenmek istiyorum.',
   
+  // Level 1 - Step 5 (Seviye Tamamlama)
+  '1_1_5': 'Seviye 1\'i tamamladım. Karıncalar hakkında tahminler yaptım ve görselleri inceledim.',
+  '2_1_5': 'Seviye 1\'i tamamladım. Akıllı telefon hakkında tahminler yaptım.',
+  '3_1_5': 'Seviye 1\'i tamamladım. Hurma ağacı hakkında ön bilgi edindim.',
+  '4_1_5': 'Seviye 1\'i tamamladım. Akdeniz bölgesi hakkında tahminler yaptım.',
+  '5_1_5': 'Seviye 1\'i tamamladım. Çöl gemisi hakkında tahminler yaptım.',
+  
   // Level 2 - İlk Okuma ve Hız (TÜM HİKAYE METİNLERİ)
   '1_2_1': '"Karınca gibi çalışkan" ne demek? Sen hiç karınca yuvası gördün mü? Karıncaların yaşamı nasıldır? Haydi, bu soruların cevaplarını birlikte öğrenelim! Karıncaların yaşayışlarıyla başlayalım. Karıncalar çok çalışkan hayvanlardır. Onlar oldukça hızlı hareket eder. Küçük gruplar hâlinde yuvalarda yaşar. Minik dostlarımız bir ekip olarak çalışır, işbirliğine önem verir. Karıncaları her yerde görebilirsin. Mutfakta, ağaç köklerinde, taşların ve toprağın altında... Buralara yuva yaparlar. Şimdi bir karıncanın şekli nasıldır, bunu öğrenelim? Kocaman bir başı, uzun bir gövdesi vardır. Karıncalar genellikle siyah, kahverengi ya da kırmızı renktedir. Ayakları altı tanedir. İki tane anteni vardır. Bazı karıncalar kanatlıdır. Peki, sence karıncalar nasıl beslenir? Eğer cevabın şeker ise doğru! Genellikle şekerli yiyecekler yer. Yere düşmüş tüm kırıntılara bayılır. Aynı zamanda bitkileri de yer. Kocaman bir ekmek parçasını bir sürü küçük karıncanın taşıdığını görebilirsin. Küçüktürler ama yaptıkları işler çok büyüktür. Peki, onlar nasıl çoğalır? Şimdi bunun cevabına bakalım. Karıncalar, yumurtlayarak çoğalır. Kraliçe karınca yılda 50 milyon yumurta yapabilir. Bu bir kova kumdan bile daha fazladır. İnanılmaz değil mi? Karıncaların çevreye olan etkilerini hiç düşündün mü? Küçük karıncalar, doğaya büyük faydalar sağlar. Onlar toprakları havalandırır. Ağaçlara zarar veren böcekleri yer. Tıpkı bir postacı gibi bitkilerin tohumunu dağıtır. Bu canlılar, bazen zararlı da olabilir. Bazen insanlar ısırır. Bu durum kaşıntı yapabilir. Bazen de tifüs ve verem gibi hastalıkları yayabilir. Küçük dostlarımızı artık çok iyi biliyorsun. Onlara bugün bir küp şeker ısmarlamaya ne dersin?',
   '1_2_2': 'Karıncalar toplu halde yaşarlar ve birlikte çalışırlar. Kraliçe karınca yumurtlar. İşçi karıncalar yiyecek toplar.',
@@ -285,13 +297,20 @@ const DEFAULT_TEST_TEXTS: Record<string, string> = {
   '5_2_2': 'Develerin ayakları geniştir ve kumda batmazlar. Kirpikleri uzundur ve kumdan korur.',
   '5_2_3': 'Bu metni akıcı şekilde okumayı ve hedef hızıma ulaşmayı planlıyorum.',
   
+  // Level 2 - Step 4 (Seviye Tamamlama)
+  '1_2_4': 'Seviye 2\'yi tamamladım. Karıncalar hakkındaki metni okudum ve hızımı ölçtüm.',
+  '2_2_4': 'Seviye 2\'yi tamamladım. Akıllı telefon metnini okudum ve hızımı ölçtüm.',
+  '3_2_4': 'Seviye 2\'yi tamamladım. Hurma ağacı metnini okudum ve okuma hızımı gördüm.',
+  '4_2_4': 'Seviye 2\'yi tamamladım. Akdeniz bölgesi metnini okudum.',
+  '5_2_4': 'Seviye 2\'yi tamamladım. Çöl gemisi metnini okudum ve hız hedefimi belirledim.',
+  
   // Level 3 - Model Okuma ve Tekrar
   '1_3_1': 'Karıncalar koloniler halinde yaşar. Her koloni kraliçe, erkek ve işçilerden oluşur. İşçiler yiyecek toplar, yuva yapar.',
   '1_3_2': 'Karınca kolonileri binlerce bireyden oluşabilir. Karıncalar feromonlarla iletişim kurar. (HIZLI VE AKICI)',
   '1_3_3': 'Hedefim DOST\'un model okumasını takip edip sonra aynı akıcılıkla okuyabilmek. Performansımı ölçmek istiyorum.',
   
   '2_3_1': 'Telefonun kalbi işlemcidir. İşlemci saniyede milyarlarca işlem yapar. Ekran dokunmatik teknoloji kullanır.',
-  '2_3_2': 'Telefonun bataryası şarj edilebilir lityum iyon bataryadır. Kamera yüksek çözünürlüklü fotoğraflar çeker.',
+  '2_3_2': 'Hey! Akıllı telefonlar hakkında neler biliyorsun? Bu icatla ilgili bir maceraya hazır mısın? Şimdi birlikte keşfetme zamanı! Önce akıllı telefonun kullanım amaçlarına bakalım. Bu telefonlar birçok amaç için kullanılır. Örneğin iletişim kurarsın. Aramalar, mesajlaşmalar, videolu görüşmeler yaparsın. Önemli bilgilere tek tuşla erişirsin. Tabi ki eğlenmek için de kullanırsın. Oyunlar oynarsın. Müzik dinlersin. Video izlersin. Fotoğraf çekersin. Hatta bir film bile çekebilirsin. Haydi, şimdi akıllı telefonların şekil ve boyutlarına bakalım. Genellikle telefonlar dikdörtgendir. Bazı telefonlar katlanabilir. Evet, yanlış okumadın. Tıpkı bir kâğıt gibi katlanır. Hepsi cebine sığacak boydadır. Hafif ve rahat kullanıma sahiptir. Hem ön hem arka kameraları vardır. Alt tarafında hoparlör ve mikrofon bulunur.',
   '2_3_3': 'Model okumayı dinledikten sonra aynı hızda ve tonlamayla okumayı deneyeceğim.',
   
   '3_3_1': 'Hurma ağacı 20 metre boya ulaşabilir. Meyveleri 5-7 santimetre uzunluğundadır. Çok besleyicidir.',
@@ -305,6 +324,13 @@ const DEFAULT_TEST_TEXTS: Record<string, string> = {
   '5_3_1': 'Develer günde 100 kilometre yol gidebilir. 50 kilogram yük taşıyabilir. Susuz 7 gün dayanabilir.',
   '5_3_2': 'Develerin iki türü vardır: Tek hörgüçlü dromader ve çift hörgüçlü baktiriyen devesi.',
   '5_3_3': 'Model okumayla karşılaştırarak okuma performansımı değerlendireceğim.',
+  
+  // Level 3 - Step 4 (Seviye Tamamlama)
+  '1_3_4': 'Seviye 3\'ü tamamladım. Model okumayı dinledim ve kendim de okudum. Performansım arttı.',
+  '2_3_4': 'Seviye 3\'ü tamamladım. Akıllı telefon metnini model okumaya göre okudum.',
+  '3_3_4': 'Seviye 3\'ü tamamladım. Hurma ağacı metnini akıcı şekilde okudum.',
+  '4_3_4': 'Seviye 3\'ü tamamladım. Akdeniz bölgesi metnini model okumaya göre tekrarladım.',
+  '5_3_4': 'Seviye 3\'ü tamamladım. Çöl gemisi metnini akıcı ve doğru okudum.',
   
   // Level 4 - Şema ve Özetleme
   '1_4_1': 'Karınca kolonisinin yapısı: Kraliçe yumanrtalar. İşçiler yiyecek toplar, yuva yapar, larvaları besler. Erkekler sadece çiftleşir.',
@@ -321,6 +347,20 @@ const DEFAULT_TEST_TEXTS: Record<string, string> = {
   
   '5_4_1': 'Develerin çöle uyumu: Hörgüçte su depolama, geniş ayaklar, uzun kirpikler, kalın tüyler.',
   '5_4_2': 'Develer çöl şartlarına mükemmel uyum sağlamıştır. Bu özellikleri sayesinde çölde yaşayabilir.',
+  
+  // Level 4 - Step 3 (Görselleştirme)
+  '1_4_3': 'Karınca hikayesini zihinde canlandırıyorum. Koloninin nasıl çalıştığını görselleştiriyorum.',
+  '2_4_3': 'Akıllı telefonun parçalarını zihinde canlandırıyorum. Ekran, pil, kamera hepsini görüyorum.',
+  '3_4_3': 'Hurma ağacını zihinde canlandırıyorum. Uzun gövdesi, yeşil yaprakları, tatlı meyveleri.',
+  '4_4_3': 'Akdeniz bölgesini zihinde canlandırıyorum. Masmavi deniz, turuncu portakallar, antik kentler.',
+  '5_4_3': 'Çöl gemisini zihinde canlandırıyorum. Hörgüçlü deve, sıcak kum, uzun yolculuk.',
+  
+  // Level 4 - Step 4 (Seviye Tamamlama)
+  '1_4_4': 'Seviye 4\'ü tamamladım. Karınca hikayesinin şemasını çıkardım ve özetledim.',
+  '2_4_4': 'Seviye 4\'ü tamamladım. Akıllı telefon hikayesini özetledim ve görselleştirdim.',
+  '3_4_4': 'Seviye 4\'ü tamamladım. Hurma ağacı hikayesini şema ve özetle pekiştirdim.',
+  '4_4_4': 'Seviye 4\'ü tamamladım. Akdeniz bölgesinin önemli noktalarını özetledim.',
+  '5_4_4': 'Seviye 4\'ü tamamladım. Çöl gemisi hikayesini şema ve görsellerle pekiştirdim.',
   
   // Level 5 - Anlama Soruları ve Oyunlar
   '1_5_1': 'Karıncalar koloniler halinde yaşar. Kraliçe yumurtlar, işçiler çalışır, erkekler çiftleşir. Feremonlarla iletişim kurarlar.',

@@ -10,6 +10,7 @@ import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
 import type { Level3Step2ApiResponse, Level3Step2AnalysisOutput } from '../../types/level3-step2';
 import { TestTube } from 'lucide-react';
+import { getTestAudioBlob } from '../../components/TestAudioManager';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -47,6 +48,7 @@ export default function L3Step2() {
   const recordingMimeTypeRef = useRef<string>('audio/webm');
   const finishOnceRef = useRef<boolean>(false);
   const handleFinishRef = useRef<(() => Promise<void>) | null>(null);
+  const highlightIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -114,6 +116,10 @@ export default function L3Step2() {
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
+      }
+      // Cleanup highlight interval
+      if (highlightIntervalRef.current) {
+        clearInterval(highlightIntervalRef.current);
       }
     };
   }, []);
@@ -199,6 +205,103 @@ export default function L3Step2() {
       setIntroAudioEnded(true);
     }
     
+    // Test audio aktifse, mikrofon açmadan direkt hazır sesi kullan
+    if (testAudioActive) {
+      console.log('🧪 Test modu aktif - hazır ses kullanılacak (Level 3 Step 2)');
+      
+      try {
+        const testBlob = await getTestAudioBlob(storyId, 3, 2);
+        
+        if (testBlob) {
+          console.log('✅ Test audio bulundu, analiz başlatılıyor...');
+          
+          // Direkt done fazına geç
+          setPhase('done');
+          
+          // Reset guards for new recording
+          finishOnceRef.current = false;
+          startTimeRef.current = Date.now();
+          
+          // Test audio'yu base64'e çevir
+          const base64Audio = await blobToBase64(testBlob);
+          const mimeType = testBlob.type || 'audio/webm';
+          const elapsedMs = 60000; // Test için 60 saniye varsayılan
+          const elapsedSec = 60;
+          const wpm = Math.round((totalWords / elapsedSec) * 60);
+          
+          // API'ye gönder
+          const rawResponse = await submitReadingSpeedAnalysis({
+            userId: sessionId || `anon-${Date.now()}`,
+            audioFile: testBlob,
+            durationMs: elapsedMs,
+            hedefOkuma: targetWPM,
+            metin: fullText,
+            startTime: new Date(startTimeRef.current).toISOString(),
+            endTime: new Date().toISOString(),
+            mimeType: mimeType,
+            fileName: `test-recording.webm`,
+          });
+          
+          console.log('✅ Test audio analiz yanıtı:', rawResponse);
+          
+          // Parse response
+          let analysisOutput: Level3Step2AnalysisOutput | null = null;
+          const apiResponse = rawResponse as Level3Step2ApiResponse;
+          
+          if (apiResponse.output) {
+            analysisOutput = apiResponse.output;
+          } else if (apiResponse.userId) {
+            analysisOutput = {
+              userId: apiResponse.userId || student?.id || '',
+              kidName: apiResponse.kidName || '',
+              title: apiResponse.title || story.title,
+              hedefOkuma: apiResponse.hedefOkuma || targetWPM,
+              speedSummary: apiResponse.speedSummary || '',
+              reachedTarget: apiResponse.reachedTarget || false,
+              analysisText: apiResponse.analysisText || '',
+              metrics: apiResponse.metrics || {
+                durationSec: elapsedSec,
+                durationMMSS: '1:00',
+                targetWordCount: totalWords,
+                spokenWordCount: 0,
+                matchedWordCount: 0,
+                accuracyPercent: 0,
+                wpmSpoken: wpm,
+                wpmCorrect: 0,
+                wpmTarget: targetWPM,
+              },
+              coachText: apiResponse.coachText || '',
+              audioBase64: apiResponse.audioBase64,
+              transcriptText: apiResponse.transcriptText || '',
+              resumeUrl: apiResponse.resumeUrl,
+            };
+          }
+          
+          if (analysisOutput && student) {
+            const progressDelta = (analysisOutput.metrics?.wpmCorrect || wpm) - targetWPM;
+            await insertReadingLog(student.id, storyId, 3, wpm, totalWords, totalWords);
+            
+            if (onStepCompleted) {
+              await onStepCompleted({
+                totalWords,
+                elapsedSec,
+                wpm,
+                targetWPM,
+                analysis: analysisOutput,
+                progressDelta,
+              });
+            }
+          }
+          
+          return; // Mikrofon açmadan çık
+        } else {
+          console.warn('⚠️ Test audio bulunamadı, normal akışa devam ediliyor');
+        }
+      } catch (err) {
+        console.error('❌ Test audio işleme hatası:', err);
+      }
+    }
+    
     setPhase('countdown');
     setCount(3);
     const id = setInterval(() => {
@@ -268,46 +371,32 @@ export default function L3Step2() {
     startAudioWithHighlight();
   };
 
-  const startAudioWithHighlight = async () => {
-    const el = audioRef.current;
-    if (!el) return;
-
-    try {
-      el.src = '/audios/level3/seviye-3-adim-2.mp3';
-      // Apply playback rate
-      el.playbackRate = getPlaybackRate();
-      // @ts-ignore
-      el.playsInline = true;
-      el.muted = false;
-
-      // Wait for metadata to get duration
-      el.addEventListener('loadedmetadata', () => {
-        setAudioDuration(el.duration);
-      }, { once: true });
-
-      el.addEventListener('play', () => setIsAudioPlaying(true));
-      el.addEventListener('pause', () => setIsAudioPlaying(false));
-      el.addEventListener('ended', () => setIsAudioPlaying(false));
-
-      // Sync highlighting with audio playback
-      const handleTimeUpdate = () => {
-        if (el.duration && words.length > 0) {
-          const progress = el.currentTime / el.duration;
-          const newIdx = Math.min(
-            Math.floor(progress * words.length),
-            words.length - 1
-          );
-          setHighlightedWordIdx(newIdx);
-        }
-      };
-
-      el.addEventListener('timeupdate', handleTimeUpdate);
-
-      await el.play();
-    } catch (err) {
-      console.error('Failed to play audio with highlight:', err);
-      playBeep();
+  const startAudioWithHighlight = () => {
+    // Bu step'te DOST okuma yapmıyor - sadece öğrenci okuyor
+    // Highlight özelliği zamana dayalı olarak çalışacak (audio değil)
+    console.log('📖 Öğrenci okuma modu - DOST audio yok, sadece zaman bazlı highlight');
+    
+    // Önceki interval'ı temizle
+    if (highlightIntervalRef.current) {
+      clearInterval(highlightIntervalRef.current);
     }
+    
+    // Highlight'ı sıfırla
+    setHighlightedWordIdx(0);
+    
+    // Highlight'ı zaman bazlı yap (her 300ms bir kelime - yaklaşık 200 WPM hızında)
+    highlightIntervalRef.current = setInterval(() => {
+      setHighlightedWordIdx(prev => {
+        if (prev === null) return 0;
+        if (prev >= words.length - 1) {
+          if (highlightIntervalRef.current) {
+            clearInterval(highlightIntervalRef.current);
+          }
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 300);
   };
 
   // Timer countdown effect

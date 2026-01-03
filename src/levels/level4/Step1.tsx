@@ -9,7 +9,7 @@ import { submitSchemaSectionReading, getResumeResponse } from '../../lib/level4-
 import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import { getRecordingDuration } from '../../components/SidebarSettings';
-import { TestTube } from 'lucide-react';
+import { TestTube, Mic } from 'lucide-react';
 
 const STORY_ID = 3;
 
@@ -143,39 +143,59 @@ export default function L4Step1() {
       if (!el) return;
 
       const section = schema.sections[currentSection];
-      const audioPath = `/audios/level4/schema-${storyId || STORY_ID}-${section.id}.mp3`;
+      // Önce schema-{storyId}-{sectionId}-prompt.mp3 formatını dene (mevcut dosyalar)
+      // Fallback: schema-{storyId}-{sectionId}.mp3
+      const audioPaths = [
+        `/audios/level4/schema-${storyId || STORY_ID}-${section.id}-prompt.mp3`,
+        `/audios/level4/schema-${storyId || STORY_ID}-${section.id}.mp3`
+      ];
       
-      console.log(`🎵 Playing section ${currentSection + 1} audio:`, audioPath);
+      console.log(`🎵 Playing section ${currentSection + 1} audio, trying:`, audioPaths);
       setIsPlayingSectionAudio(true);
 
-      el.src = audioPath;
-      el.playbackRate = getPlaybackRate();
-      (el as any).playsInline = true;
-      el.muted = false;
+      // Try first path, fallback to second
+      const tryPlayAudio = async (pathIndex: number) => {
+        if (pathIndex >= audioPaths.length) {
+          console.warn(`⚠️ No audio found for section ${currentSection + 1}, skipping...`);
+          setIsPlayingSectionAudio(false);
+          playSiraSendeAudio();
+          return;
+        }
 
-      const handleEnded = () => {
-        console.log(`✅ Section ${currentSection + 1} audio finished`);
-        setIsPlayingSectionAudio(false);
-        // Play "Şimdi sıra sende" audio
-        playSiraSendeAudio();
+        el.src = audioPaths[pathIndex];
+        el.playbackRate = getPlaybackRate();
+        (el as any).playsInline = true;
+        el.muted = false;
+
+        const handleEnded = () => {
+          console.log(`✅ Section ${currentSection + 1} audio finished`);
+          setIsPlayingSectionAudio(false);
+          playSiraSendeAudio();
+        };
+
+        const handleError = (e: Event) => {
+          console.warn(`⚠️ Section ${currentSection + 1} audio error for ${audioPaths[pathIndex]}, trying next...`);
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          // Try next path
+          tryPlayAudio(pathIndex + 1);
+        };
+
+        el.addEventListener('ended', handleEnded, { once: true });
+        el.addEventListener('error', handleError, { once: true });
+
+        try {
+          await el.play();
+          console.log(`✅ Playing: ${audioPaths[pathIndex]}`);
+        } catch (err) {
+          console.warn(`⚠️ Play error for ${audioPaths[pathIndex]}:`, err);
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          tryPlayAudio(pathIndex + 1);
+        }
       };
 
-      const handleError = (e: Event) => {
-        console.error(`❌ Section ${currentSection + 1} audio error:`, e);
-        setIsPlayingSectionAudio(false);
-        // Play "Şimdi sıra sende" audio even if section audio fails
-        playSiraSendeAudio();
-      };
-
-      el.addEventListener('ended', handleEnded, { once: true });
-      el.addEventListener('error', handleError, { once: true });
-
-      try {
-        await el.play();
-      } catch (err) {
-        console.error('Error playing section audio:', err);
-        handleError(new Event('error'));
-      }
+      tryPlayAudio(0);
     };
 
     playSectionAudio();
@@ -501,17 +521,11 @@ export default function L4Step1() {
                     <p className="text-center mb-2 text-base font-bold text-gray-500">
                       🔊 DOST şematiği okuyor...
                     </p>
+                    {/* VoiceRecorder placeholder - gerçek recorder sadece isWaitingForRecording'de */}
                     <div className="flex justify-center opacity-50 pointer-events-none">
-                      <VoiceRecorder
-                        recordingDurationMs={getRecordingDuration()}
-                        autoSubmit={true}
-                        onSave={() => {}}
-                        onPlayStart={() => {}}
-                        compact={true}
-                        storyId={storyId}
-                        level={4}
-                        step={1}
-                      />
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                        <Mic className="w-6 h-6 text-gray-400" />
+                      </div>
                     </div>
                   </>
                 )}
@@ -521,17 +535,11 @@ export default function L4Step1() {
                     <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
                     </p>
+                    {/* VoiceRecorder placeholder - gerçek recorder sadece isWaitingForRecording'de */}
                     <div className="flex justify-center opacity-50 pointer-events-none">
-                      <VoiceRecorder
-                        recordingDurationMs={getRecordingDuration()}
-                        autoSubmit={true}
-                        onSave={() => {}}
-                        onPlayStart={() => {}}
-                        compact={true}
-                        storyId={storyId}
-                        level={4}
-                        step={1}
-                      />
+                      <div className="w-12 h-12 rounded-full bg-green-200 flex items-center justify-center animate-pulse">
+                        <Mic className="w-6 h-6 text-green-600" />
+                      </div>
                     </div>
                   </>
                 )}
