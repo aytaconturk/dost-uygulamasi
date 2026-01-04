@@ -25,6 +25,7 @@ export default function L4Step1() {
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
   const [testAudioActive, setTestAudioActive] = useState(false);
+  const [apiResponseText, setApiResponseText] = useState<string>('');
   const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
@@ -312,6 +313,11 @@ export default function L4Step1() {
         setResumeUrl(response.resumeUrl);
       }
 
+      // Show textAudio if available
+      if (response.textAudio) {
+        setApiResponseText(response.textAudio);
+      }
+
       // Play n8n response audio
       if (response.audioBase64) {
         await playResponseAudio(response.audioBase64);
@@ -332,6 +338,7 @@ export default function L4Step1() {
       } else {
         // Auto-advance to next section
         setTimeout(() => {
+          setApiResponseText(''); // Clear previous response text
           setCurrentSection(currentSection + 1);
         }, 1000);
       }
@@ -507,12 +514,12 @@ export default function L4Step1() {
             </div>
 
             {/* Microphone/Response Card - Always visible when started */}
-            {(isPlayingSectionAudio || isPlayingSiraSende || isWaitingForRecording || isProcessingResponse || isPlayingResponse) && (
-              <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-2 mt-3 z-50" 
+            {(isPlayingSectionAudio || isPlayingSiraSende || isWaitingForRecording || isProcessingResponse || isPlayingResponse || apiResponseText) && (
+              <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-4 mt-3 z-50" 
                    style={{
-                     borderColor: isPlayingSectionAudio ? '#9CA3AF' : isPlayingSiraSende ? '#10B981' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : '#10B981'
+                     borderColor: isPlayingSectionAudio ? '#9CA3AF' : isPlayingSiraSende ? '#10B981' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : apiResponseText ? '#3B82F6' : '#10B981'
                    }}>
-                {isPlayingSectionAudio && (
+                {isPlayingSectionAudio && !apiResponseText && (
                   <>
                     <p className="text-center mb-2 text-base font-bold text-gray-500">
                       🔊 DOST şematiği okuyor...
@@ -526,7 +533,7 @@ export default function L4Step1() {
                   </>
                 )}
                 
-                {isPlayingSiraSende && (
+                {isPlayingSiraSende && !apiResponseText && (
                   <>
                     <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
@@ -540,7 +547,7 @@ export default function L4Step1() {
                   </>
                 )}
                 
-                {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !isPlayingSiraSende && (
+                {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !apiResponseText && !isPlayingSiraSende && (
                   <>
                     <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
@@ -564,7 +571,7 @@ export default function L4Step1() {
                   </>
                 )}
                 
-                {(isProcessingResponse || isPlayingResponse) && (
+                {(isProcessingResponse || isPlayingResponse) && !apiResponseText && (
                   <div className="text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
@@ -572,6 +579,13 @@ export default function L4Step1() {
                         ⏳ DOST'tan cevap bekleniyor...
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {apiResponseText && (
+                  <div>
+                    <h4 className="font-bold text-blue-800 mb-2 text-center">🤖 DOST'un Yanıtı:</h4>
+                    <p className="text-blue-700 text-center">{apiResponseText}</p>
                   </div>
                 )}
               </div>
