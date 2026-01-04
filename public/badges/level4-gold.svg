@@ -1,0 +1,38 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gold-bg4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+    <radialGradient id="shine4">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#gold-bg4)" filter="url(#shadow)"/>
+  
+  <!-- Shine effect -->
+  <circle cx="50" cy="50" r="25" fill="url(#shine4)"/>
+  
+  <!-- Inner decorative circle -->
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#CC8400" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Four stars in corners -->
+  <path d="M30 30 L33 38 L41 38 L35 43 L37 51 L30 46 L23 51 L25 43 L19 38 L27 38 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1.5"/>
+  <path d="M98 30 L101 38 L109 38 L103 43 L105 51 L98 46 L91 51 L93 43 L87 38 L95 38 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1.5"/>
+  <path d="M30 98 L33 90 L41 90 L35 85 L37 77 L30 82 L23 77 L25 85 L19 90 L27 90 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1.5"/>
+  <path d="M98 98 L101 90 L109 90 L103 85 L105 77 L98 82 L91 77 L93 85 L87 90 L95 90 Z" 
+        fill="#FFFFFF" stroke="#CC8400" stroke-width="1.5"/>
+  
+  <!-- Number 4 -->
+  <text x="64" y="78" font-family="Arial, sans-serif" font-size="40" font-weight="bold" 
+        fill="#FFFFFF" text-anchor="middle" stroke="#CC8400" stroke-width="2">4</text>
+</svg>

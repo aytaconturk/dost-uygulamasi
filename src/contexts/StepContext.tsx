@@ -8,7 +8,7 @@ interface StepContextType {
   onStepCompleted?: (completionData?: any) => void;
 }
 
-const StepContext = createContext<StepContextType | null>(null);
+export const StepContext = createContext<StepContextType | null>(null);
 
 export function StepProvider({ 
   children, 

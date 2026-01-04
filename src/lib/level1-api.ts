@@ -12,6 +12,9 @@ import type {
   Level1ObjectiveAnalysisResponse,
 } from '../types';
 
+// Re-export for convenience
+export type { Level1ChildrenVoiceResponse } from '../types';
+
 /**
  * Analyzes the story image and returns explanation, audio, and resumeUrl
  */
@@ -78,6 +81,8 @@ export async function analyzeObjectiveForStep4(
 /**
  * Submits children's voice recording for analysis
  * Uses the resumeUrl from the image analysis response or title analysis response
+ * @param targetSentences - (Optional) Target sentences for comparison, used in Step 3 student phase
+ * @param sessionId - Session/section ID for tracking (same as userId in DOST API)
  */
 export async function submitChildrenVoice(
   audioBlob: Blob,
@@ -85,15 +90,26 @@ export async function submitChildrenVoice(
   storyTitle: string,
   stepNum: number = 1,
   stepType: string = 'gorsel_tahmini',
-  userIdForAnalysis: string = '12345'
+  sessionId: string = '',
+  targetSentences?: string[]
 ): Promise<Level1ChildrenVoiceResponse> {
   const file = new File([audioBlob], 'cocuk_sesi.mp3', { type: 'audio/mp3' });
   const formData = new FormData();
   formData.append('ses', file);
-  formData.append('kullanici_id', userIdForAnalysis);
-  formData.append('hikaye_adi', storyTitle);
-  formData.append('adim', String(stepNum));
-  formData.append('adim_tipi', stepType);
+  
+  // Use consistent field names with DOST API
+  // Note: "userId" in n8n is actually used as sessionId/sectionId
+  formData.append('title', storyTitle);
+  formData.append('step', String(stepNum));
+  formData.append('userId', sessionId || `anon-${Date.now()}`);
+  formData.append('stepType', stepType);
+  
+  // Add target sentences if provided (for Step 3 student phase comparison)
+  // Using "firstSentences" to match DOST API format
+  if (targetSentences && targetSentences.length > 0) {
+    formData.append('firstSentences', JSON.stringify(targetSentences));
+    console.log('📤 Target sentences (firstSentences) sent to API:', targetSentences);
+  }
 
   const { data } = await axios.post<Level1ChildrenVoiceResponse>(
     resumeUrl,

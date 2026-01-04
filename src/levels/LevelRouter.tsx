@@ -87,7 +87,9 @@ export default function LevelRouter() {
   const stepStr = params.step || '1';
   const level = Number(levelStr);
   const step = Number(stepStr);
-  const storyId = Number(searchParams.get('storyId')) || level; // storyId varsa onu kullan, yoksa level'ı kullan
+  const storyIdParam = searchParams.get('storyId');
+  const storyId = storyIdParam ? Number(storyIdParam) : level; // storyId varsa onu kullan, yoksa level'ı kullan
+  console.log('LevelRouter: storyId from URL:', storyIdParam, 'final storyId:', storyId, 'level:', level);
 
   const totalSteps = LEVEL_STEPS_COUNT[level] || 1;
 
@@ -101,30 +103,50 @@ export default function LevelRouter() {
   // Fetch story title
   useEffect(() => {
     const fetchStoryTitle = async () => {
+      if (!storyId) {
+        setStoryTitle('');
+        return;
+      }
+
       try {
+        console.log('LevelRouter: Fetching story title for storyId:', storyId);
         const { data, error } = await getStoryById(storyId);
-        if (!error && data) {
+        console.log('LevelRouter: getStoryById response:', { data, error, requestedStoryId: storyId, returnedDataId: data?.id, returnedTitle: data?.title });
+        
+        if (error) {
+          console.error('LevelRouter: Error fetching story:', error);
+          setStoryTitle(`Oturum ${storyId}`);
+          return;
+        }
+
+        if (!data) {
+          console.warn('LevelRouter: No data returned for storyId:', storyId);
+          setStoryTitle(`Oturum ${storyId}`);
+          return;
+        }
+
+        // Verify that returned data ID matches requested storyId
+        if (data.id !== storyId) {
+          console.error(`LevelRouter: Data mismatch! Requested storyId: ${storyId}, but got data with id: ${data.id}`);
+          setStoryTitle(`Oturum ${storyId}`);
+          return;
+        }
+
+        // Use the title from Supabase directly
+        if (data.title) {
+          console.log('LevelRouter: Setting story title from Supabase:', data.title);
           setStoryTitle(data.title);
         } else {
-          // Fallback to FALLBACK_STORIES if Supabase fails
-          const FALLBACK_STORIES: Record<number, string> = {
-            1: 'Kırıntıların Kahramanları',
-            2: 'Avucumun İçindeki Akıllı Kutu',
-            3: 'Hurma Ağacı',
-            4: 'Akdeniz Bölgesi',
-            5: 'Çöl Gemisi',
-          };
-          setStoryTitle(FALLBACK_STORIES[storyId] || `Oturum ${storyId}`);
+          console.warn('LevelRouter: Story title is empty for storyId:', storyId);
+          setStoryTitle(`Oturum ${storyId}`);
         }
       } catch (err) {
-        console.error('Error fetching story title:', err);
+        console.error('LevelRouter: Exception fetching story title:', err);
         setStoryTitle(`Oturum ${storyId}`);
       }
     };
 
-    if (storyId) {
-      fetchStoryTitle();
-    }
+    fetchStoryTitle();
   }, [storyId]);
 
   // Initialize session and check step completion on mount/change
@@ -266,7 +288,7 @@ export default function LevelRouter() {
           navigate(`/level/${nextLevel}/intro?storyId=${storyId}`);
         } else {
           // All levels completed (level 5), go to story completion screen
-          await updateStudentProgressStep(student.id, storyId, level, step);
+      await updateStudentProgressStep(student.id, storyId, level, step);
           // Mark story as completed
           if (sessionId) {
             await completeStory(student.id, storyId);
@@ -408,11 +430,11 @@ export default function LevelRouter() {
       step={step}
       onStepCompleted={handleStepCompleted}
     >
-      <StepLayout
-        currentStep={step}
-        totalSteps={totalSteps}
-        onPrev={onPrev}
-        onNext={onNext}
+    <StepLayout
+      currentStep={step}
+      totalSteps={totalSteps}
+      onPrev={onPrev}
+      onNext={onNext}
         hideNext={step === totalSteps} // Hide Next button on last step (Tamamla button will be shown instead)
         hideFooter={level === 2 && step === 3 ? true : false} // Hide footer for Level 2 Step 3 (auto-navigation), show for Step 4
         disableNext={!canProceed}
@@ -420,14 +442,14 @@ export default function LevelRouter() {
         onStepCompleted={handleStepCompleted}
         storyTitle={storyTitle}
         level={level}
-      >
-        {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
-        {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}
-        {level === 3 ? renderLevelChecklist(LEVEL3_TITLES) : null}
-        {level === 4 ? renderLevelChecklist(LEVEL4_TITLES) : null}
-        {level === 5 ? renderLevelChecklist(LEVEL5_TITLES) : null}
-        {content}
-      </StepLayout>
+    >
+      {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
+      {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}
+      {level === 3 ? renderLevelChecklist(LEVEL3_TITLES) : null}
+      {level === 4 ? renderLevelChecklist(LEVEL4_TITLES) : null}
+      {level === 5 ? renderLevelChecklist(LEVEL5_TITLES) : null}
+      {content}
+    </StepLayout>
     </StepProvider>
   );
 }

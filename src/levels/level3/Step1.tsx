@@ -11,14 +11,16 @@ import { getRecordingDurationSync } from '../../components/SidebarSettings';
 import { useStepContext } from '../../contexts/StepContext';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getPlaybackRate } from '../../components/SidebarSettings';
+import { TestTube } from 'lucide-react';
 
 export default function L3Step1() {
   const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted } = useStepContext();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [started, setStarted] = useState(false);
+  const [testAudioActive, setTestAudioActive] = useState(false);
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -36,6 +38,34 @@ export default function L3Step1() {
   const [allParagraphsCompleted, setAllParagraphsCompleted] = useState(false);
   const [completedParagraphs, setCompletedParagraphs] = useState<Set<number>>(new Set());
   const appMode = getAppMode();
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Get storyId from URL params
   useEffect(() => {
@@ -289,8 +319,11 @@ export default function L3Step1() {
         // Check if this is the last paragraph
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         const requestData = {
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           paragrafText: paragraphText,
           audioBase64: audioBase64,
           isLatestParagraf: isLatestParagraf,
@@ -327,8 +360,11 @@ export default function L3Step1() {
         // Check if this is the last paragraph
         const isLatestParagraf = currentParagraphIdx === paragraphs.length - 1;
 
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         const requestData = {
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           paragrafText: paragraphText,
           audioBase64: audioBase64,
           isLatestParagraf: isLatestParagraf,
@@ -523,7 +559,14 @@ export default function L3Step1() {
                 {instruction}
               </p>
             </div>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
+              {testAudioActive && (
+                <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                  <TestTube className="w-4 h-4" />
+                  <span>🧪 Test modu: Hazır ses kullanılacak</span>
+                </div>
+              )}
+              
               {appMode === 'prod' && introAudioPlaying ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
@@ -651,6 +694,9 @@ export default function L3Step1() {
                       autoSubmit={true}
                       onSave={() => {}}
                       onPlayStart={() => {}}
+                      storyId={storyId || 1}
+                      level={3}
+                      step={1}
                     />
                   </div>
                 </>
@@ -667,6 +713,9 @@ export default function L3Step1() {
                       autoSubmit={true}
                       onSave={() => {}}
                       onPlayStart={() => {}}
+                      storyId={storyId || 1}
+                      level={3}
+                      step={1}
                     />
                   </div>
                 </>
@@ -687,6 +736,9 @@ export default function L3Step1() {
                           window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
                         } catch {}
                       }}
+                      storyId={storyId || 1}
+                      level={3}
+                      step={1}
                     />
                   </div>
                 </>

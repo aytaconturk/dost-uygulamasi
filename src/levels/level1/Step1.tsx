@@ -31,7 +31,7 @@ export default function Step1() {
   const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted, storyId } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio elements
   useAudioPlaybackRate(audioRef);
@@ -150,7 +150,10 @@ export default function Step1() {
         imageUrl,
         stepNum: 1,
         storyTitle: story.title,
-        userId: currentStudent?.id || '',
+        // ⚠️ n8n workflow "userId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+        userId: sessionId || `anon-${Date.now()}`,
         userName: currentStudent?.first_name + " " + currentStudent?.last_name,
         ilkUcParagraf,
         metin,
@@ -394,6 +397,9 @@ export default function Step1() {
                                   window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
                                 } catch {}
                               }}
+                              storyId={storyId}
+                              level={1}
+                              step={1}
                             />
                             {isProcessingVoice && (
                               <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>

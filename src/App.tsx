@@ -108,6 +108,12 @@ export default function App() {
     const [stories, setStories] = useState<Story[]>([]);
     const [storiesLoading, setStoriesLoading] = useState(true);
 
+    // Uygulama başladığında test audio global key'ini temizle - checkbox her zaman tiksiz başlasın
+    useEffect(() => {
+        localStorage.removeItem('use_test_audio_global');
+        console.log('🔄 App başlatıldı - test audio sıfırlandı');
+    }, []);
+
     useEffect(() => { applyTypography(); }, []);
 
     // Fetch stories from Supabase

@@ -9,8 +9,7 @@ import { submitSchemaSectionReading, getResumeResponse } from '../../lib/level4-
 import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import { getRecordingDurationSync } from '../../components/SidebarSettings';
-
-const STORY_ID = 3;
+import { TestTube, Mic } from 'lucide-react';
 
 export default function L4Step1() {
   const student = useSelector((state: RootState) => state.user.student);
@@ -25,13 +24,43 @@ export default function L4Step1() {
   const [isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
-  const { onStepCompleted, storyId } = useStepContext();
+  const [testAudioActive, setTestAudioActive] = useState(false);
+  const [apiResponseText, setApiResponseText] = useState<string>('');
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+  const schema = useMemo(() => getSchema(storyId), [storyId]);
   const appMode = getAppMode();
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   const instruction = 'Şimdi dördüncü seviyeye geçiyoruz. Bu seviyede okuma öncesinde metni gözden geçirirken yaptığımız tahminlerimiz ve belirlediğimiz okuma amacımız doğru muymuş? Bunları düşünerek şemada yer alan bilgileri numara sırasına göre oku.';
 
@@ -113,39 +142,57 @@ export default function L4Step1() {
       if (!el) return;
 
       const section = schema.sections[currentSection];
-      const audioPath = `/audios/level4/schema-${storyId || STORY_ID}-${section.id}.mp3`;
+      // Step 1 ses dosyaları: /audios/level4/adim1/schema-{storyId}-{sectionId}.mp3
+      const audioPaths = [
+        `/audios/level4/adim1/schema-${storyId}-${section.id}.mp3`
+      ];
       
-      console.log(`🎵 Playing section ${currentSection + 1} audio:`, audioPath);
+      console.log(`🎵 Playing section ${currentSection + 1} audio, trying:`, audioPaths);
       setIsPlayingSectionAudio(true);
 
-      el.src = audioPath;
-      el.playbackRate = getPlaybackRate();
-      (el as any).playsInline = true;
-      el.muted = false;
+      // Try first path, fallback to second
+      const tryPlayAudio = async (pathIndex: number) => {
+        if (pathIndex >= audioPaths.length) {
+          console.warn(`⚠️ No audio found for section ${currentSection + 1}, skipping...`);
+          setIsPlayingSectionAudio(false);
+          playSiraSendeAudio();
+          return;
+        }
 
-      const handleEnded = () => {
-        console.log(`✅ Section ${currentSection + 1} audio finished`);
-        setIsPlayingSectionAudio(false);
-        // Play "Şimdi sıra sende" audio
-        playSiraSendeAudio();
+        el.src = audioPaths[pathIndex];
+        el.playbackRate = getPlaybackRate();
+        (el as any).playsInline = true;
+        el.muted = false;
+
+        const handleEnded = () => {
+          console.log(`✅ Section ${currentSection + 1} audio finished`);
+          setIsPlayingSectionAudio(false);
+          playSiraSendeAudio();
+        };
+
+        const handleError = (e: Event) => {
+          console.warn(`⚠️ Section ${currentSection + 1} audio error for ${audioPaths[pathIndex]}, trying next...`);
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          // Try next path
+          tryPlayAudio(pathIndex + 1);
+        };
+
+        el.addEventListener('ended', handleEnded, { once: true });
+        el.addEventListener('error', handleError, { once: true });
+
+        try {
+          await el.play();
+          console.log(`✅ Playing: ${audioPaths[pathIndex]}`);
+        } catch (err) {
+          console.warn(`⚠️ Play error for ${audioPaths[pathIndex]}:`, err);
+          el.removeEventListener('ended', handleEnded);
+          el.removeEventListener('error', handleError);
+          tryPlayAudio(pathIndex + 1);
+        }
       };
 
-      const handleError = (e: Event) => {
-        console.error(`❌ Section ${currentSection + 1} audio error:`, e);
-        setIsPlayingSectionAudio(false);
-        // Play "Şimdi sıra sende" audio even if section audio fails
-        playSiraSendeAudio();
-      };
-
-      el.addEventListener('ended', handleEnded, { once: true });
-      el.addEventListener('error', handleError, { once: true });
-
-      try {
-        await el.play();
-      } catch (err) {
-        console.error('Error playing section audio:', err);
-        handleError(new Event('error'));
-      }
+      tryPlayAudio(0);
     };
 
     playSectionAudio();
@@ -205,7 +252,7 @@ export default function L4Step1() {
       const section = schema.sections[currentSection];
       const sectionTitle = section.title;
       const sectionItems = section.items.join('\n');
-      const sectionText = `${sectionTitle}\n${sectionItems}`;
+      const paragrafText = `${sectionTitle}\n${sectionItems}`; // n8n bu field'ı bekliyor
       
       // Convert audio blob to base64
       const reader = new FileReader();
@@ -222,7 +269,7 @@ export default function L4Step1() {
       const isLastSection = currentSection === schema.sections.length - 1;
       
       console.log(`📤 Submitting section ${currentSection + 1}/${schema.sections.length}`, {
-        sectionNo: currentSection + 1,
+        paragrafNo: currentSection + 1,
         isLastSection,
         audioSize: audioBlob.size,
       });
@@ -230,23 +277,29 @@ export default function L4Step1() {
       let response;
       if (resumeUrl) {
         // Resume from n8n webhook wait
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         response = await getResumeResponse(resumeUrl, {
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       } else {
         // First section - initial webhook call
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         response = await submitSchemaSectionReading({
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       }
 
@@ -258,6 +311,11 @@ export default function L4Step1() {
       // Store resume URL for next section
       if (response.resumeUrl) {
         setResumeUrl(response.resumeUrl);
+      }
+
+      // Show textAudio if available
+      if (response.textAudio) {
+        setApiResponseText(response.textAudio);
       }
 
       // Play n8n response audio
@@ -280,6 +338,7 @@ export default function L4Step1() {
       } else {
         // Auto-advance to next section
         setTimeout(() => {
+          setApiResponseText(''); // Clear previous response text
           setCurrentSection(currentSection + 1);
         }, 1000);
       }
@@ -365,7 +424,14 @@ export default function L4Step1() {
                 {instruction}
               </p>
             </div>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
+              {testAudioActive && (
+                <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                  <TestTube className="w-4 h-4" />
+                  <span>🧪 Test modu: Hazır ses kullanılacak</span>
+                </div>
+              )}
+              
               {appMode === 'prod' && introAudioPlaying ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
@@ -448,46 +514,40 @@ export default function L4Step1() {
             </div>
 
             {/* Microphone/Response Card - Always visible when started */}
-            {(isPlayingSectionAudio || isPlayingSiraSende || isWaitingForRecording || isProcessingResponse || isPlayingResponse) && (
-              <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-2 mt-3 z-50" 
+            {(isPlayingSectionAudio || isPlayingSiraSende || isWaitingForRecording || isProcessingResponse || isPlayingResponse || apiResponseText) && (
+              <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-4 mt-3 z-50" 
                    style={{
-                     borderColor: isPlayingSectionAudio ? '#9CA3AF' : isPlayingSiraSende ? '#10B981' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : '#10B981'
+                     borderColor: isPlayingSectionAudio ? '#9CA3AF' : isPlayingSiraSende ? '#10B981' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : apiResponseText ? '#3B82F6' : '#10B981'
                    }}>
-                {isPlayingSectionAudio && (
+                {isPlayingSectionAudio && !apiResponseText && (
                   <>
                     <p className="text-center mb-2 text-base font-bold text-gray-500">
                       🔊 DOST şematiği okuyor...
                     </p>
+                    {/* VoiceRecorder placeholder - gerçek recorder sadece isWaitingForRecording'de */}
                     <div className="flex justify-center opacity-50 pointer-events-none">
-                      <VoiceRecorder
-                        recordingDurationMs={getRecordingDurationSync()}
-                        autoSubmit={true}
-                        onSave={() => {}}
-                        onPlayStart={() => {}}
-                        compact={true}
-                      />
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                        <Mic className="w-6 h-6 text-gray-400" />
+                      </div>
                     </div>
                   </>
                 )}
                 
-                {isPlayingSiraSende && (
+                {isPlayingSiraSende && !apiResponseText && (
                   <>
                     <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
                     </p>
+                    {/* VoiceRecorder placeholder - gerçek recorder sadece isWaitingForRecording'de */}
                     <div className="flex justify-center opacity-50 pointer-events-none">
-                      <VoiceRecorder
-                        recordingDurationMs={getRecordingDurationSync()}
-                        autoSubmit={true}
-                        onSave={() => {}}
-                        onPlayStart={() => {}}
-                        compact={true}
-                      />
+                      <div className="w-12 h-12 rounded-full bg-green-200 flex items-center justify-center animate-pulse">
+                        <Mic className="w-6 h-6 text-green-600" />
+                      </div>
                     </div>
                   </>
                 )}
                 
-                {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !isPlayingSiraSende && (
+                {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !apiResponseText && !isPlayingSiraSende && (
                   <>
                     <p className="text-center mb-2 text-base font-bold text-green-700">
                       🎤 Şimdi sıra sende! Mikrofona konuş
@@ -503,12 +563,15 @@ export default function L4Step1() {
                           } catch {}
                         }}
                         compact={true}
+                        storyId={storyId}
+                        level={4}
+                        step={1}
                       />
                     </div>
                   </>
                 )}
                 
-                {(isProcessingResponse || isPlayingResponse) && (
+                {(isProcessingResponse || isPlayingResponse) && !apiResponseText && (
                   <div className="text-center">
                     <div className="flex flex-col items-center gap-2">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
@@ -516,6 +579,13 @@ export default function L4Step1() {
                         ⏳ DOST'tan cevap bekleniyor...
                       </p>
                     </div>
+                  </div>
+                )}
+
+                {apiResponseText && (
+                  <div>
+                    <h4 className="font-bold text-blue-800 mb-2 text-center">🤖 DOST'un Yanıtı:</h4>
+                    <p className="text-blue-700 text-center">{apiResponseText}</p>
                   </div>
                 )}
               </div>

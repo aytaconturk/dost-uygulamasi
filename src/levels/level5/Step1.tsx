@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { getComprehensionQuestions } from '../../data/stories';
 import { getComprehensionQuestionsByStory, type ComprehensionQuestion, logStudentAction, awardPoints } from '../../lib/supabase';
@@ -8,6 +8,9 @@ import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { playSoundEffect } from '../../lib/soundEffects';
 import type { RootState } from '../../store/store';
 import PointsAnimation from '../../components/PointsAnimation';
+import { useBadges } from '../../hooks/useBadges';
+import BadgeAnimation from '../../components/BadgeAnimation';
+import { TestTube } from 'lucide-react';
 
 interface QuestionData {
   question: string;
@@ -35,10 +38,42 @@ export default function L5Step1() {
   const [totalScore, setTotalScore] = useState(0);
   const [showPointsAnimation, setShowPointsAnimation] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const [testAudioActive, setTestAudioActive] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Duplicate submit prevention
+  const audioQueueRef = useRef<AbortController | null>(null); // Audio queue control
   const { onStepCompleted, storyId, sessionId } = useStepContext();
+  const { checkForNewBadges, newBadges, clearNewBadges } = useBadges();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Load questions from Supabase, fallback to static data, then select random 5
   useEffect(() => {
@@ -174,84 +209,146 @@ export default function L5Step1() {
         correctCount,
         answers
       });
+
+      // Check for perfect quiz badge
+      if (student?.id && correctCount === questions.length) {
+        checkForNewBadges(
+          storyId || 3,
+          5,
+          sessionId,
+          { 
+            quizScore: 100,
+            completedLevels: [1, 2, 3, 4, 5]
+          }
+        ).then(badges => {
+          console.log(`🏆 Earned ${badges.length} badges for perfect quiz`);
+        });
+      }
     }
-  }, [answers.length, questions.length, onStepCompleted, answers, questions]);
+  }, [answers.length, questions.length, onStepCompleted, answers, questions, student?.id, storyId, sessionId, checkForNewBadges]);
 
   // Ses dosyası oynat (public/audios/sorular dizininden)
-  const playAudioFile = async (audioPath: string): Promise<void> => {
+  const stopCurrentAudio = useCallback(() => {
+    const el = audioRef.current;
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+      el.src = '';
+    }
+    // Cancel any pending audio queue
+    if (audioQueueRef.current) {
+      audioQueueRef.current.abort();
+      audioQueueRef.current = null;
+    }
+  }, []);
+
+  const playAudioFile = useCallback(async (audioPath: string, signal?: AbortSignal): Promise<void> => {
     const el = audioRef.current;
     if (!el) return;
 
+    // Check if aborted before starting
+    if (signal?.aborted) {
+      console.log('Audio playback aborted before start:', audioPath);
+      return;
+    }
+
     return new Promise<void>((resolve, reject) => {
       try {
+        // Stop any currently playing audio first
+        el.pause();
+        el.currentTime = 0;
+        
         el.src = audioPath;
         el.playbackRate = getPlaybackRate();
         (el as any).playsInline = true;
         el.muted = false;
         
-        const handleError = () => {
+        const cleanup = () => {
           el.removeEventListener('ended', handleEnded);
           el.removeEventListener('error', handleError);
+          signal?.removeEventListener('abort', handleAbort);
+        };
+        
+        const handleError = () => {
+          cleanup();
           console.warn(`Audio file not found: ${audioPath}`);
           resolve(); // Hata olsa bile devam et
         };
         
         const handleEnded = () => {
-          el.removeEventListener('ended', handleEnded);
-          el.removeEventListener('error', handleError);
+          cleanup();
           resolve();
+        };
+        
+        const handleAbort = () => {
+          el.pause();
+          el.currentTime = 0;
+          cleanup();
+          console.log('Audio playback aborted:', audioPath);
+          resolve(); // Abort durumunda da resolve et
         };
         
         el.addEventListener('ended', handleEnded, { once: true });
         el.addEventListener('error', handleError, { once: true });
+        signal?.addEventListener('abort', handleAbort, { once: true });
         
         el.play().catch(err => {
-          console.error('Error playing audio:', err);
-          handleError();
+          if (err.name === 'AbortError') {
+            console.log('Audio play aborted:', audioPath);
+            cleanup();
+            resolve();
+          } else {
+            console.error('Error playing audio:', err);
+            handleError();
+          }
         });
       } catch (err) {
         console.error('Error setting up audio:', err);
         resolve(); // Hata olsa bile devam et
       }
     });
-  };
+  }, []);
 
   // Soru seslendirmesi oynat - orijinal question_order kullan
-  const playQuestionAudio = async (question: QuestionData | undefined) => {
+  const playQuestionAudio = useCallback(async (question: QuestionData | undefined, signal?: AbortSignal) => {
     if (!question || !question.originalQuestionOrder) {
       console.warn('question or originalQuestionOrder is undefined');
       return;
     }
+    if (signal?.aborted) return;
+    
     setPlayingQuestionAudio(true);
     try {
       const audioPath = `/audios/sorular/question-${storyId || 3}-q${question.originalQuestionOrder}.mp3`;
       console.log('Playing question audio:', audioPath, 'for question:', question.question);
-      await playAudioFile(audioPath);
+      await playAudioFile(audioPath, signal);
     } catch (err) {
       console.error('Error playing question audio:', err);
     } finally {
       setPlayingQuestionAudio(false);
     }
-  };
+  }, [storyId, playAudioFile]);
 
   // Şık seslendirmesi oynat - orijinal question_order kullan
-  const playOptionAudio = async (question: QuestionData | undefined, optionIndex: number) => {
+  const playOptionAudio = useCallback(async (question: QuestionData | undefined, optionIndex: number, signal?: AbortSignal) => {
     if (!question || !question.originalQuestionOrder) {
       console.warn('question or originalQuestionOrder is undefined');
       return;
     }
+    if (signal?.aborted) return;
+    
     const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
     setPlayingOptionAudio(optionIndex);
     try {
       const audioPath = `/audios/sorular/option-${storyId || 3}-q${question.originalQuestionOrder}-${optionLetter}.mp3`;
       console.log('Playing option audio:', audioPath);
-      await playAudioFile(audioPath);
+      await playAudioFile(audioPath, signal);
     } catch (err) {
       console.error('Error playing option audio:', err);
     } finally {
       setPlayingOptionAudio(null);
     }
-  };
+  }, [storyId, playAudioFile]);
 
   const startFlow = async () => {
     if (loadingQuestions) {
@@ -265,6 +362,13 @@ export default function L5Step1() {
     }
     
     setStarted(true);
+    
+    // Cancel any previous audio queue
+    stopCurrentAudio();
+    
+    // Create new AbortController for this flow
+    const controller = new AbortController();
+    audioQueueRef.current = controller;
     
     // Play first question audio and options
     const firstQuestion = questions[0];
@@ -280,21 +384,33 @@ export default function L5Step1() {
       return;
     }
     
-    await playQuestionAudio(firstQuestion);
+    await playQuestionAudio(firstQuestion, controller.signal);
     // Şıkları da seslendir
     for (let i = 0; i < firstQuestion.options.length; i++) {
-      await playOptionAudio(firstQuestion, i);
+      if (controller.signal.aborted) break;
+      await playOptionAudio(firstQuestion, i, controller.signal);
     }
   };
 
   const onSubmitAnswer = async () => {
     if (selectedAnswer === null) return;
+    
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      console.warn('Submit already in progress, ignoring duplicate');
+      return;
+    }
+    setIsSubmitting(true);
 
     const question = questions[currentQuestion];
     if (!question || typeof question.questionNumber !== 'number') {
       console.error('Invalid question in onSubmitAnswer:', question);
+      setIsSubmitting(false);
       return;
     }
+    
+    // Stop any currently playing audio before processing answer
+    stopCurrentAudio();
     
     const isCorrect = selectedAnswer === question.correctIndex;
     const selectedOptionText = question.options[selectedAnswer];
@@ -363,11 +479,15 @@ export default function L5Step1() {
 
     setAnswers([...answers, selectedAnswer]);
 
+    // Create new AbortController for feedback audio
+    const controller = new AbortController();
+    audioQueueRef.current = controller;
+
     if (isCorrect) {
       setFeedback('✓ Çok iyi! Cevap doğru!');
       // Play correct answer audio - orijinal question_order kullan
       const correctPath = `/audios/sorular/correct-${storyId || 3}-q${question.originalQuestionOrder || question.questionNumber}.mp3`;
-      await playAudioFile(correctPath).catch(() => {
+      await playAudioFile(correctPath, controller.signal).catch(() => {
         // Fallback to success sound if audio file not found
         playSoundEffect('success');
       });
@@ -375,27 +495,34 @@ export default function L5Step1() {
       setFeedback(`✗ Maalesef yanlış. Doğru cevap: "${correctOptionText}"`);
       // Play wrong answer audio - orijinal question_order kullan
       const wrongPath = `/audios/sorular/wrong-${storyId || 3}-q${question.originalQuestionOrder || question.questionNumber}.mp3`;
-      await playAudioFile(wrongPath).catch(() => {
+      await playAudioFile(wrongPath, controller.signal).catch(() => {
         // Fallback to error sound if audio file not found
         playSoundEffect('error');
       });
     }
 
     setSelectedAnswer(null);
+    setIsSubmitting(false); // Reset submitting state after feedback audio
 
+    // Wait 2 seconds then move to next question
     setTimeout(async () => {
       if (currentQuestion < questions.length - 1) {
         const nextQuestionIdx = currentQuestion + 1;
         setCurrentQuestion(nextQuestionIdx);
         setFeedback('');
         
+        // Create new AbortController for next question audio
+        const nextController = new AbortController();
+        audioQueueRef.current = nextController;
+        
         // Play next question audio and options
         const nextQuestion = questions[nextQuestionIdx];
         if (nextQuestion && nextQuestion.originalQuestionOrder) {
-          await playQuestionAudio(nextQuestion);
+          await playQuestionAudio(nextQuestion, nextController.signal);
           // Şıkları da seslendir
           for (let i = 0; i < nextQuestion.options.length; i++) {
-            await playOptionAudio(nextQuestion, i);
+            if (nextController.signal.aborted) break;
+            await playOptionAudio(nextQuestion, i, nextController.signal);
           }
         } else {
           console.error('Invalid nextQuestion:', nextQuestion);
@@ -462,7 +589,14 @@ export default function L5Step1() {
                 Beşinci seviyeye geçiyoruz. Şimdi sana metinle ilgili {questions.length} tane okuduğunu anlama sorusu soracağım ve cevaplarının doğruluğunu kontrol edeceğim. Sen cevap vermeden diğer soruya geçmeyeceğim. Başlıyorum.
               </p>
             </div>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
+              {testAudioActive && (
+                <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                  <TestTube className="w-4 h-4" />
+                  <span>🧪 Test modu: Hazır ses kullanılacak</span>
+                </div>
+              )}
+              
               <button 
                 onClick={startFlow} 
                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
@@ -500,12 +634,19 @@ export default function L5Step1() {
               </h4>
               <button
                 onClick={async () => {
+                  // Cancel any previous audio
+                  stopCurrentAudio();
+                  
+                  const controller = new AbortController();
+                  audioQueueRef.current = controller;
+                  
                   const currentQ = questions[currentQuestion];
                   if (currentQ && currentQ.originalQuestionOrder) {
-                    await playQuestionAudio(currentQ);
+                    await playQuestionAudio(currentQ, controller.signal);
                     // Şıkları da seslendir
                     for (let i = 0; i < currentQ.options.length; i++) {
-                      await playOptionAudio(currentQ, i);
+                      if (controller.signal.aborted) break;
+                      await playOptionAudio(currentQ, i, controller.signal);
                     }
                   } else {
                     console.error('Invalid question in play button:', currentQ);
@@ -523,8 +664,10 @@ export default function L5Step1() {
                 <div
                   key={idx}
                   onClick={async () => {
-                    if (feedback !== '') return;
+                    if (feedback !== '' || isSubmitting) return;
                     setSelectedAnswer(idx);
+                    // Stop any currently playing audio before playing option
+                    stopCurrentAudio();
                     // Şık seslendirmesi
                     const currentQ = questions[currentQuestion];
                     if (currentQ && currentQ.originalQuestionOrder) {
@@ -541,7 +684,7 @@ export default function L5Step1() {
                       : feedback !== '' && idx === selectedAnswer
                       ? 'border-red-500 bg-red-50'
                       : 'border-gray-300 hover:border-purple-300 bg-white'
-                  } ${feedback !== '' ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                  } ${feedback !== '' || isSubmitting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -557,6 +700,7 @@ export default function L5Step1() {
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
+                        stopCurrentAudio();
                         const currentQ = questions[currentQuestion];
                         if (currentQ && currentQ.originalQuestionOrder) {
                           await playOptionAudio(currentQ, idx);
@@ -586,13 +730,22 @@ export default function L5Step1() {
 
             <button
               onClick={onSubmitAnswer}
-              disabled={selectedAnswer === null || feedback !== ''}
+              disabled={selectedAnswer === null || feedback !== '' || isSubmitting}
               className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold mt-6"
             >
-              Cevap Gönder
+              {isSubmitting ? '⏳ Gönderiliyor...' : 'Cevap Gönder'}
             </button>
           </div>
         </div>
+      )}
+
+      {/* Badge Animation */}
+      {newBadges.length > 0 && (
+        <BadgeAnimation 
+          badge={newBadges[0]} 
+          show={true}
+          onClose={clearNewBadges}
+        />
       )}
     </div>
   );

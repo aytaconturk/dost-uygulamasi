@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getApiBase, getApiEnv, setApiEnv, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
 import { supabase } from '../lib/supabase';
+import TestAudioManager from './TestAudioManager';
 
 const RECORDING_DURATION_KEY = 'voice_recording_duration_ms';
 const PLAYBACK_RATE_KEY = 'audio_playback_rate';
@@ -69,9 +71,18 @@ export function getRecordingDurationSync(): number {
   }
   try {
     const stored = localStorage.getItem(RECORDING_DURATION_KEY);
-    return stored ? parseInt(stored, 10) : 10000;
+    if (stored) {
+      const value = parseInt(stored, 10);
+      // Eski 10 saniye değeri varsa, yeni default'a (60 saniye) güncelle
+      if (value <= 10000) {
+        localStorage.setItem(RECORDING_DURATION_KEY, '60000');
+        return 60000;
+      }
+      return value;
+    }
+    return 60000;
   } catch {
-    return 10000;
+    return 60000;
   }
 }
 
@@ -202,10 +213,31 @@ interface Props {
 }
 
 export default function SidebarSettings({ open, onClose }: Props) {
+  const location = useLocation();
   const [env, setEnv] = useState<ApiEnv>(getApiEnv());
   const [appMode, setAppModeState] = useState<AppMode>(getAppMode());
   const [recordingDuration, setRecordingDurationState] = useState<number>(getRecordingDurationSync());
   const [playbackRate, setPlaybackRateState] = useState<number>(getPlaybackRate());
+
+  // URL'den story, level, step bilgilerini çıkar
+  const getCurrentContext = () => {
+    const path = location.pathname;
+    const searchParams = new URLSearchParams(location.search);
+    
+    // URL pattern: /level/:level/step/:step veya /story/:storyId
+    const levelMatch = path.match(/\/level\/(\d+)/);
+    const stepMatch = path.match(/\/step\/(\d+)/);
+    const storyMatch = path.match(/\/story\/(\d+)/);
+    
+    // Query params'dan da kontrol et
+    const storyIdParam = searchParams.get('storyId');
+    
+    return {
+      storyId: storyMatch ? parseInt(storyMatch[1]) : (storyIdParam ? parseInt(storyIdParam) : null),
+      level: levelMatch ? parseInt(levelMatch[1]) : null,
+      step: stepMatch ? parseInt(stepMatch[1]) : null,
+    };
+  };
 
   useEffect(() => {
     setEnv(getApiEnv());
@@ -304,7 +336,7 @@ export default function SidebarSettings({ open, onClose }: Props) {
               <input
                 type="number"
                 min="3"
-                max="60"
+                max="300"
                 step="1"
                 value={recordingDuration / 1000}
                 onChange={(e) => handleRecordingDurationChange({ ...e, target: { ...e.target, value: String(parseInt(e.target.value, 10) * 1000) } } as any)}
@@ -346,6 +378,17 @@ export default function SidebarSettings({ open, onClose }: Props) {
               </div>
             </div>
 
+            <hr className="my-4" />
+
+            <TypographySettings />
+
+            <hr className="my-4" />
+
+            <TestAudioManager 
+              initialStoryId={getCurrentContext().storyId}
+              initialLevel={getCurrentContext().level}
+              initialStep={getCurrentContext().step}
+            />
           </aside>
         </div>
       )}

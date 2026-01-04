@@ -156,7 +156,7 @@ const FALLBACK_STORIES: Record<number, Paragraph[]> = {
     ],
     [
       { text: 'Son olarak hurmanın çevreye etkisine bakalım. ' },
-      { text: 'Hurma ağacının yaprak ve gövdesiyle çeşitli eşyalar yap��lır.', bold: true },
+      { text: 'Hurma ağacının yaprak ve gövdesiyle çeşitli eşyalar yapılır.', bold: true },
       { text: ' Hurma meyvesi çok faydalıdır; en önemli yararlarından biri ', },
       { text: 'kemikleri güçlendirmesidir.', bold: true },
       { text: ' Hurma meyvesi ise, beynimizin ve kalbimizin sağlığı için çok faydalıdır.', bold: true },

@@ -9,13 +9,11 @@ import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { useStepContext } from '../../contexts/StepContext';
 
-const STORY_ID = 2;
-
 export default function Level2Step3() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
 
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
@@ -56,7 +54,7 @@ export default function Level2Step3() {
         <div className="text-center">
           <p className="text-xl text-gray-700 mb-4">Henüz okuma analizi sonucu yok.</p>
           <button
-            onClick={() => navigate('/level/2/step/1')}
+            onClick={() => navigate(`/level/2/step/1?storyId=${storyId}`)}
             className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-bold"
           >
             Geri Dön
@@ -66,7 +64,7 @@ export default function Level2Step3() {
     );
   }
 
-  const baseWpm = analysisResult.readingSpeed?.wordsPerMinute || 0;
+  const baseWpm = Math.round(analysisResult.readingSpeed?.wordsPerMinute || 0);
   
   const goals = [
     { percentage: 5, wpm: Math.ceil(baseWpm * 1.05), label: '%5 Artış' },
@@ -109,9 +107,12 @@ export default function Level2Step3() {
 
     try {
       // Call API to get audio feedback
+      // ⚠️ n8n workflow "studentId" alanını bekliyor
+      // Değer olarak sessionId gönderiliyor (her session için unique)
+      // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const apiResponse = await submitReadingGoalSelection({
-        studentId: student.id,
-        storyId: STORY_ID,
+        studentId: sessionId || `anon-${Date.now()}`,
+        storyId: storyId,
         level: 2,
         step: 3,
         targetWpm: wpm,
@@ -122,7 +123,7 @@ export default function Level2Step3() {
       // Save to Supabase
       const result = await insertReadingGoal(
         student.id,
-        STORY_ID,
+        storyId,
         2,
         wpm,
         percentage,
@@ -138,7 +139,7 @@ export default function Level2Step3() {
       dispatch(setSelectedGoal({ goal: wpm, percentage }));
 
       // Show feedback
-      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefime ulaşıp ula��amadığına yönelik geri bildirim vereceğim.`;
+      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefime ulaşamadığına yönelik geri bildirim vereceğim.`;
       setFeedbackText(feedback);
       setShowFeedback(true);
 
@@ -205,7 +206,7 @@ export default function Level2Step3() {
             <h4 className="font-bold text-green-900 mb-4 text-xl">✅ DOST'un Mesajı</h4>
             <p className="text-gray-800 text-lg mb-6 whitespace-pre-line leading-relaxed">{feedbackText}</p>
             <button
-              onClick={() => navigate('/level/2/step/4')}
+              onClick={() => navigate(`/level/2/step/4?storyId=${storyId}`)}
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
             >
               Devam Et →

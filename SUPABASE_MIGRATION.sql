@@ -344,3 +344,66 @@ COMMENT ON TABLE public.scores IS 'Tüm puanlar - quiz, okuma hızı, anlama, vs
 COMMENT ON TABLE public.points_history IS 'Öğrencilerin kazandığı puanların detaylı geçmişi - her seviye tamamlandığında kaydedilir';
 COMMENT ON TABLE public.student_actions IS 'Öğrenci hareketleri - buton tıklamaları, adım geçişleri, vs.';
 
+-- ===== 11. BADGE SYSTEM TABLES =====
+
+-- Badges tablosu (rozet tanımları)
+CREATE TABLE IF NOT EXISTS public.badges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  badge_key TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  badge_type TEXT NOT NULL CHECK (badge_type IN ('level', 'achievement', 'special')),
+  level_number INTEGER,
+  tier TEXT NOT NULL CHECK (tier IN ('bronze', 'silver', 'gold', 'platinum')),
+  icon_url TEXT NOT NULL,
+  criteria JSONB NOT NULL,
+  points_reward INTEGER DEFAULT 0,
+  display_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Student badges tablosu (öğrencilerin kazandığı rozetler)
+CREATE TABLE IF NOT EXISTS public.student_badges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  badge_id UUID NOT NULL REFERENCES public.badges(id) ON DELETE CASCADE,
+  story_id INTEGER,
+  session_id UUID REFERENCES public.sessions(id) ON DELETE SET NULL,
+  earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  metadata JSONB,
+  UNIQUE(student_id, badge_id, story_id)
+);
+
+-- İndexler
+CREATE INDEX IF NOT EXISTS idx_badges_type ON public.badges(badge_type);
+CREATE INDEX IF NOT EXISTS idx_badges_tier ON public.badges(tier);
+CREATE INDEX IF NOT EXISTS idx_badges_level ON public.badges(level_number);
+CREATE INDEX IF NOT EXISTS idx_student_badges_student ON public.student_badges(student_id);
+CREATE INDEX IF NOT EXISTS idx_student_badges_badge ON public.student_badges(badge_id);
+CREATE INDEX IF NOT EXISTS idx_student_badges_earned_at ON public.student_badges(earned_at DESC);
+
+-- Badge tanımları
+INSERT INTO public.badges (badge_key, name, description, badge_type, level_number, tier, icon_url, criteria, points_reward, display_order) VALUES
+  ('level1_complete', 'İlk Adım', 'Level 1''i başarıyla tamamladın!', 'level', 1, 'bronze', '/badges/level1-bronze.svg', '{"required_level": 1}', 50, 1),
+  ('level2_complete', 'Hedef Belirleyici', 'Level 2''yi başarıyla tamamladın!', 'level', 2, 'silver', '/badges/level2-silver.svg', '{"required_level": 2}', 75, 2),
+  ('level3_complete', 'Hız Ustası', 'Level 3''ü başarıyla tamamladın!', 'level', 3, 'gold', '/badges/level3-gold.svg', '{"required_level": 3}', 100, 3),
+  ('level4_complete', 'Anlama Ustası', 'Level 4''ü başarıyla tamamladın!', 'level', 4, 'gold', '/badges/level4-gold.svg', '{"required_level": 4}', 125, 4),
+  ('level5_complete', 'Usta Okuyucu', 'Level 5''i başarıyla tamamladın!', 'level', 5, 'platinum', '/badges/level5-platinum.svg', '{"required_level": 5}', 150, 5),
+  ('speed_bronze', 'Hız Çırakı', '100+ kelime/dakika hızına ulaştın', 'achievement', NULL, 'bronze', '/badges/speed-bronze.svg', '{"min_wpm": 100}', 30, 10),
+  ('speed_silver', 'Hızlı Okuyucu', '150+ kelime/dakika hızına ulaştın', 'achievement', NULL, 'silver', '/badges/speed-silver.svg', '{"min_wpm": 150}', 50, 11),
+  ('speed_gold', 'Hız Efsanesi', '200+ kelime/dakika hızına ulaştın', 'achievement', NULL, 'gold', '/badges/speed-gold.svg', '{"min_wpm": 200}', 100, 12),
+  ('accuracy_silver', 'Doğruluk Uzmanı', '%85+ doğruluk oranına ulaştın', 'achievement', NULL, 'silver', '/badges/accuracy-silver.svg', '{"min_accuracy": 85}', 50, 20),
+  ('accuracy_gold', 'Mükemmel Okuyucu', '%95+ doğruluk oranına ulaştın', 'achievement', NULL, 'gold', '/badges/accuracy-gold.svg', '{"min_accuracy": 95}', 100, 21),
+  ('story_hero', 'Hikaye Kahramanı', 'Bir hikayenin tüm seviyelerini tamamladın', 'special', NULL, 'platinum', '/badges/story-hero.svg', '{"story_complete": true}', 200, 30),
+  ('goal_hunter', 'Hedef Avcısı', 'Belirlediğin okuma hedefine ulaştın', 'special', 3, 'gold', '/badges/goal-hunter.svg', '{"goal_achieved": true}', 75, 31),
+  ('perfect_quiz', 'Süper Beyin', 'Tüm anlama sorularını doğru cevapladın', 'special', 5, 'platinum', '/badges/perfect-quiz.svg', '{"perfect_score": true}', 150, 32)
+ON CONFLICT (badge_key) DO NOTHING;
+
+-- Comments
+COMMENT ON TABLE public.badges IS 'Rozet tanımları - çocukların kazanabileceği tüm rozetler';
+COMMENT ON TABLE public.student_badges IS 'Öğrencilerin kazandığı rozetler - koleksiyon';
+COMMENT ON COLUMN public.badges.criteria IS 'Kazanma koşulları JSON formatında: {"required_level": 1} veya {"min_wpm": 150}';
+COMMENT ON COLUMN public.student_badges.metadata IS 'Rozet kazanma anındaki metrikler: {"wpm": 155, "accuracy": 92, "time": 120}';
+

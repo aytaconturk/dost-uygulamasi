@@ -55,22 +55,22 @@ export default function Level2Step4() {
         {/* Reading Results Summary */}
         {analysisResult && (
           <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-blue-900 mb-4">📊 Okuma Sonu��ları</h3>
+            <h3 className="text-lg font-bold text-blue-900 mb-4">📊 Okuma Sonuçları</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-gray-600 mb-1">Genel Puan</p>
-                <p className="text-3xl font-bold text-blue-600">{analysisResult.overallScore}</p>
+                <p className="text-3xl font-bold text-blue-600">{Math.round(analysisResult.overallScore || 0)}</p>
               </div>
               <div className="bg-white p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-gray-600 mb-1">Okuma Hızı</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {analysisResult.readingSpeed?.wordsPerMinute || 0} sözcük/dakika
+                  {Math.round(analysisResult.readingSpeed?.wordsPerMinute || 0)} sözcük/dakika
                 </p>
               </div>
               <div className="bg-white p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-gray-600 mb-1">Doğru Sözcükler</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {analysisResult.readingSpeed?.correctWordsPerMinute || 0} sözcük/dakika
+                  {Math.round(analysisResult.readingSpeed?.correctWordsPerMinute || 0)} sözcük/dakika
                 </p>
               </div>
               <div className="bg-white p-4 rounded-lg border border-blue-200">

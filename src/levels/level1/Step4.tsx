@@ -23,7 +23,7 @@ export default function Step4() {
   const [categoryBasedMessage, setCategoryBasedMessage] = useState<string>('');
 
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted, storyId: contextStoryId } = useStepContext();
+  const { sessionId, onStepCompleted, storyId: contextStoryId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -192,7 +192,10 @@ export default function Step4() {
     try {
       const response: Level1ObjectiveAnalysisResponse = await analyzeObjectiveForStep4({
         stepNum: 4,
-        userId: currentStudent?.id || '',
+        // ⚠️ n8n workflow "userId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+        userId: sessionId || `anon-${Date.now()}`,
       });
 
       const text = 

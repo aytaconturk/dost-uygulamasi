@@ -24,7 +24,7 @@ export default function Step2() {
   const [showIntroText, setShowIntroText] = useState(true);
   const [story, setStory] = useState<{ id: number; title: string; description: string; image: string } | null>(null);
   const currentStudent = useSelector((state: RootState) => state.user.student);
-  const { onStepCompleted, storyId } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
@@ -70,8 +70,17 @@ export default function Step2() {
   useEffect(() => {
     if (!started || analysisText) return;
 
-    const safety = window.setTimeout(() => {
+    let analysisStarted = false;
+    
+    const startAnalysis = () => {
+      if (analysisStarted) return;
+      analysisStarted = true;
+      window.clearTimeout(safety);
       handleTitleAnalysis();
+    };
+
+    const safety = window.setTimeout(() => {
+      startAnalysis();
     }, 2000);
 
     if (audioRef.current) {
@@ -84,17 +93,17 @@ export default function Step2() {
             'ended',
             () => {
               setMascotState('listening');
-              handleTitleAnalysis();
+              startAnalysis();
             },
             { once: true }
           );
         })
         .catch(() => {
           setMascotState('listening');
-          handleTitleAnalysis();
+          startAnalysis();
         });
     } else {
-      handleTitleAnalysis();
+      startAnalysis();
     }
 
     return () => {
@@ -178,7 +187,10 @@ export default function Step2() {
     try {
       const response: Level1TitleAnalysisResponse = await analyzeTitleForStep2({
         stepNum: 2,
-        userId: currentStudent?.id || '',
+        // ⚠️ n8n workflow "userId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+        userId: sessionId || `anon-${Date.now()}`,
       });
 
       const text =
@@ -342,6 +354,9 @@ export default function Step2() {
                           window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any));
                         } catch {}
                       }}
+                      storyId={storyId}
+                      level={1}
+                      step={2}
                     />
                     {isProcessingVoice && (
                       <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>

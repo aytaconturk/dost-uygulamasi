@@ -4,6 +4,8 @@ import { useSelector } from 'react-redux';
 import { getStoryById, getStudentProgressByStory } from '../lib/supabase';
 import { supabase } from '../lib/supabase';
 import type { RootState } from '../store/store';
+import { useBadges } from '../hooks/useBadges';
+import BadgeAnimation from './BadgeAnimation';
 
 const LEVEL_TITLES: Record<number, string[]> = {
   1: [
@@ -38,6 +40,7 @@ export default function StoryCompletion() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
+  const sessionId = searchParams.get('sessionId') || undefined;
   // Get storyId from URL params first, fallback to searchParams
   const storyId = Number(id) || Number(searchParams.get('storyId')) || 1;
 
@@ -45,6 +48,8 @@ export default function StoryCompletion() {
   const [totalPoints, setTotalPoints] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [completedLevels, setCompletedLevels] = useState<number[]>([]);
+  const { checkForNewBadges, newBadges, clearNewBadges } = useBadges();
+  const [badgesChecked, setBadgesChecked] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -99,6 +104,32 @@ export default function StoryCompletion() {
 
     loadData();
   }, [student?.id, storyId]);
+
+  // Check for story hero badge when all 5 levels completed
+  useEffect(() => {
+    if (!student?.id || loading || badgesChecked) return;
+    if (completedLevels.length !== 5) return; // Only when all levels complete
+    
+    const checkStoryBadge = async () => {
+      try {
+        const earnedBadges = await checkForNewBadges(
+          storyId,
+          5,
+          sessionId,
+          { 
+            completedLevels,
+            storyCompleted: true
+          }
+        );
+        console.log(`🏆 Earned ${earnedBadges.length} badges on story completion`);
+        setBadgesChecked(true);
+      } catch (err) {
+        console.error('Error checking story badges:', err);
+      }
+    };
+
+    checkStoryBadge();
+  }, [student?.id, storyId, completedLevels, loading, sessionId, checkForNewBadges, badgesChecked]);
 
   // Listen for progress update events to refresh points
   useEffect(() => {
@@ -241,6 +272,15 @@ export default function StoryCompletion() {
           </div>
         </div>
       </div>
+
+      {/* Badge Animation */}
+      {newBadges.length > 0 && (
+        <BadgeAnimation 
+          badge={newBadges[0]} 
+          show={true}
+          onClose={clearNewBadges}
+        />
+      )}
 
       <style>{`
         @keyframes confetti-fall {

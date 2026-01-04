@@ -3,8 +3,7 @@ import { getComprehensionQuestions } from '../../data/stories';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
-
-const STORY_ID = 3;
+import { TestTube } from 'lucide-react';
 
 export default function L4Step3() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -13,12 +12,41 @@ export default function L4Step3() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [feedback, setFeedback] = useState<string>('');
-  const { onStepCompleted } = useStepContext();
+  const [testAudioActive, setTestAudioActive] = useState(false);
+  const { onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const questions = getComprehensionQuestions(STORY_ID);
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
+
+  const questions = getComprehensionQuestions(storyId);
 
   useEffect(() => {
     return () => { try { window.speechSynthesis.cancel(); } catch {} };
@@ -120,7 +148,15 @@ export default function L4Step3() {
       <div className="flex flex-col items-center justify-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-purple-800">3. Adım: Okuduğunu Anlama Soruları</h2>
         {!started && (
-          <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+          <div className="flex flex-col items-center gap-3">
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            <button onClick={startFlow} className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold">Başla</button>
+          </div>
         )}
       </div>
 

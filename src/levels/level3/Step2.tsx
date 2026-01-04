@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getParagraphs, paragraphToPlain } from '../../data/stories';
 import { insertReadingLog, getLatestReadingGoal } from '../../lib/supabase';
 import type { RootState } from '../../store/store';
@@ -8,7 +9,10 @@ import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
-import type { Level3Step2ApiResponse, Level3Step2AnalysisOutput } from '../../types/level3-step2';
+import { setStep2Analysis } from '../../store/level3Slice';
+import type { Level3Step2AnalysisResult } from '../../store/level3Slice';
+import { TestTube } from 'lucide-react';
+import { getTestAudioBlob } from '../../components/TestAudioManager';
 
 function countWords(text: string) {
   const m = text.trim().match(/\b\w+\b/gu);
@@ -16,17 +20,21 @@ function countWords(text: string) {
 }
 
 export default function L3Step2() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const student = useSelector((state: RootState) => state.user.student);
   const { sessionId, storyId, onStepCompleted } = useStepContext();
 
-  const story = { id: storyId, title: 'Çöl Şekerlemesi', image: '/src/assets/images/story3.png' };
+  // Story image dosyası dinamik olarak belirlenir
+  const storyImage = `/src/assets/images/story${storyId}.png`;
+  const story = { id: storyId, title: '', image: storyImage };
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
   const totalWords = useMemo(() => countWords(fullText), [fullText]);
-  const words = useMemo(() => fullText.split(/\s+/).filter(w => w.length > 0), [fullText]);
 
   const [targetWPM, setTargetWPM] = useState<number>(80);
-  const [phase, setPhase] = useState<'intro'|'countdown'|'reading'|'done'>('intro');
+  const [phase, setPhase] = useState<'intro'|'countdown'|'reading'|'analyzing'|'done'>('intro');
   const [count, setCount] = useState(3);
   const startTimeRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -39,20 +47,51 @@ export default function L3Step2() {
   const streamRef = useRef<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(180); // 3 minutes default
+  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 dakika - paragrafın tamamını okuma için
   const [countdownStartTime, setCountdownStartTime] = useState<number | null>(null);
+  
+  // Analysis result state
+  const [analysisResult, setAnalysisResultLocal] = useState<Level3Step2AnalysisResult | null>(null);
   
   // Refs to prevent stale closure and race conditions
   const recordingMimeTypeRef = useRef<string>('audio/webm');
   const finishOnceRef = useRef<boolean>(false);
   const handleFinishRef = useRef<(() => Promise<void>) | null>(null);
+  const storyIdRef = useRef(storyId);
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [highlightedWordIdx, setHighlightedWordIdx] = useState<number | null>(null);
   const [introAudioEnded, setIntroAudioEnded] = useState(false);
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const appMode = getAppMode();
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Load target WPM from Supabase (from Level 2 reading goal)
   useEffect(() => {
@@ -169,6 +208,103 @@ export default function L3Step2() {
       setIntroAudioEnded(true);
     }
     
+    // Test audio aktifse, mikrofon açmadan direkt hazır sesi kullan
+    if (testAudioActive) {
+      console.log('🧪 Test modu aktif - hazır ses kullanılacak (Level 3 Step 2)');
+      
+      try {
+        const testBlob = await getTestAudioBlob(storyId, 3, 2);
+        
+        if (testBlob) {
+          console.log('✅ Test audio bulundu, analiz başlatılıyor...');
+          
+          // Analiz yapılıyor göster
+          setPhase('analyzing');
+          
+          // Reset guards for new recording
+          finishOnceRef.current = false;
+          startTimeRef.current = Date.now();
+          
+          // Test audio'yu base64'e çevir
+          const base64Audio = await blobToBase64(testBlob);
+          const mimeType = testBlob.type || 'audio/webm';
+          const elapsedMs = 60000; // Test için 60 saniye varsayılan
+          const elapsedSec = 60;
+          const wpm = Math.round((totalWords / elapsedSec) * 60);
+          
+          // API'ye gönder
+          const rawResponse = await submitReadingSpeedAnalysis({
+            userId: sessionId || `anon-${Date.now()}`,
+            audioFile: testBlob,
+            durationMs: elapsedMs,
+            hedefOkuma: targetWPM,
+            metin: fullText,
+            startTime: new Date(startTimeRef.current).toISOString(),
+            endTime: new Date().toISOString(),
+            mimeType: mimeType,
+            fileName: `test-recording.webm`,
+          });
+          
+          console.log('✅ Test audio analiz yanıtı:', rawResponse);
+          
+          // API yanıtını Level3Step2AnalysisResult formatına dönüştür
+          const apiResponse = rawResponse as any;
+          
+          const testResult: Level3Step2AnalysisResult = {
+            speedSummary: apiResponse.speedSummary || '',
+            hedefOkuma: apiResponse.hedefOkuma || targetWPM,
+            reachedTarget: apiResponse.reachedTarget || false,
+            analysisText: apiResponse.analysisText || '',
+            metrics: {
+              durationSec: apiResponse.metrics?.durationSec || elapsedSec,
+              durationMMSS: apiResponse.metrics?.durationMMSS || '1:00',
+              targetWordCount: apiResponse.metrics?.targetWordCount || totalWords,
+              spokenWordCount: apiResponse.metrics?.spokenWordCount || 0,
+              matchedWordCount: apiResponse.metrics?.matchedWordCount || 0,
+              accuracyPercent: apiResponse.metrics?.accuracyPercent || 0,
+              wpmSpoken: apiResponse.metrics?.wpmSpoken || wpm,
+              wpmCorrect: apiResponse.metrics?.wpmCorrect || 0,
+            },
+            coachText: apiResponse.coachText || '',
+            audioBase64: apiResponse.audioBase64,
+            transcriptText: apiResponse.transcriptText || '',
+            resumeUrl: apiResponse.resumeUrl,
+          };
+
+          // Redux'a kaydet
+          dispatch(setStep2Analysis(testResult));
+          
+          // Local state'e kaydet
+          setAnalysisResultLocal(testResult);
+          
+          if (student) {
+            const progressDelta = (testResult.metrics.wpmCorrect || wpm) - targetWPM;
+            await insertReadingLog(student.id, storyId, 3, testResult.metrics.wpmCorrect || wpm, totalWords, testResult.metrics.matchedWordCount || 0);
+            
+            if (onStepCompleted) {
+              await onStepCompleted({
+                totalWords,
+                elapsedSec,
+                wpm: testResult.metrics.wpmCorrect || wpm,
+                targetWPM,
+                analysis: testResult,
+                progressDelta,
+              });
+            }
+          }
+          
+          // Done fazına geç
+          setPhase('done');
+          
+          return; // Mikrofon açmadan çık
+        } else {
+          console.warn('⚠️ Test audio bulunamadı, normal akışa devam ediliyor');
+        }
+      } catch (err) {
+        console.error('❌ Test audio işleme hatası:', err);
+      }
+    }
+    
     setPhase('countdown');
     setCount(3);
     const id = setInterval(() => {
@@ -233,51 +369,6 @@ export default function L3Step2() {
     } catch (error) {
       console.error('Error accessing microphone:', error);
     }
-
-    // Start audio with highlight
-    startAudioWithHighlight();
-  };
-
-  const startAudioWithHighlight = async () => {
-    const el = audioRef.current;
-    if (!el) return;
-
-    try {
-      el.src = '/audios/level3/seviye-3-adim-2.mp3';
-      // Apply playback rate
-      el.playbackRate = getPlaybackRate();
-      // @ts-ignore
-      el.playsInline = true;
-      el.muted = false;
-
-      // Wait for metadata to get duration
-      el.addEventListener('loadedmetadata', () => {
-        setAudioDuration(el.duration);
-      }, { once: true });
-
-      el.addEventListener('play', () => setIsAudioPlaying(true));
-      el.addEventListener('pause', () => setIsAudioPlaying(false));
-      el.addEventListener('ended', () => setIsAudioPlaying(false));
-
-      // Sync highlighting with audio playback
-      const handleTimeUpdate = () => {
-        if (el.duration && words.length > 0) {
-          const progress = el.currentTime / el.duration;
-          const newIdx = Math.min(
-            Math.floor(progress * words.length),
-            words.length - 1
-          );
-          setHighlightedWordIdx(newIdx);
-        }
-      };
-
-      el.addEventListener('timeupdate', handleTimeUpdate);
-
-      await el.play();
-    } catch (err) {
-      console.error('Failed to play audio with highlight:', err);
-      playBeep();
-    }
   };
 
   // Timer countdown effect
@@ -308,6 +399,7 @@ export default function L3Step2() {
     if (!startTimeRef.current || !student) return;
 
     setIsRecording(false);
+    setPhase('analyzing'); // Analiz yapılıyor göster
 
     // Stop audio
     if (audioRef.current) {
@@ -359,6 +451,7 @@ export default function L3Step2() {
       const audioBlob = new Blob(audioChunksRef.current, { type: finalMime });
       
       console.log('🎤 Sending audio to n8n for analysis:', {
+        userId: sessionId,
         audioSize: audioBlob.size,
         mimeType: finalMime,
         duration: elapsedMs,
@@ -366,8 +459,11 @@ export default function L3Step2() {
       });
 
       // Send to n8n with metadata
+      // ⚠️ n8n workflow "userId" alanını bekliyor
+      // Değer olarak sessionId gönderiliyor (her session için unique)
+      // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const rawResponse = await submitReadingSpeedAnalysis({
-        userId: student.id,
+        userId: sessionId || `anon-${Date.now()}`,
         audioFile: audioBlob,
         durationMs: Math.round(elapsedMs),
         hedefOkuma: targetWPM,
@@ -380,80 +476,61 @@ export default function L3Step2() {
 
       console.log('✅ Received raw analysis from n8n:', rawResponse);
 
-      // Safe response parsing - handle various formats
-      let analysisOutput: Level3Step2AnalysisOutput | null = null;
+      // API yanıtını Level3Step2AnalysisResult formatına dönüştür
+      const apiResponse = rawResponse as any;
       
-      // Try parsing as structured response
-      const apiResponse = rawResponse as Level3Step2ApiResponse;
+      const result: Level3Step2AnalysisResult = {
+        speedSummary: apiResponse.speedSummary || '',
+        hedefOkuma: apiResponse.hedefOkuma || targetWPM,
+        reachedTarget: apiResponse.reachedTarget || false,
+        analysisText: apiResponse.analysisText || '',
+        metrics: {
+          durationSec: apiResponse.metrics?.durationSec || elapsedSec,
+          durationMMSS: apiResponse.metrics?.durationMMSS || `${Math.floor(elapsedSec / 60)}:${Math.floor(elapsedSec % 60).toString().padStart(2, '0')}`,
+          targetWordCount: apiResponse.metrics?.targetWordCount || totalWords,
+          spokenWordCount: apiResponse.metrics?.spokenWordCount || 0,
+          matchedWordCount: apiResponse.metrics?.matchedWordCount || 0,
+          accuracyPercent: apiResponse.metrics?.accuracyPercent || 0,
+          wpmSpoken: apiResponse.metrics?.wpmSpoken || wpm,
+          wpmCorrect: apiResponse.metrics?.wpmCorrect || 0,
+        },
+        coachText: apiResponse.coachText || '',
+        audioBase64: apiResponse.audioBase64,
+        transcriptText: apiResponse.transcriptText || '',
+        resumeUrl: apiResponse.resumeUrl,
+      };
+
+      console.log('📊 Parsed analysis result:', result);
+
+      // Redux'a kaydet - Step3 bu veriyi kullanacak
+      dispatch(setStep2Analysis(result));
       
-      if (apiResponse.output) {
-        analysisOutput = apiResponse.output;
-      } else if (apiResponse.ok !== false && apiResponse.userId) {
-        // Legacy format - convert to output structure
-        analysisOutput = {
-          userId: apiResponse.userId || student.id,
-          kidName: apiResponse.kidName || '',
-          title: apiResponse.title || story.title,
-          hedefOkuma: apiResponse.hedefOkuma || targetWPM,
-          speedSummary: apiResponse.speedSummary || '',
-          reachedTarget: apiResponse.reachedTarget || false,
-          analysisText: apiResponse.analysisText || '',
-          metrics: apiResponse.metrics || {
-            durationSec: elapsedSec,
-            durationMMSS: `${Math.floor(elapsedSec / 60)}:${Math.floor(elapsedSec % 60).toString().padStart(2, '0')}`,
-            targetWordCount: totalWords,
-            spokenWordCount: 0,
-            matchedWordCount: 0,
-            accuracyPercent: 0,
-            wpmSpoken: wpm,
-            wpmCorrect: 0,
-            wpmTarget: targetWPM,
-          },
-          coachText: apiResponse.coachText || '',
-          audioBase64: apiResponse.audioBase64,
-          transcriptText: apiResponse.transcriptText || '',
-          resumeUrl: apiResponse.resumeUrl,
-        };
-      } else if (typeof rawResponse === 'string') {
-        // Handle stringified JSON
-        try {
-          const parsed = JSON.parse(rawResponse);
-          analysisOutput = parsed.output || parsed;
-        } catch (e) {
-          console.error('Failed to parse stringified response:', e);
-        }
-      }
-
-      if (!analysisOutput) {
-        console.error('Could not parse analysis output from response:', rawResponse);
-        throw new Error('Invalid response format from n8n');
-      }
-
-      console.log('📊 Parsed analysis output:', analysisOutput);
+      // Local state'e kaydet - done sayfasında göstermek için
+      setAnalysisResultLocal(result);
 
       // Calculate progress delta
-      const progressDelta = (analysisOutput.metrics?.wpmCorrect || wpm) - targetWPM;
+      const progressDelta = (result.metrics.wpmCorrect || wpm) - targetWPM;
 
       // Save reading log to Supabase
-      await insertReadingLog(student.id, storyId, 3, wpm, totalWords, totalWords);
+      await insertReadingLog(student.id, storyId, 3, result.metrics.wpmCorrect || wpm, totalWords, result.metrics.matchedWordCount || 0);
 
       // Mark step as completed with full analysis
       if (onStepCompleted) {
         await onStepCompleted({
           totalWords,
           elapsedSec,
-          wpm,
+          wpm: result.metrics.wpmCorrect || wpm,
           targetWPM,
-          analysis: analysisOutput,
+          analysis: result,
           progressDelta,
         });
       }
+      
+      setPhase('done');
     } catch (err) {
       console.error('Failed to save reading data or get analysis:', err);
-      // Don't block user - still mark as done
+      setPhase('done'); // Hata olsa bile done'a geç
     }
-
-    setPhase('done');
   };
 
   // Keep handleFinishRef in sync with latest handleFinish
@@ -475,14 +552,23 @@ export default function L3Step2() {
           <div className="bg-white rounded-xl shadow p-5 w-full">
             <p className="text-gray-800 mb-6">Şimdi hedefine ulaşıp ulaşmadığını değerlendirmek için metni üçüncü kez okuyacaksın ben de senin okuma hızını belirleyeceğim. Bunun için seni yine bir görev bekliyor. Az sonra ekranda çıkacak olan başla butonuna basar basmaz metin karşına çıkacak sen de beklemeden tüm metni güzel okuma kurallarına uygun bir şekilde metni oku. Okuman bitince "Bitir" butonuna bas.</p>
           </div>
-          {(appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
-            <button 
-              onClick={startCountdown} 
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
-            >
-              Başla
-            </button>
-          )}
+          <div className="flex flex-col items-center gap-3">
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            
+            {(appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
+              <button 
+                onClick={startCountdown} 
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+              >
+                Başla
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -508,62 +594,69 @@ export default function L3Step2() {
                   </div>
                 </div>
               )}
-              {isAudioPlaying && (
-                <div className="p-3 bg-blue-100 border border-blue-300 rounded-lg">
-                  <p className="text-sm text-blue-800 font-semibold">🔊 DOST okuyor... Kelime harita takip et!</p>
-                </div>
-              )}
             </div>
             <div className="text-lg text-gray-800 leading-relaxed">
-              {paragraphs.map((p, i) => {
-                let wordCount = 0;
-                return (
-                  <p key={i} className="mt-3">
-                    {p.map((seg, j) => {
-                      const segWords = seg.text.split(/\s+/).filter(w => w.length > 0);
-                      const startIdx = wordCount;
-                      wordCount += segWords.length;
-
-                      return (
-                        <span key={j} className={seg.bold ? 'font-bold' : undefined}>
-                          {segWords.map((word, wIdx) => {
-                            const globalIdx = startIdx + wIdx;
-                            const isHighlighted = globalIdx === highlightedWordIdx;
-                            return (
-                              <span
-                                key={wIdx}
-                                className={`transition-all duration-150 ${
-                                  isHighlighted
-                                    ? 'bg-yellow-300 px-1 rounded font-bold scale-110 shadow-md'
-                                    : 'hover:bg-yellow-100'
-                                }`}
-                              >
-                                {word}{' '}
-                              </span>
-                            );
-                          })}
-                        </span>
-                      );
-                    })}
-                  </p>
-                );
-              })}
+              {paragraphs.map((p, i) => (
+                <p key={i} className="mt-3">
+                  {p.map((seg, j) => (
+                    <span key={j} className={seg.bold ? 'font-bold' : undefined}>
+                      {seg.text}{' '}
+                    </span>
+                  ))}
+                </p>
+              ))}
             </div>
-            <div className="mt-4 space-y-3">
-              <div className="text-sm text-gray-600">
-                {highlightedWordIdx !== null && (
-                  <p className="font-semibold">📍 Kelime: {highlightedWordIdx + 1}/{words.length}</p>
-                )}
-              </div>
+            <div className="mt-4">
               <button onClick={finishReading} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded">Bitir</button>
             </div>
           </div>
         </div>
       )}
 
+      {phase === 'analyzing' && (
+        <div className="w-full max-w-3xl mx-auto px-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-lg font-semibold text-gray-700">Okuma sonucu analiz ediliyor...</p>
+            <p className="text-sm text-gray-500 mt-2">Lütfen bekleyin</p>
+          </div>
+        </div>
+      )}
+
       {phase === 'done' && (
-        <div className="bg-blue-50 border border-blue-200 rounded p-4">
-          <p className="text-blue-800">Okuma tamamlandı. Bir sonraki adımda hızın ve hedefin değerlendirilecek.</p>
+        <div className="w-full max-w-3xl mx-auto px-4">
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+            {analysisResult ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="bg-green-50 border-2 border-green-400 rounded-xl p-6 text-center max-w-2xl w-full">
+                  <h4 className="font-bold text-green-900 mb-2 text-xl">✅ Okuma Tamamlandı!</h4>
+                  <p className="text-gray-700 mb-4">Sonuçlarını görmek için devam et butonuna tıkla.</p>
+                  <button
+                    onClick={() => {
+                      navigate(`/level/3/step/3?storyId=${storyId}`);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
+                  >
+                    Sonuçları Gör →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-6 text-center">
+                <h4 className="font-bold text-yellow-900 mb-2 text-xl">⚠️ Analiz tamamlanamadı</h4>
+                <p className="text-gray-700 mb-4">Bir hata oluştu. Lütfen tekrar deneyin.</p>
+                <button
+                  onClick={() => {
+                    finishOnceRef.current = false;
+                    setPhase('intro');
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"
+                >
+                  Tekrar Dene
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

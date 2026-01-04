@@ -10,9 +10,12 @@ import type { RootState, AppDispatch } from '../../store/store';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { TestTube } from 'lucide-react';
+import { getTestAudioBlob } from '../../components/TestAudioManager';
+import { getStoryById } from '../../lib/supabase';
+import { getStoryImageUrl } from '../../lib/image-utils';
 
-const STORY_ID = 2;
-const TOTAL_SECONDS = 60;
+const TOTAL_SECONDS = 300; // 5 dakika - paragrafın tamamını okuma için
 
 // Turkish translations for quality metrics
 const QUALITY_METRIC_LABELS: Record<string, string> = {
@@ -27,15 +30,13 @@ const getApiEnv = () => {
 };
 
 export default function Level2Step1() {
-  const story = { id: STORY_ID, title: 'Avucumun İçindeki Akıllı Kutu' };
-  const storyText = getParagraphs(story.id)
-    .map(p => p.map(seg => seg.text).join(''))
-    .join(' ');
-
   const currentStudent = useSelector((state: RootState) => state.user.student);
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { onStepCompleted } = useStepContext();
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
+  
+  const [story, setStory] = useState<{ id: number; title: string; image?: string } | null>(null);
+  const [storyText, setStoryText] = useState<string>('');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -73,10 +74,89 @@ export default function Level2Step1() {
   const [timeUp, setTimeUp] = useState(false);
   const [beeped60, setBeeped60] = useState(false);
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
-
-  const paragraphs = getParagraphs(story.id);
-  const displayTitle = story.title;
+  const [testAudioActive, setTestAudioActive] = useState(false);
   const appMode = getAppMode();
+
+  // Load story data from Supabase
+  useEffect(() => {
+    const loadStory = async () => {
+      try {
+        const { data, error } = await getStoryById(storyId);
+        if (!error && data) {
+          setStory({ id: data.id, title: data.title, image: data.image });
+        } else {
+          // Fallback to default stories
+          const FALLBACK_STORIES: Record<number, { title: string; image: string }> = {
+            1: { title: 'Kırıntıların Kahramanları', image: 'story1.png' },
+            2: { title: 'Avucumun İçindeki Akıllı Kutu', image: 'story2.png' },
+            3: { title: 'Hurma Ağacı', image: 'story3.png' },
+            4: { title: 'Akdeniz Bölgesi', image: 'story4.png' },
+            5: { title: 'Çöl Gemisi', image: 'story5.png' },
+          };
+          const fallback = FALLBACK_STORIES[storyId] || { title: `Hikaye ${storyId}`, image: 'story1.png' };
+          setStory({ id: storyId, title: fallback.title, image: fallback.image });
+        }
+      } catch (err) {
+        console.error('Error loading story:', err);
+        // Fallback
+        const FALLBACK_STORIES: Record<number, { title: string; image: string }> = {
+          1: { title: 'Kırıntıların Kahramanları', image: 'story1.png' },
+          2: { title: 'Avucumun İçindeki Akıllı Kutu', image: 'story2.png' },
+          3: { title: 'Hurma Ağacı', image: 'story3.png' },
+          4: { title: 'Akdeniz Bölgesi', image: 'story4.png' },
+          5: { title: 'Çöl Gemisi', image: 'story5.png' },
+        };
+        const fallback = FALLBACK_STORIES[storyId] || { title: `Hikaye ${storyId}`, image: 'story1.png' };
+        setStory({ id: storyId, title: fallback.title, image: fallback.image });
+      }
+    };
+
+    if (storyId) {
+      loadStory();
+    }
+  }, [storyId]);
+
+  // Load story text from paragraphs
+  useEffect(() => {
+    if (storyId) {
+      const paragraphs = getParagraphs(storyId);
+      const text = paragraphs
+        .map(p => p.map(seg => seg.text).join(''))
+        .join(' ');
+      setStoryText(text);
+    }
+  }, [storyId]);
+
+  const paragraphs = storyId ? getParagraphs(storyId) : [];
+  const displayTitle = story?.title || '';
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   // Play intro audio on component mount
   useEffect(() => {
@@ -172,7 +252,87 @@ export default function Level2Step1() {
       audioRef.current.currentTime = 0;
       setIntroAudioPlaying(false);
     }
-    // Play beep first
+    
+    // Test audio aktifse, mikrofon açma - direkt hazır sesi kullan
+    if (testAudioActive) {
+      console.log('🧪 Test modu aktif - hazır ses kullanılacak');
+      
+      try {
+        // IndexedDB'den test audio'yu al
+        const testBlob = await getTestAudioBlob(storyId, 2, 1);
+        
+        if (testBlob) {
+          console.log('✅ Test audio bulundu, analiz başlatılıyor...');
+          
+          if (!story || !storyText) {
+            console.error('Story not loaded yet');
+            return;
+          }
+          
+          // Direkt analiz ekranına geç
+          setStarted(true);
+          setReading(false);
+          setIsProcessing(true);
+          
+          // Test audio'yu base64'e çevir
+          const base64Audio = await blobToBase64(testBlob);
+          const mimeType = testBlob.type || 'audio/webm';
+          
+          // Varsayılan değerler
+          const wordsRead = storyText.split(/\s+/).length;
+          const elapsed = 30; // Test için varsayılan süre
+          const wpm = Math.ceil((wordsRead / elapsed) * 60);
+          
+          // API'ye gönder - aynı format kullan
+          const payload = {
+            studentId: sessionId || `anon-${Date.now()}`,
+            textTitle: story.title,
+            originalText: storyText,
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+            audio: {
+              base64: base64Audio,
+              mimeType: mimeType,
+              fileName: `test-recording.webm`
+            },
+            audioBase64: base64Audio,
+            selectedWordCount: wordsRead,
+          };
+          
+          setResult({ wordsRead, wpm, wordsPerSecond: wpm / 60 });
+          setIsUploading(true);
+          
+          try {
+            const response = await submitReadingAnalysis(payload) as Level2Step1ReadingAnalysisResponse;
+            
+            console.log('✅ Test audio analiz yanıtı:', response);
+            setAnalysis(response);
+            
+            if (onStepCompleted) {
+              await onStepCompleted({
+                wordsRead,
+                wpm,
+                wordsPerSecond: wpm / 60,
+                analysis: response
+              });
+            }
+          } catch (err) {
+            console.error('❌ Test audio analiz hatası:', err);
+          } finally {
+            setIsUploading(false);
+            setIsProcessing(false);
+          }
+          
+          return; // Mikrofon açmadan çık
+        } else {
+          console.warn('⚠️ Test audio bulunamadı, normal akışa devam ediliyor');
+        }
+      } catch (err) {
+        console.error('❌ Test audio alınamadı:', err);
+      }
+    }
+    
+    // Play beep first (sadece gerçek kayıt için)
     try {
       await playBeep();
     } catch (err) {
@@ -298,9 +458,19 @@ export default function Level2Step1() {
       // Use current ref value to avoid stale state
       const currentSelectedIndex = selectedWordIndexRef.current;
 
+      if (!story || !storyText) {
+        console.error('Story not loaded yet');
+        setIsProcessing(false);
+        setIsUploading(false);
+        return;
+      }
+
       // Send with correct field names expected by n8n backend
+      // ⚠️ n8n workflow "studentId" alanını bekliyor
+      // Değer olarak sessionId gönderiliyor (her session için unique)
+      // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
       const payload = {
-        studentId: currentStudent?.id || 'anonymous',
+        studentId: sessionId || `anon-${Date.now()}`,
         textTitle: story.title,
         originalText: storyText,
         startTime: recordingStartTime,
@@ -383,7 +553,15 @@ export default function Level2Step1() {
           <div className="bg-white rounded-xl shadow p-5 mb-6">
             <p className="text-gray-800 text-lg">{introText}</p>
           </div>
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3">
+            {/* Test Audio Aktif Göstergesi */}
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            
             {appMode === 'prod' && introAudioPlaying ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-4 border-green-500 border-t-transparent"></div>
@@ -410,17 +588,30 @@ export default function Level2Step1() {
 
           <div className="flex flex-col lg:flex-row gap-0">
             {/* Left sticky image */}
-            <div className="hidden lg:sticky lg:top-0 lg:w-1/4 lg:flex flex-col items-center justify-start p-4 h-screen overflow-y-auto flex-shrink-0">
-              <img src="https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story2.png" alt={displayTitle} className="w-full max-w-xs rounded-xl shadow-lg" />
-              <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{displayTitle}</h2>
-            </div>
+            {story && (
+              <div className="hidden lg:sticky lg:top-0 lg:w-1/4 lg:flex flex-col items-center justify-start p-4 h-screen overflow-y-auto flex-shrink-0">
+                <img 
+                  src={story.image ? getStoryImageUrl(story.image) : `https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images/story${storyId}.png`} 
+                  alt={displayTitle} 
+                  className="w-full max-w-xs rounded-xl shadow-lg" 
+                />
+                <h2 className="mt-4 text-2xl font-bold text-purple-800 text-center">{displayTitle}</h2>
+              </div>
+            )}
 
             {/* Center text */}
             <div className="flex-1 bg-white shadow p-6 leading-relaxed text-gray-800">
-              <div className={`text-lg leading-relaxed space-y-4 ${timeUp || isProcessing ? 'blur-sm' : ''}`}>
-                {(() => {
-                  let globalIndex = -1;
-                  return paragraphs.map((para, pIdx) => (
+              {!story && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+                  <p className="text-gray-600">Hikaye yükleniyor...</p>
+                </div>
+              )}
+              {story && (
+                <div className={`text-lg leading-relaxed space-y-4 ${timeUp || isProcessing ? 'blur-sm' : ''}`}>
+                  {(() => {
+                    let globalIndex = -1;
+                    return paragraphs.map((para, pIdx) => (
                     <p key={pIdx}>
                       {para.map((seg, sIdx) => {
                         const words = seg.text.split(/\s+/).filter(Boolean);
@@ -444,8 +635,9 @@ export default function Level2Step1() {
                       })}
                     </p>
                   ));
-                })()}
-              </div>
+                  })()}
+                </div>
+              )}
               {timeUp && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="absolute inset-0 bg-white/70 rounded-xl"></div>
@@ -541,7 +733,7 @@ export default function Level2Step1() {
                       dispatch(setAnalysisResult(resultData));
                       
                       setTimeout(() => {
-                        navigate('/level/2/step/2');
+                        navigate(`/level/2/step/2?storyId=${storyId}`);
                       }, 100);
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-bold text-lg transition"

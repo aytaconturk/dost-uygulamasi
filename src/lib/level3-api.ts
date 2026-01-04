@@ -31,6 +31,12 @@ function toFormData(payload: Record<string, any>): FormData {
   return fd;
 }
 
+/**
+ * Level 3 Step 1 - Paragraf okuma API'si
+ * ⚠️ NOT: n8n workflow "studentId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function submitParagraphReading(
   request: Level3Step1Request
 ): Promise<Level3Step1Response> {
@@ -39,7 +45,12 @@ export async function submitParagraphReading(
     ...request,
     audioBase64: request.audioBase64 ? `${request.audioBase64.substring(0, 50)}... (${request.audioBase64.length} chars)` : request.audioBase64
   };
-  console.log('📤 Sending Level 3 Step 1 request (first paragraph):', JSON.stringify(requestForLog, null, 2));
+  console.log('📤 Sending Level 3 Step 1 request (first paragraph):', {
+    studentId: request.studentId, // ⚠️ Aslında sessionId değeri - n8n "studentId" bekliyor
+    paragrafNo: request.paragrafNo,
+    isLatestParagraf: request.isLatestParagraf,
+    audioBase64Length: request.audioBase64?.length || 0,
+  });
   
   const response = await axios.post<Level3Step1Response>(
     `${getApiBase()}/dost/level3/step1`,
@@ -62,6 +73,12 @@ export async function submitParagraphReading(
   return response.data;
 }
 
+/**
+ * Level 3 Step 1 - Resume response (sonraki paragraflar için)
+ * ⚠️ NOT: n8n workflow "studentId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function getResumeResponse(
   resumeUrl: string,
   request: Level3Step1Request
@@ -71,6 +88,7 @@ export async function getResumeResponse(
   const finalUrl = resumeUrl;
   
   const payload = {
+    // ⚠️ n8n "studentId" alanını bekliyor - değer olarak sessionId gönderiliyor
     studentId: request.studentId,
     paragrafText: request.paragrafText,
     audioBase64: request.audioBase64,
@@ -126,11 +144,17 @@ export async function getResumeResponse(
   }
 }
 
+/**
+ * Level 3 Step 2 - Okuma hızı analizi API'si
+ * ⚠️ NOT: n8n workflow "userId" alanını bekliyor
+ * Değer olarak sessionId gönderiliyor (her session için unique)
+ * Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
+ */
 export async function submitReadingSpeedAnalysis(
   request: Level3Step2Request
 ): Promise<Level3Step2Response> {
   console.log('📤 Sending Level 3 Step 2 request:', {
-    userId: request.userId,
+    userId: request.userId, // ⚠️ Aslında sessionId değeri - n8n "userId" bekliyor
     audioFileSize: request.audioFile.size,
     durationMs: request.durationMs,
     hedefOkuma: request.hedefOkuma,
@@ -142,6 +166,7 @@ export async function submitReadingSpeedAnalysis(
     // Use FormData to send audio file + metadata
     const formData = new FormData();
     formData.append('audioFile', request.audioFile, request.fileName || 'recording.webm');
+    // n8n "userId" alanını bekliyor, değer olarak sessionId gönderiliyor
     formData.append('userId', request.userId);
     formData.append('durationMs', String(request.durationMs));
     formData.append('hedefOkuma', String(request.hedefOkuma));
@@ -191,17 +216,28 @@ export async function submitReadingSpeedAnalysis(
 // Level 3 Step 2 - Reading Analysis (same as Level 2 Step 1)
 export async function submitLevel3ReadingAnalysis(
   request: {
+    sessionId: string;
     audioBase64: string;
     text: string;
     recordingStartTime: string;
     recordingEndTime: string;
     selectedWordCount: number;
-    userId: string;
+    userId?: string; // backward compat
   }
 ): Promise<any> {
+  console.log('📤 Sending Level 3 Reading Analysis:', {
+    sessionId: request.sessionId,
+    userId: request.userId,
+    textLength: request.text.length,
+    selectedWordCount: request.selectedWordCount,
+  });
   const response = await axios.post(
     `${getApiBase()}/dost/level3/step2`,
-    request,
+    {
+      ...request,
+      // Ensure sessionId is sent as primary
+      sessionId: request.sessionId,
+    },
     {
       headers: {
         'Content-Type': 'application/json',

@@ -1,0 +1,33 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="speed-silver-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C0C0C0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D3D3D3;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#speed-silver-bg)" filter="url(#shadow)"/>
+  
+  <!-- Inner circle -->
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#A0A0A0" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Lightning bolt -->
+  <path d="M64 25 L50 60 L60 60 L55 95 L80 50 L68 50 L78 25 Z" 
+        fill="#FFEAA7" stroke="#808080" stroke-width="2.5"/>
+  
+  <!-- Inner lightning detail -->
+  <path d="M64 30 L55 55 L62 55 L58 80 L73 48 L68 48 L74 30 Z" 
+        fill="#FFFFFF" opacity="0.6"/>
+  
+  <!-- Speed particles -->
+  <circle cx="35" cy="45" r="3" fill="#FFEAA7" opacity="0.7"/>
+  <circle cx="30" cy="60" r="2.5" fill="#FFEAA7" opacity="0.6"/>
+  <circle cx="28" cy="75" r="2" fill="#FFEAA7" opacity="0.5"/>
+  <circle cx="93" cy="50" r="3" fill="#FFEAA7" opacity="0.7"/>
+  <circle cx="98" cy="65" r="2.5" fill="#FFEAA7" opacity="0.6"/>
+  <circle cx="100" cy="80" r="2" fill="#FFEAA7" opacity="0.5"/>
+</svg>

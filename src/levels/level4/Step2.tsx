@@ -9,8 +9,7 @@ import { playTts } from '../../lib/playTts';
 import { submitSchemaSummary, getResumeResponseStep2 } from '../../lib/level4-api';
 import type { RootState } from '../../store/store';
 import { getRecordingDurationSync } from '../../components/SidebarSettings';
-
-const STORY_ID = 3;
+import { TestTube } from 'lucide-react';
 
 export default function L4Step2() {
   const student = useSelector((state: RootState) => state.user.student);
@@ -23,12 +22,42 @@ export default function L4Step2() {
   const [isPlayingResponse, setIsPlayingResponse] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [completedSections, setCompletedSections] = useState<Set<number>>(new Set());
-  const { onStepCompleted, storyId } = useStepContext();
+  const [testAudioActive, setTestAudioActive] = useState(false);
+  const [apiResponseText, setApiResponseText] = useState<string>('');
+  const { sessionId, onStepCompleted, storyId } = useStepContext();
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const schema = useMemo(() => getSchema(storyId || STORY_ID), [storyId]);
+  const schema = useMemo(() => getSchema(storyId), [storyId]);
+
+  // Test audio aktif mi kontrol et
+  useEffect(() => {
+    const checkTestAudio = () => {
+      const globalEnabled = localStorage.getItem('use_test_audio_global') === 'true';
+      setTestAudioActive(globalEnabled);
+    };
+
+    checkTestAudio();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'use_test_audio_global') {
+        checkTestAudio();
+      }
+    };
+
+    const handleCustomEvent = () => {
+      checkTestAudio();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('testAudioChanged', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('testAudioChanged', handleCustomEvent);
+    };
+  }, []);
 
   useEffect(() => {
     return () => { 
@@ -70,19 +99,8 @@ export default function L4Step2() {
       el.src = '';
       
       const section = schema.sections[currentSection];
-      // Dosya adını metinden türet (örn: "yaşayışları" -> "schema-yasayislari.mp3")
-      const titleWithoutNumber = section.title.replace(/^\d+\.\s*/, '').toLowerCase()
-        .replace(/ı/g, 'i')
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ş/g, 's')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c')
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      
-      const audioPath = `/audios/level4/schema-${titleWithoutNumber}.mp3`;
+      // Step 2 ses dosyaları: /audios/level4/adim2/schema-{storyId}-{sectionId}-prompt.mp3
+      const audioPath = `/audios/level4/adim2/schema-${storyId}-${section.id}-prompt.mp3`;
       
       console.log(`🎵 Playing prompt audio for section ${currentSection + 1}:`, audioPath);
       setIsPlayingPromptAudio(true);
@@ -232,7 +250,8 @@ export default function L4Step2() {
     try {
       const section = schema.sections[currentSection];
       // Step2'de sadece başlık gönderiliyor, içerik gösterilmiyor
-      const sectionText = section.title;
+      // n8n paragrafText field'ı bekliyor
+      const paragrafText = section.title;
       
       // Convert audio blob to base64
       const reader = new FileReader();
@@ -249,7 +268,7 @@ export default function L4Step2() {
       const isLastSection = currentSection === schema.sections.length - 1;
       
       console.log(`📤 Submitting section ${currentSection + 1}/${schema.sections.length} summary`, {
-        sectionNo: currentSection + 1,
+        paragrafNo: currentSection + 1,
         isLastSection,
         audioSize: audioBlob.size,
       });
@@ -257,23 +276,29 @@ export default function L4Step2() {
       let response;
       if (resumeUrl) {
         // Resume from n8n webhook wait
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         response = await getResumeResponseStep2(resumeUrl, {
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle: section.title,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       } else {
         // First section - initial webhook call
+        // ⚠️ n8n workflow "studentId" alanını bekliyor
+        // Değer olarak sessionId gönderiliyor (her session için unique)
+        // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
         response = await submitSchemaSummary({
-          studentId: student.id,
+          studentId: sessionId || `anon-${Date.now()}`,
           sectionTitle: section.title,
-          sectionText,
+          paragrafText, // n8n bu field'ı bekliyor
           audioBase64,
-          isLatestSection: isLastSection,
-          sectionNo: currentSection + 1,
+          isLatestParagraf: isLastSection, // n8n bu field'ı bekliyor
+          paragrafNo: currentSection + 1, // n8n bu field'ı bekliyor
         });
       }
 
@@ -285,6 +310,11 @@ export default function L4Step2() {
       // Store resume URL for next section
       if (response.resumeUrl) {
         setResumeUrl(response.resumeUrl);
+      }
+
+      // Show textAudio if available
+      if (response.textAudio) {
+        setApiResponseText(response.textAudio);
       }
 
       // Play n8n response audio
@@ -307,6 +337,7 @@ export default function L4Step2() {
       } else {
         // Auto-advance to next section
         setTimeout(() => {
+          setApiResponseText(''); // Clear previous response text
           setCurrentSection(currentSection + 1);
         }, 1000);
       }
@@ -370,6 +401,7 @@ export default function L4Step2() {
 
   const onNextSection = () => {
     if (currentSection < (schema?.sections.length || 0) - 1 && !isWaitingForRecording) {
+      setApiResponseText(''); // Clear previous response text
       setCurrentSection(currentSection + 1);
     }
   };
@@ -390,12 +422,21 @@ export default function L4Step2() {
       <div className="flex flex-col items-center justify-center gap-4 mb-6">
         <h2 className="text-2xl font-bold text-purple-800">2. Adım: Özetleme</h2>
         {!started && (
-          <button 
-            onClick={startFlow} 
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
-          >
-            Başla
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            {testAudioActive && (
+              <div className="px-4 py-2 bg-yellow-100 border border-yellow-300 rounded-lg text-sm text-yellow-800 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                <span>🧪 Test modu: Hazır ses kullanılacak</span>
+              </div>
+            )}
+            
+            <button 
+              onClick={startFlow} 
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
+            >
+              Başla
+            </button>
+          </div>
         )}
       </div>
 
@@ -464,12 +505,12 @@ export default function L4Step2() {
           </div>
 
           {/* Microphone/Response Card - Always visible when started */}
-          {(isPlayingPromptAudio || isWaitingForRecording || isProcessingResponse || isPlayingResponse) && (
-            <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-2 mt-3 z-50" 
+          {(isPlayingPromptAudio || isWaitingForRecording || isProcessingResponse || isPlayingResponse || apiResponseText) && (
+            <div className="sticky bottom-0 bg-white border-t-2 rounded-lg shadow-lg p-4 mt-3 z-50" 
                  style={{
-                   borderColor: isPlayingPromptAudio ? '#9CA3AF' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : '#10B981'
+                   borderColor: isPlayingPromptAudio ? '#9CA3AF' : isProcessingResponse || isPlayingResponse ? '#F59E0B' : apiResponseText ? '#3B82F6' : '#10B981'
                  }}>
-              {isPlayingPromptAudio && (
+              {isPlayingPromptAudio && !apiResponseText && (
                 <>
                   <p className="text-center mb-1 text-base font-bold text-gray-500">
                     🔊 DOST açıklama yapıyor...
@@ -481,12 +522,15 @@ export default function L4Step2() {
                       onSave={() => {}}
                       onPlayStart={() => {}}
                       compact={true}
+                      storyId={storyId}
+                      level={4}
+                      step={2}
                     />
                   </div>
                 </>
               )}
               
-              {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !isPlayingPromptAudio && (
+              {isWaitingForRecording && !isProcessingResponse && !isPlayingResponse && !apiResponseText && !isPlayingPromptAudio && (
                 <>
                   <p className="text-center mb-1 text-base font-bold text-green-700">
                     🎤 Şimdi sıra sende! Mikrofona konuş
@@ -502,12 +546,15 @@ export default function L4Step2() {
                         } catch {}
                       }}
                       compact={true}
+                      storyId={storyId}
+                      level={4}
+                      step={2}
                     />
                   </div>
                 </>
               )}
               
-              {(isProcessingResponse || isPlayingResponse) && (
+              {(isProcessingResponse || isPlayingResponse) && !apiResponseText && (
                 <div className="text-center">
                   <div className="flex flex-col items-center gap-2">
                     <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent"></div>
@@ -515,6 +562,13 @@ export default function L4Step2() {
                       {isProcessingResponse ? '⏳ DOST değerlendiriyor...' : '🔊 DOST geri bildirim veriyor...'}
                     </p>
                   </div>
+                </div>
+              )}
+
+              {apiResponseText && (
+                <div>
+                  <h4 className="font-bold text-blue-800 mb-2 text-center">🤖 DOST'un Yanıtı:</h4>
+                  <p className="text-blue-700 text-center">{apiResponseText}</p>
                 </div>
               )}
             </div>
