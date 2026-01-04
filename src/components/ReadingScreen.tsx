@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getApiBase } from '../lib/api';
 import { motion } from 'framer-motion';
+import { getStoryImageUrl } from '../lib/image-utils';
 
 interface Story {
     id: number;
@@ -255,7 +256,7 @@ export default function ReadingScreen({ stories }: Props) {
                     </button>
 
                     <img
-                        src={story.image}
+                        src={getStoryImageUrl(story.image)}
                         alt={story.title}
                         className="w-64 md:w-80 rounded shadow"
                     />

@@ -31,12 +31,31 @@ export const getApiBase = () => {
   return env === 'product' ? `${root}/webhook` : `${root}/webhook-test`;
 };
 
+/**
+ * Checks if the app is running on a production domain
+ */
+const isProductionDomain = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname;
+  // localhost, 127.0.0.1, 0.0.0.0 are development environments
+  return hostname !== 'localhost' && 
+         hostname !== '127.0.0.1' && 
+         hostname !== '0.0.0.0' && 
+         !hostname.includes('localhost');
+};
+
 export const getAppMode = (): AppMode => {
   try {
     const stored = localStorage.getItem(APP_MODE_KEY) as AppMode | null;
-    return stored === 'prod' ? 'prod' : 'dev';
+    // If explicitly set, use that value
+    if (stored === 'prod' || stored === 'dev') {
+      return stored;
+    }
+    // Default: production domain = prod mode, otherwise dev mode
+    return isProductionDomain() ? 'prod' : 'dev';
   } catch {
-    return 'dev';
+    // On error, check domain
+    return isProductionDomain() ? 'prod' : 'dev';
   }
 };
 

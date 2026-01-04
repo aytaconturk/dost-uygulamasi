@@ -6,6 +6,7 @@ import { insertReadingLog, getLatestReadingGoal } from '../../lib/supabase';
 import type { RootState } from '../../store/store';
 import { getAppMode } from '../../lib/api';
 import { useStepContext } from '../../contexts/StepContext';
+import { getStoryImageUrl } from '../../lib/image-utils';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
@@ -26,8 +27,8 @@ export default function L3Step2() {
   const student = useSelector((state: RootState) => state.user.student);
   const { sessionId, storyId, onStepCompleted } = useStepContext();
 
-  // Story image dosyası dinamik olarak belirlenir
-  const storyImage = `/src/assets/images/story${storyId}.png`;
+  // Story image dosyası dinamik olarak belirlenir (prod ve lokal için çalışır)
+  const storyImage = getStoryImageUrl(`/images/story${storyId}.png`);
   const story = { id: storyId, title: '', image: storyImage };
   const paragraphs = useMemo(() => getParagraphs(story.id), [story.id]);
   const fullText = useMemo(() => paragraphs.map(p => paragraphToPlain(p)).join(' '), [paragraphs]);
