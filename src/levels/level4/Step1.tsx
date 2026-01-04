@@ -141,11 +141,9 @@ export default function L4Step1() {
       if (!el) return;
 
       const section = schema.sections[currentSection];
-      // Önce schema-{storyId}-{sectionId}-prompt.mp3 formatını dene (mevcut dosyalar)
-      // Fallback: schema-{storyId}-{sectionId}.mp3
+      // Step 1 ses dosyaları: /audios/level4/adim1/schema-{storyId}-{sectionId}.mp3
       const audioPaths = [
-        `/audios/level4/schema-${storyId}-${section.id}-prompt.mp3`,
-        `/audios/level4/schema-${storyId}-${section.id}.mp3`
+        `/audios/level4/adim1/schema-${storyId}-${section.id}.mp3`
       ];
       
       console.log(`🎵 Playing section ${currentSection + 1} audio, trying:`, audioPaths);

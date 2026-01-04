@@ -98,19 +98,8 @@ export default function L4Step2() {
       el.src = '';
       
       const section = schema.sections[currentSection];
-      // Dosya adını metinden türet (örn: "yaşayışları" -> "schema-yasayislari.mp3")
-      const titleWithoutNumber = section.title.replace(/^\d+\.\s*/, '').toLowerCase()
-        .replace(/ı/g, 'i')
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ş/g, 's')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c')
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      
-      const audioPath = `/audios/level4/schema-${titleWithoutNumber}.mp3`;
+      // Step 2 ses dosyaları: /audios/level4/adim2/schema-{storyId}-{sectionId}-prompt.mp3
+      const audioPath = `/audios/level4/adim2/schema-${storyId}-${section.id}-prompt.mp3`;
       
       console.log(`🎵 Playing prompt audio for section ${currentSection + 1}:`, audioPath);
       setIsPlayingPromptAudio(true);
