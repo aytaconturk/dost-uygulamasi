@@ -22,19 +22,18 @@ import { applyTypography } from './lib/settings';
 import { setRole, setTeacher, setStudent } from './store/userSlice';
 import type { RootState, AppDispatch } from './store/store';
 import { getStories } from './lib/supabase';
-import story1Image from './assets/images/story1.png';
-import story2Image from './assets/images/story2.png';
-import story3Image from './assets/images/story3.png';
-import story4Image from './assets/images/story4.png';
-import story5Image from './assets/images/story5.png';
+import { getStoryImageUrl } from './lib/image-utils';
 
-// Map story IDs to their imported images
+// GitHub raw URL base for story images
+const GITHUB_IMAGE_BASE = 'https://raw.githubusercontent.com/aytaconturk/dost-api-assets/main/assets/images';
+
+// Map story IDs to their GitHub URLs
 const STORY_IMAGES: Record<number, string> = {
-  1: story1Image,
-  2: story2Image,
-  3: story3Image,
-  4: story4Image,
-  5: story5Image,
+  1: `${GITHUB_IMAGE_BASE}/story1.png`,
+  2: `${GITHUB_IMAGE_BASE}/story2.png`,
+  3: `${GITHUB_IMAGE_BASE}/story3.png`,
+  4: `${GITHUB_IMAGE_BASE}/story4.png`,
+  5: `${GITHUB_IMAGE_BASE}/story5.png`,
 };
 
 type Story = {
@@ -51,35 +50,35 @@ const FALLBACK_STORIES: Story[] = [
     id: 1,
     title: 'Kırıntıların Kahramanları',
     description: 'Karıncaların yaşamı, fiziksel özellikleri ve çevreye etkileri hakkında bilgi edinin.',
-    image: story1Image,
+    image: STORY_IMAGES[1],
     locked: false
   },
   {
     id: 2,
     title: 'Avucumun İçindeki Akıllı Kutu',
     description: 'Akıllı telefonların kullanım amaçları, çalışma prensipleri ve üretim süreçleri.',
-    image: story2Image,
+    image: STORY_IMAGES[2],
     locked: false
   },
   {
     id: 3,
     title: 'Hurma Ağacı',
     description: 'Hurma ağacının yetişme koşulları, görünümü ve çevreye etkileri hakkında bilgiler.',
-    image: story3Image,
+    image: STORY_IMAGES[3],
     locked: false
   },
   {
     id: 4,
     title: 'Akdeniz Bölgesi',
     description: 'Akdeniz Bölgesi\'nin iklimi, bitki örtüsü, yeryüzü şekilleri ve ekonomik faaliyetleri.',
-    image: story4Image,
+    image: STORY_IMAGES[4],
     locked: false
   },
   {
     id: 5,
     title: 'Çöl Gemisi',
     description: 'Develerin yaşam koşulları, fiziksel özellikleri, beslenme ve çoğalma şekilleri.',
-    image: story5Image,
+    image: STORY_IMAGES[5],
     locked: false
   }
 ];
@@ -124,10 +123,10 @@ export default function App() {
                 if (error) throw error;
                 // If we got data from Supabase, use it with proper images
                 if (data && data.length > 0) {
-                    // Override images with locally imported ones (Supabase may have old paths)
+                    // Override images with GitHub URLs (ensure images work in all environments)
                     const storiesWithImages = data.map((story: Story) => ({
                         ...story,
-                        image: STORY_IMAGES[story.id] || story.image
+                        image: STORY_IMAGES[story.id] || getStoryImageUrl(story.image)
                     }));
                     setStories(storiesWithImages);
                 } else {

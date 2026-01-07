@@ -17,6 +17,7 @@ import type { Teacher, Student, ActivityLog } from '../lib/supabase-types';
 import { signOut } from '../lib/auth';
 import { clearUser } from '../store/userSlice';
 import type { AppDispatch } from '../store/store';
+import { getStoryImageUrl } from '../lib/image-utils';
 
 type TabType = 'teachers' | 'students' | 'logs' | 'stories' | 'settings';
 
@@ -917,7 +918,7 @@ function StoriesTab() {
           <div key={story.id} className="bg-white rounded-lg shadow overflow-hidden">
             {story.image && (
               <img
-                src={story.image}
+                src={getStoryImageUrl(story.image)}
                 alt={story.title}
                 className="w-full h-40 object-cover"
               />

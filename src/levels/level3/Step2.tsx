@@ -50,7 +50,7 @@ export default function L3Step2() {
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(300); // 5 dakika - paragrafın tamamını okuma için
   const [countdownStartTime, setCountdownStartTime] = useState<number | null>(null);
-  
+
   // Analysis result state
   const [analysisResult, setAnalysisResultLocal] = useState<Level3Step2AnalysisResult | null>(null);
   
@@ -384,7 +384,7 @@ export default function L3Step2() {
       if (remaining === 0) {
         // Use ref to avoid stale closure
         handleFinishRef.current?.();
-      }
+        }
     }, 100);
 
     return () => clearInterval(interval);
@@ -512,7 +512,7 @@ export default function L3Step2() {
       // Calculate progress delta
       const progressDelta = (result.metrics.wpmCorrect || wpm) - targetWPM;
 
-      // Save reading log to Supabase
+    // Save reading log to Supabase
       await insertReadingLog(student.id, storyId, 3, result.metrics.wpmCorrect || wpm, totalWords, result.metrics.matchedWordCount || 0);
 
       // Mark step as completed with full analysis
@@ -525,9 +525,9 @@ export default function L3Step2() {
           analysis: result,
           progressDelta,
         });
-      }
-      
-      setPhase('done');
+    }
+
+    setPhase('done');
     } catch (err) {
       console.error('Failed to save reading data or get analysis:', err);
       setPhase('done'); // Hata olsa bile done'a geç
@@ -593,18 +593,18 @@ export default function L3Step2() {
                       {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                     </div>
                   </div>
-                </div>
-              )}
+              </div>
+            )}
             </div>
             <div className="text-lg text-gray-800 leading-relaxed">
               {paragraphs.map((p, i) => (
-                <p key={i} className="mt-3">
+                  <p key={i} className="mt-3">
                   {p.map((seg, j) => (
-                    <span key={j} className={seg.bold ? 'font-bold' : undefined}>
+                        <span key={j} className={seg.bold ? 'font-bold' : undefined}>
                       {seg.text}{' '}
-                    </span>
+                              </span>
                   ))}
-                </p>
+                  </p>
               ))}
             </div>
             <div className="mt-4">

@@ -95,7 +95,7 @@ export default function L3Step3() {
         </div>
       </div>
     );
-  }
+    }
 
   const { metrics, reachedTarget, analysisText, coachText, speedSummary, hedefOkuma, transcriptText } = step2Analysis;
 
@@ -182,7 +182,7 @@ export default function L3Step3() {
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 max-w-3xl mx-auto">
             <h4 className="font-bold text-gray-900 mb-2">📝 Okunan Metin (Transkript)</h4>
             <p className="text-gray-700 italic text-sm leading-relaxed">"{transcriptText}"</p>
-          </div>
+      </div>
         )}
       </div>
 
