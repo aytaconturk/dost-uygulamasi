@@ -239,7 +239,7 @@ export default function App() {
     }
 
     return (
-        <Router>
+        <Router basename={import.meta.env.BASE_URL}>
             <div className="space-background min-h-screen bg-cover bg-center relative">
                 {/* Header */}
                 <Header stories={stories} />
