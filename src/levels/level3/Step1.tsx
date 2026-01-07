@@ -12,6 +12,7 @@ import { useStepContext } from '../../contexts/StepContext';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { TestTube } from 'lucide-react';
+import { getAssetUrl } from '../../lib/image-utils';
 
 export default function L3Step1() {
   const [searchParams] = useSearchParams();
@@ -100,8 +101,8 @@ export default function L3Step1() {
         return;
       }
 
-      console.log('🎵 Setting up intro audio:', '/audios/level3/seviye-3-adim-1.mp3');
-      el.src = '/audios/level3/seviye-3-adim-1.mp3';
+      console.log('🎵 Setting up intro audio:', getAssetUrl('audios/level3/seviye-3-adim-1.mp3'));
+      el.src = getAssetUrl('audios/level3/seviye-3-adim-1.mp3');
       (el as any).playsInline = true;
       el.muted = false;
       // Apply playback rate
@@ -217,7 +218,7 @@ export default function L3Step1() {
 
       try {
         setIsPlayingSiraSende(true);
-        el.src = '/audios/sira-sende-mikrofon.mp3';
+        el.src = getAssetUrl('audios/sira-sende-mikrofon.mp3');
         (el as any).playsInline = true;
         el.muted = false;
         // Apply playback rate

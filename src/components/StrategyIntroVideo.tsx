@@ -23,32 +23,48 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
     const video = videoRef.current;
     if (!video) return;
 
+    let loadTimeout: ReturnType<typeof setTimeout>;
+    let hasCompleted = false;
+
+    const completeOnce = () => {
+      if (!hasCompleted) {
+        hasCompleted = true;
+        clearTimeout(loadTimeout);
+        onComplete();
+      }
+    };
+
     const updateTime = () => setCurrentTime(video.currentTime);
     const updateDuration = () => {
       if (video.duration && !isNaN(video.duration)) {
         setDuration(video.duration);
         setIsLoading(false);
+        clearTimeout(loadTimeout);
       }
     };
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
     const handleEnded = () => {
       setIsPlaying(false);
-      onComplete();
+      completeOnce();
     };
     const handleLoadedData = () => {
       if (video.duration && !isNaN(video.duration)) {
         setDuration(video.duration);
         setIsLoading(false);
+        clearTimeout(loadTimeout);
       }
     };
     const handleError = (e: Event) => {
       console.error('Video error:', e);
-      setVideoError('Video yüklenirken bir hata oluştu.');
+      console.log('⚠️ Video yüklenemedi, otomatik olarak geçiliyor...');
+      // Video yüklenemezse otomatik olarak geç
       setIsLoading(false);
+      completeOnce();
     };
     const handleCanPlay = () => {
       setIsLoading(false);
+      clearTimeout(loadTimeout);
       if (video.duration && !isNaN(video.duration)) {
         setDuration(video.duration);
       }
@@ -66,7 +82,17 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
     // Try to load the video
     video.load();
 
+    // Timeout: 10 saniye içinde yüklenemezse otomatik geç
+    loadTimeout = setTimeout(() => {
+      if (!hasCompleted) {
+        console.log('⚠️ Video yükleme zaman aşımı, otomatik olarak geçiliyor...');
+        setIsLoading(false);
+        completeOnce();
+      }
+    }, 10000);
+
     return () => {
+      clearTimeout(loadTimeout);
       video.removeEventListener('timeupdate', updateTime);
       video.removeEventListener('loadedmetadata', updateDuration);
       video.removeEventListener('loadeddata', handleLoadedData);
@@ -174,7 +200,7 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover"
-                src="/videos/dost-okuma-stratejisi.mp4"
+                src={`${import.meta.env.BASE_URL}videos/dost-okuma-stratejisi.mp4`}
                 controls={false}
                 preload="metadata"
                 playsInline

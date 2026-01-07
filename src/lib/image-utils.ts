@@ -1,4 +1,14 @@
 /**
+ * Gets the base URL for assets (handles GitHub Pages subdirectory)
+ */
+export function getAssetUrl(path: string): string {
+  // Remove leading slash if present
+  const cleanPath = path.replace(/^\/+/, '');
+  const basePath = import.meta.env.BASE_URL || '/';
+  return `${basePath}${cleanPath}`;
+}
+
+/**
  * Extracts story ID from image path
  * @param imagePath - Image path like '/images/story1.png' or 'story1.png'
  * @returns Story ID or null if not found

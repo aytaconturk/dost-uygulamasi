@@ -5,7 +5,8 @@ interface Props {
 }
 
 export default function DostMascot({ mode }: Props) {
-  const imageSrc = mode === 'talking' ? '/dost/talking.gif' : '/dost/idle.png';
+  const basePath = import.meta.env.BASE_URL || '/';
+  const imageSrc = mode === 'talking' ? `${basePath}dost/talking.gif` : `${basePath}dost/idle.png`;
 
   return (
       <div className="absolute bottom-4 right-4 w-28 h-28">

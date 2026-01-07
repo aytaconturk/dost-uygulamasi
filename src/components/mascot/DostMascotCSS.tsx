@@ -14,18 +14,19 @@ interface Props {
 }
 
 export default function DostMascotCSS({ state, size = 160 }: Props) {
-  const [imageSrc, setImageSrc] = useState('/dost/idle.png');
+  const basePath = import.meta.env.BASE_URL || '/';
+  const [imageSrc, setImageSrc] = useState(`${basePath}dost/idle.png`);
 
   // State değiştiğinde görseli güncelle
   useEffect(() => {
     const imageMap: Record<MascotState, string> = {
-      idle: '/dost/idle.png',
-      talking: '/dost/talking.gif',
-      listening: '/dost/listening.png', // Yeni görsel gerekli
-      celebrating: '/dost/celebrating.gif', // Yeni görsel gerekli
+      idle: `${basePath}dost/idle.png`,
+      talking: `${basePath}dost/talking.gif`,
+      listening: `${basePath}dost/listening.png`, // Yeni görsel gerekli
+      celebrating: `${basePath}dost/celebrating.gif`, // Yeni görsel gerekli
     };
     setImageSrc(imageMap[state]);
-  }, [state]);
+  }, [state, basePath]);
 
   // Her state için farklı animasyonlar
   const containerAnimations = {

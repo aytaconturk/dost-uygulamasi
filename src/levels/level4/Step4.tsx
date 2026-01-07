@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
+import { getAssetUrl } from '../../lib/image-utils';
 
 const completionText = 'Dolu şema üzerinden beyin fırtınası yapma ve yorumda bulunma, özetleme ve okuduğunu anlama soruları görevlerini gerçekleştirerek 4. Seviyemizi tamamladık seni tebrik ediyorum.';
 
@@ -10,7 +11,7 @@ export default function Step4() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
   const { onStepCompleted } = useStepContext();
-  const completionAudio = '/audios/level4/seviye-4-tamamlandi.mp3';
+  const completionAudio = getAssetUrl('audios/level4/seviye-4-tamamlandi.mp3');
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);

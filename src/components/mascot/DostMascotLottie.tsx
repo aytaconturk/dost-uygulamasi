@@ -19,13 +19,14 @@ export default function DostMascotLottie({ state, size = 280 }: Props) {
   const [animationData, setAnimationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const basePath = import.meta.env.BASE_URL || '/';
 
   // Lottie dosya yolları
   const lottieFiles: Record<MascotState, string> = {
-    idle: '/dost/lottie/idle.json',
-    talking: '/dost/lottie/talking.json',
-    listening: '/dost/lottie/listening.json',
-    celebrating: '/dost/lottie/celebrating.json',
+    idle: `${basePath}dost/lottie/idle.json`,
+    talking: `${basePath}dost/lottie/talking.json`,
+    listening: `${basePath}dost/lottie/listening.json`,
+    celebrating: `${basePath}dost/lottie/celebrating.json`,
   };
 
   // State değiştiğinde animasyonu yükle
@@ -68,7 +69,7 @@ export default function DostMascotLottie({ state, size = 280 }: Props) {
           
           const assetPromises = data.assets.map(async (asset: any) => {
             if (asset.p && asset.u !== undefined && asset.ty === undefined) {
-              const assetPath = (asset.u || '/dost/lottie/') + asset.p;
+              const assetPath = (asset.u || `${basePath}dost/lottie/`) + asset.p;
               console.log('🖼️ Asset yükleniyor:', assetPath);
               
               try {
@@ -90,7 +91,7 @@ export default function DostMascotLottie({ state, size = 280 }: Props) {
                 console.error('❌ Asset yükleme hatası:', asset.id, err);
                 // Hata durumunda path'i koru
                 if (!asset.u || asset.u === '') {
-                  asset.u = '/dost/lottie/';
+                  asset.u = `${basePath}dost/lottie/`;
                 }
               }
             }

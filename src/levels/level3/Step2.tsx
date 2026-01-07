@@ -6,7 +6,7 @@ import { insertReadingLog, getLatestReadingGoal } from '../../lib/supabase';
 import type { RootState } from '../../store/store';
 import { getAppMode } from '../../lib/api';
 import { useStepContext } from '../../contexts/StepContext';
-import { getStoryImageUrl } from '../../lib/image-utils';
+import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
@@ -132,7 +132,7 @@ export default function L3Step2() {
     if (!introAudioPlayed && phase === 'intro' && audioRef.current) {
       const playIntroAudio = async () => {
         try {
-          audioRef.current!.src = '/audios/level3/seviye-3-adim-2.mp3';
+          audioRef.current!.src = getAssetUrl('audios/level3/seviye-3-adim-2.mp3');
           audioRef.current!.playbackRate = getPlaybackRate();
           // @ts-ignore
           audioRef.current.playsInline = true;

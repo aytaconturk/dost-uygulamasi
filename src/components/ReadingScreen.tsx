@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getApiBase } from '../lib/api';
 import { motion } from 'framer-motion';
-import { getStoryImageUrl } from '../lib/image-utils';
+import { getStoryImageUrl, getAssetUrl } from '../lib/image-utils';
 
 interface Story {
     id: number;
@@ -33,28 +33,28 @@ export default function ReadingScreen({ stories }: Props) {
         {
             title: "1. Adım: Metnin görselini inceleme ve tahminde bulunma",
             text: "1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.",
-            audio: "/audio/1.seviye-1.adim.mp3",
+            audio: getAssetUrl("audio/1.seviye-1.adim.mp3"),
             prompt: "Görseli inceleyerek hikayenin ne hakkında olabileceğini tahmin et. Neler gözlemliyorsun?",
             type: "observation"
         },
         {
             title: "2. Adım: Metnin başlığını inceleme ve tahminde bulunma",
             text: "Şimdi metnin başlığını inceleyerek içeriğe yönelik tahminlerde bulunacağız.",
-            audio: "/audio/story1.mp3",
+            audio: getAssetUrl("audio/story1.mp3"),
             prompt: "Başlığa bakarak metnin ne hakkında olabileceğini tahmin et. Hangi ipuçlarını görüyorsun?",
             type: "baslik_tahmini"
         },
         {
             title: "3. Adım: Metnin içindeki cümlelerden bazılarını okuma ve tahminde bulunma",
             text: "Metinden seçilen bazı cümleleri okuyarak metnin konusu ve akışı hakkında tahminlerde bulunacağız.",
-            audio: "/audio/sampleSes.mp3",
+            audio: getAssetUrl("audio/sampleSes.mp3"),
             prompt: "Verilen cümleleri okuyup metnin konusu/akışı hakkında neler tahmin ediyorsun?",
             type: "cumle_tahmini"
         },
         {
             title: "4. Adım: Okuma amacı belirleme",
             text: "Metni okurken hangi amaçla okuyacağını belirleyeceksin; bu amaç okuma sürecini yönlendirecek.",
-            audio: "/audio/sampleSes.mp3",
+            audio: getAssetUrl("audio/sampleSes.mp3"),
             prompt: "Bu metni hangi amaçla okuyacaksın? Ne öğrenmek istiyorsun?",
             type: "okuma_amaci"
         }

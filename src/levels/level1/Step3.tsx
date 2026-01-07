@@ -13,7 +13,7 @@ import {
 } from '../../data/stories';
 import { useStepContext } from '../../contexts/StepContext';
 import { getStoryById } from '../../lib/supabase';
-import { getStoryImageUrl } from '../../lib/image-utils';
+import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 
@@ -67,7 +67,7 @@ export default function Step3() {
   const [firstSentences, setFirstSentences] = useState<string[]>([]);
   const [resumeUrl, setResumeUrl] = useState<string>('');
 
-  const stepAudio = '/audios/level1/seviye-1-adim-3-fable.mp3';
+  const stepAudio = getAssetUrl('audios/level1/seviye-1-adim-3-fable.mp3');
 
   const paragraphs = useMemo(() => story ? getParagraphs(story.id) : [], [story?.id]);
 

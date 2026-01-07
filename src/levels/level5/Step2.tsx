@@ -9,6 +9,7 @@ import PointsAnimation from '../../components/PointsAnimation';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import { generateRewardImage } from '../../lib/level5-api';
 import { Trophy, Image, Music, BookOpen, Award, Sparkles, Download, CheckCircle, Lock } from 'lucide-react';
+import { getAssetUrl } from '../../lib/image-utils';
 
 type Phase = 'loading' | 'result' | 'reward-select' | 'reward-recording' | 'reward-generating' | 'reward-ready';
 type GenerationStage = 'transcribing' | 'generating' | 'complete';
@@ -23,7 +24,7 @@ const REWARD_OPTIONS = [
     emoji: '🖼️',
     color: 'from-pink-500 to-rose-500',
     enabled: true,
-    audioPath: '/audios/level5/step2-image-intro.mp3'
+    audioPath: getAssetUrl('audios/level5/step2-image-intro.mp3')
   },
   {
     id: 'song',
@@ -69,12 +70,12 @@ const REWARD_OPTIONS = [
 
 // Statik ses dosyaları
 const AUDIO_FILES = {
-  result: '/audios/level5/step2-result.mp3',
-  select: '/audios/level5/step2-select.mp3',
-  imageIntro: '/audios/level5/step2-image-intro.mp3',
-  recording: '/audios/level5/step2-recording.mp3',
-  generating: '/audios/level5/step2-generating.mp3',
-  ready: '/audios/level5/step2-ready.mp3',
+  result: getAssetUrl('audios/level5/step2-result.mp3'),
+  select: getAssetUrl('audios/level5/step2-select.mp3'),
+  imageIntro: getAssetUrl('audios/level5/step2-image-intro.mp3'),
+  recording: getAssetUrl('audios/level5/step2-recording.mp3'),
+  generating: getAssetUrl('audios/level5/step2-generating.mp3'),
+  ready: getAssetUrl('audios/level5/step2-ready.mp3'),
 };
 
 export default function L5Step2() {

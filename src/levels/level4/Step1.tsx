@@ -10,6 +10,7 @@ import type { RootState } from '../../store/store';
 import VoiceRecorder from '../../components/VoiceRecorder';
 import { getRecordingDurationSync } from '../../components/SidebarSettings';
 import { TestTube, Mic } from 'lucide-react';
+import { getAssetUrl } from '../../lib/image-utils';
 
 export default function L4Step1() {
   const student = useSelector((state: RootState) => state.user.student);
@@ -73,8 +74,8 @@ export default function L4Step1() {
         return;
       }
 
-      console.log('🎵 Setting up intro audio:', '/audios/level4/seviye-4-adim-1.mp3');
-      el.src = '/audios/level4/seviye-4-adim-1.mp3';
+      console.log('🎵 Setting up intro audio:', getAssetUrl('audios/level4/seviye-4-adim-1.mp3'));
+      el.src = getAssetUrl('audios/level4/seviye-4-adim-1.mp3');
       (el as any).playsInline = true;
       el.muted = false;
       el.playbackRate = getPlaybackRate();
@@ -209,7 +210,7 @@ export default function L4Step1() {
 
       try {
         setIsPlayingSiraSende(true);
-        el.src = '/audios/sira-sende-mikrofon.mp3';
+        el.src = getAssetUrl('audios/sira-sende-mikrofon.mp3');
         (el as any).playsInline = true;
         el.muted = false;
         el.playbackRate = getPlaybackRate();
