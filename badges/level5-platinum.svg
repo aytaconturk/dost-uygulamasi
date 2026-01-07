@@ -1,0 +1,46 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="platinum-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E5E4E2;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#B9F2FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E5E4E2;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+    <radialGradient id="shine5">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#platinum-bg)" filter="url(#shadow)"/>
+  
+  <!-- Shine effect -->
+  <circle cx="50" cy="45" r="30" fill="url(#shine5)"/>
+  
+  <!-- Diamond/Crown shape -->
+  <path d="M40 35 L64 30 L88 35 L92 55 L64 95 L36 55 Z" 
+        fill="none" stroke="#7EC8E3" stroke-width="3" opacity="0.7"/>
+  
+  <!-- Inner decorative elements -->
+  <circle cx="64" cy="64" r="48" fill="none" stroke="#7EC8E3" stroke-width="1.5" opacity="0.5"/>
+  <circle cx="64" cy="64" r="40" fill="none" stroke="#7EC8E3" stroke-width="1" opacity="0.5"/>
+  
+  <!-- Five stars around -->
+  <path d="M64 15 L67 25 L77 25 L69 31 L72 41 L64 35 L56 41 L59 31 L51 25 L61 25 Z" 
+        fill="#7EC8E3" stroke="#5A9FB8" stroke-width="1.5"/>
+  <path d="M25 50 L28 57 L35 57 L30 62 L32 69 L25 64 L18 69 L20 62 L15 57 L22 57 Z" 
+        fill="#7EC8E3" stroke="#5A9FB8" stroke-width="1"/>
+  <path d="M103 50 L106 57 L113 57 L108 62 L110 69 L103 64 L96 69 L98 62 L93 57 L100 57 Z" 
+        fill="#7EC8E3" stroke="#5A9FB8" stroke-width="1"/>
+  <path d="M38 95 L40 102 L47 102 L42 106 L44 113 L38 108 L32 113 L34 106 L29 102 L36 102 Z" 
+        fill="#7EC8E3" stroke="#5A9FB8" stroke-width="1"/>
+  <path d="M90 95 L92 102 L99 102 L94 106 L96 113 L90 108 L84 113 L86 106 L81 102 L88 102 Z" 
+        fill="#7EC8E3" stroke="#5A9FB8" stroke-width="1"/>
+  
+  <!-- Number 5 -->
+  <text x="64" y="75" font-family="Arial, sans-serif" font-size="40" font-weight="bold" 
+        fill="#5A9FB8" text-anchor="middle" stroke="#7EC8E3" stroke-width="2">5</text>
+</svg>

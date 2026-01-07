@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/dost-uygulamasi/sw.js', { scope: '/dost-uygulamasi/' })})}
