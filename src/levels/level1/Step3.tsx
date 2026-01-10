@@ -15,7 +15,7 @@ import { useStepContext } from '../../contexts/StepContext';
 import { getStoryById } from '../../lib/supabase';
 import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
-import { getPlaybackRate } from '../../components/SidebarSettings';
+import { getPlaybackRate, getRecordingDurationSync } from '../../components/SidebarSettings';
 
 export default function Step3() {
   const [story, setStory] = useState<{ id: number; title: string; image: string } | null>(null);
@@ -510,6 +510,8 @@ export default function Step3() {
                 </div>
                 <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
                 <VoiceRecorder 
+                  recordingDurationMs={getRecordingDurationSync()}
+                  autoSubmit={true}
                   onSave={handleVoiceSubmit} 
                   onPlayStart={() => { try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {} }} 
                   storyId={storyId}
