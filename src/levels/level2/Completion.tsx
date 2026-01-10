@@ -8,6 +8,7 @@ import { awardPoints, updateStudentProgressStep } from '../../lib/supabase';
 import { calculatePointsForLevel } from '../../lib/points';
 import PointsAnimation from '../../components/PointsAnimation';
 import type { RootState } from '../../store/store';
+import { getAssetUrl } from '../../lib/image-utils';
 
 export default function Level2Completion() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export default function Level2Completion() {
   const [earnedPoints, setEarnedPoints] = useState(0);
   const [hasAwardedPoints, setHasAwardedPoints] = useState(false);
   const student = useSelector((state: RootState) => state.user.student);
-  const completionAudio = '/src/assets/audios/level2/seviye-2-tamamlandi.mp3';
+  const completionAudio = getAssetUrl('audios/level2/seviye-2-tamamlandi.mp3');
   
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);

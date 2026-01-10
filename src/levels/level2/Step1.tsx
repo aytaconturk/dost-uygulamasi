@@ -13,7 +13,7 @@ import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { TestTube } from 'lucide-react';
 import { getTestAudioBlob } from '../../components/TestAudioManager';
 import { getStoryById } from '../../lib/supabase';
-import { getStoryImageUrl } from '../../lib/image-utils';
+import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
 
 const TOTAL_SECONDS = 300; // 5 dakika - paragrafın tamamını okuma için
 
@@ -163,7 +163,7 @@ export default function Level2Step1() {
     const playIntroAudio = async () => {
       try {
         if (audioRef.current) {
-          audioRef.current.src = '/src/assets/audios/level2/seviye-2-adim-1.mp3';
+          audioRef.current.src = getAssetUrl('audios/level2/seviye-2-adim-1.mp3');
           // Apply playback rate
           audioRef.current.playbackRate = getPlaybackRate();
           audioRef.current.play().then(() => {

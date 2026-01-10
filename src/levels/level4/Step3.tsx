@@ -4,6 +4,7 @@ import { useStepContext } from '../../contexts/StepContext';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { TestTube } from 'lucide-react';
+import { getAssetUrl } from '../../lib/image-utils';
 
 export default function L4Step3() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -83,7 +84,7 @@ export default function L4Step3() {
 
   const startFlow = async () => {
     setStarted(true);
-    await playAudio('/src/assets/audios/level4/level4-step3-intro.mp3');
+    await playAudio(getAssetUrl('audios/level4/level4-step3-intro.mp3'));
   };
 
   const onSubmitAnswer = async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TestTube } from 'lucide-react';
+import { getAssetUrl } from '../../lib/image-utils';
 
 export type CountdownProps = {
   onStart: () => void;
@@ -59,7 +60,7 @@ export default function Countdown({ onStart, onComplete, duration = 180 }: Count
   }, [counting, duration, onComplete]);
 
   const startCountdown = async () => {
-    const audioPath = '/src/assets/audios/level4/level4-step2-start.mp3';
+    const audioPath = getAssetUrl('audios/level4/level4-step2-start.mp3');
     const el = audioRef.current;
     if (el) {
       try {
