@@ -8,11 +8,12 @@ import type { RootState } from '../../store/store';
 import { useStepContext } from '../../contexts/StepContext';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getStoryById } from '../../lib/supabase';
-import { getStoryImageUrl } from '../../lib/image-utils';
+import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
 
 export default function Step2() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [started, setStarted] = useState(false);
+  const [introPlayed, setIntroPlayed] = useState(false); // Intro audio finished
+  const [started, setStarted] = useState(false); // User clicked "Başla"
   const [mascotState, setMascotState] = useState<'idle' | 'speaking' | 'listening'>('idle');
   const [analysisText, setAnalysisText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -29,7 +30,8 @@ export default function Step2() {
   // Apply playback rate to audio element
   useAudioPlaybackRate(audioRef);
 
-  const introAudio = '/src/assets/audios/level1/seviye-1-adim-2-fable.mp3';
+  // Correct audio path using getAssetUrl for GitHub Pages compatibility
+  const introAudio = getAssetUrl('audios/level1/seviye-1-adim-2-fable.mp3');
 
   // Load story data from Supabase
   useEffect(() => {
@@ -67,54 +69,51 @@ export default function Step2() {
     loadStory();
   }, [storyId]);
 
+  // Play intro audio when component mounts (before showing Başla button)
   useEffect(() => {
-    if (!started || analysisText) return;
-
-    let analysisStarted = false;
+    if (introPlayed) return; // Already played
     
-    const startAnalysis = () => {
-      if (analysisStarted) return;
-      analysisStarted = true;
-      window.clearTimeout(safety);
-      handleTitleAnalysis();
-    };
-
-    const safety = window.setTimeout(() => {
-      startAnalysis();
-    }, 2000);
-
-    if (audioRef.current) {
-      audioRef.current.src = introAudio;
-      setMascotState('speaking');
-      audioRef.current
-        .play()
-        .then(() => {
-          audioRef.current!.addEventListener(
-            'ended',
-            () => {
-              setMascotState('listening');
-              startAnalysis();
-            },
-            { once: true }
-          );
-        })
-        .catch(() => {
-          setMascotState('listening');
-          startAnalysis();
-        });
-    } else {
-      startAnalysis();
-    }
-
-    return () => {
-      window.clearTimeout(safety);
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        } catch {}
+    const playIntroAudio = async () => {
+      if (!audioRef.current) {
+        // If no audio element, just mark as played
+        setIntroPlayed(true);
+        return;
+      }
+      
+      try {
+        audioRef.current.src = introAudio;
+        audioRef.current.playbackRate = getPlaybackRate();
+        setMascotState('speaking');
+        
+        const handleEnded = () => {
+          setMascotState('idle');
+          setIntroPlayed(true);
+          audioRef.current?.removeEventListener('ended', handleEnded);
+        };
+        
+        audioRef.current.addEventListener('ended', handleEnded);
+        await audioRef.current.play();
+      } catch (err) {
+        console.error('Intro audio play error:', err);
+        // If audio fails, still show the button
+        setIntroPlayed(true);
       }
     };
+    
+    // Small delay to ensure audio element is ready
+    const timer = setTimeout(playIntroAudio, 300);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [introAudio, introPlayed]);
+
+  // When user clicks "Başla", start the analysis
+  useEffect(() => {
+    if (!started || analysisText) return;
+    
+    // Start title analysis
+    handleTitleAnalysis();
   }, [started, analysisText]);
 
   useEffect(() => {
@@ -130,9 +129,14 @@ export default function Step2() {
   }, []);
 
   const playAudioFromBase64 = async (base64: string) => {
-    if (!audioRef.current || !base64) return;
+    console.log('🔊 playAudioFromBase64 called, base64 length:', base64?.length || 0);
+    if (!audioRef.current || !base64) {
+      console.warn('⚠️ Audio ref or base64 missing');
+      return;
+    }
     const tryMime = async (mime: string) => {
       const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
+      console.log('🎵 Playing audio with mime:', mime);
       audioRef.current!.src = src;
       // Apply playback rate
       audioRef.current!.playbackRate = getPlaybackRate();
@@ -206,13 +210,23 @@ export default function Step2() {
       setShowIntroText(false);
       setResumeUrl(response.resumeUrl);
 
+      console.log('📥 API response received:', {
+        hasAudioBase64: !!response.audioBase64,
+        audioBase64Length: response.audioBase64?.length || 0,
+        text: text?.substring(0, 100) + '...',
+      });
+
       if (response.audioBase64) {
         try {
+          console.log('🔊 Attempting to play API response audio...');
           await playAudioFromBase64(response.audioBase64);
+          console.log('✅ Audio playback started');
         } catch (e) {
+          console.error('❌ Audio playback error:', e);
           setMascotState('listening');
         }
       } else {
+        console.log('⚠️ No audioBase64 in response');
         setMascotState('listening');
       }
     } catch (e) {
@@ -245,16 +259,26 @@ export default function Step2() {
 
       setChildrenVoiceResponse(responseText);
 
+      console.log('📥 Voice response received:', {
+        hasAudioBase64: !!response.audioBase64,
+        audioBase64Length: response.audioBase64?.length || 0,
+      });
+
       if (response.audioBase64) {
         try {
+          console.log('🔊 Attempting to play voice response audio...');
           await playAudioFromBase64(response.audioBase64);
+          console.log('✅ Voice response audio started');
         } catch (e) {
+          console.error('❌ Voice response audio error:', e);
           setMascotState('listening');
         }
       } else {
+        console.log('⚠️ No audioBase64 in voice response');
         setMascotState('listening');
       }
     } catch (e) {
+      console.error('❌ Voice submit error:', e);
       setChildrenVoiceResponse('');
       setMascotState('listening');
     } finally {
@@ -286,13 +310,25 @@ export default function Step2() {
             <p className="text-gray-700">
               Şimdi bu seviyenin ikinci basamağında metnin başlığını inceleyeceğiz ve başlıktan yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.
             </p>
+            
+            {/* Show speaking indicator while intro audio is playing */}
+            {!introPlayed && mascotState === 'speaking' && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-purple-600">
+                <div className="animate-pulse">🔊</div>
+                <span className="font-medium">DOST açıklıyor...</span>
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => setStarted(true)}
-            className="mt-6 bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
-          >
-            Başla
-          </button>
+          
+          {/* Show Başla button only after intro audio finishes */}
+          {introPlayed && (
+            <button
+              onClick={() => setStarted(true)}
+              className="mt-6 bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
+            >
+              Başla
+            </button>
+          )}
         </div>
       ) : (
         <div className="w-full max-w-6xl mx-auto px-4">

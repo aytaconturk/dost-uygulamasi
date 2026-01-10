@@ -13,12 +13,13 @@ import siraSendeAudio from '../../assets/audios/sira-sende-mikrofon.mp3';
 import { useAudioPlaybackRate, applyPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { getPlaybackRate } from '../../components/SidebarSettings';
 import { getStoryById } from '../../lib/supabase';
-import { getStoryImageUrl } from '../../lib/image-utils';
+import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
 
 export default function Step1() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const siraSendeAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [started, setStarted] = useState(false);
+  const [introPlayed, setIntroPlayed] = useState(false); // Intro audio finished
+  const [started, setStarted] = useState(false); // User clicked "Başla"
   const [mascotState, setMascotState] = useState<'idle' | 'speaking' | 'listening'>('idle');
   const [imageAnalysisText, setImageAnalysisText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -37,7 +38,8 @@ export default function Step1() {
   useAudioPlaybackRate(audioRef);
   useAudioPlaybackRate(siraSendeAudioRef);
 
-  const stepAudio = '/src/assets/audios/level1/seviye-1-adim-1-fable.mp3';
+  // Correct audio path using getAssetUrl for GitHub Pages compatibility
+  const stepAudio = getAssetUrl('audios/level1/seviye-1-adim-1-fable.mp3');
   const introText = '1. Seviye ile başlıyoruz. Bu seviyenin ilk basamağında metnin görselini inceleyeceğiz ve görselden yola çıkarak metnin içeriğine yönelik tahminde bulunacağız.';
 
   // Load story data from Supabase
@@ -79,31 +81,51 @@ export default function Step1() {
   // Use getStoryImageUrl to ensure the image URL works both locally and in production
   const displayedImage = story ? getStoryImageUrl(story.image) : '';
 
+  // Play intro audio when component mounts (before showing Başla button)
+  useEffect(() => {
+    if (introPlayed) return; // Already played
+    
+    const playIntroAudio = async () => {
+      if (!audioRef.current) {
+        // If no audio element, just mark as played
+        setIntroPlayed(true);
+        return;
+      }
+      
+      try {
+        audioRef.current.src = stepAudio;
+        audioRef.current.playbackRate = getPlaybackRate();
+        setMascotState('speaking');
+        
+        const handleEnded = () => {
+          setMascotState('idle');
+          setIntroPlayed(true);
+          audioRef.current?.removeEventListener('ended', handleEnded);
+        };
+        
+        audioRef.current.addEventListener('ended', handleEnded);
+        await audioRef.current.play();
+      } catch (err) {
+        console.error('Intro audio play error:', err);
+        // If audio fails, still show the button
+        setIntroPlayed(true);
+      }
+    };
+    
+    // Small delay to ensure audio element is ready
+    const timer = setTimeout(playIntroAudio, 300);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [stepAudio, introPlayed]);
+
+  // When user clicks "Başla", start the image analysis
   useEffect(() => {
     if (!started || imageAnalysisText) return;
-
-    if (audioRef.current) {
-      audioRef.current.src = stepAudio;
-      setMascotState('speaking');
-      audioRef.current
-        .play()
-        .then(() => {
-          audioRef.current!.addEventListener(
-            'ended',
-            () => {
-              setMascotState('listening');
-              handleImageAnalysis();
-            },
-            { once: true }
-          );
-        })
-        .catch(() => {
-          setMascotState('listening');
-          handleImageAnalysis();
-        });
-    } else {
-      handleImageAnalysis();
-    }
+    
+    // Start image analysis
+    handleImageAnalysis();
   }, [started, imageAnalysisText]);
 
   // Play "sıra sende" audio when mascotState becomes 'listening' after API response
@@ -301,15 +323,32 @@ export default function Step1() {
 
       {!started ? (
         <div className="flex-1 flex flex-col items-center justify-center">
-          <h2 className="text-2xl font-semibold text-purple-800 mb-4 text-center max-w-2xl">
-            1. Adım: Metnin görselini inceleme ve tahminde bulunma
-          </h2>
-          <p className="text-lg text-gray-600 mb-6 text-center max-w-2xl">
-            {introText}
-          </p>
-          <button onClick={() => setStarted(true)} className="bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold">
-            Başla
-          </button>
+          <div className="bg-white rounded-xl shadow-lg border border-purple-200 p-6 max-w-2xl text-center">
+            <h2 className="text-2xl font-semibold text-purple-800 mb-2">
+              1. Adım: Metnin görselini inceleme ve tahminde bulunma
+            </h2>
+            <p className="text-gray-700">
+              {introText}
+            </p>
+            
+            {/* Show speaking indicator while intro audio is playing */}
+            {!introPlayed && mascotState === 'speaking' && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-purple-600">
+                <div className="animate-pulse">🔊</div>
+                <span className="font-medium">DOST açıklıyor...</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Show Başla button only after intro audio finishes */}
+          {introPlayed && (
+            <button
+              onClick={() => setStarted(true)}
+              className="mt-6 bg-purple-600 text-white px-8 py-4 rounded-full shadow-lg hover:bg-purple-700 transition text-xl font-bold"
+            >
+              Başla
+            </button>
+          )}
         </div>
       ) : (
         <motion.div
