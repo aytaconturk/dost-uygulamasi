@@ -18,6 +18,7 @@ import { signOut } from '../lib/auth';
 import { clearUser } from '../store/userSlice';
 import type { AppDispatch } from '../store/store';
 import { getStoryImageUrl } from '../lib/image-utils';
+import { getApiEnv, setApiEnv, getApiBase, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
 
 type TabType = 'teachers' | 'students' | 'logs' | 'stories' | 'settings';
 
@@ -1382,10 +1383,28 @@ function SettingsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // API Environment and App Mode state
+  const [apiEnv, setApiEnvState] = useState<ApiEnv>(getApiEnv());
+  const [appMode, setAppModeState] = useState<AppMode>(getAppMode());
 
   useEffect(() => {
     fetchSettings();
   }, []);
+  
+  const handleApiEnvChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newEnv = e.target.value as ApiEnv;
+    setApiEnvState(newEnv);
+    setApiEnv(newEnv);
+    setMessage({ type: 'success', text: `API ortamı "${newEnv}" olarak değiştirildi. Sayfayı yenileyebilirsiniz.` });
+  };
+  
+  const handleAppModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newMode = e.target.value as AppMode;
+    setAppModeState(newMode);
+    setAppMode(newMode);
+    setMessage({ type: 'success', text: `Çalışma modu "${newMode}" olarak değiştirildi.` });
+  };
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -1527,6 +1546,49 @@ function SettingsTab() {
       )}
 
       <div className="space-y-6">
+        {/* API Environment */}
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-4">🔧 Geliştirici Ayarları</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                API Ortamı
+              </label>
+              <select
+                value={apiEnv}
+                onChange={handleApiEnvChange}
+                className="w-full border border-gray-300 rounded-lg p-2"
+              >
+                <option value="test">Test (webhook-test)</option>
+                <option value="product">Production (webhook)</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-600">
+                Aktif: <span className="font-mono text-purple-700">{getApiBase()}</span>
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Çalışma Modu
+              </label>
+              <select
+                value={appMode}
+                onChange={handleAppModeChange}
+                className="w-full border border-gray-300 rounded-lg p-2"
+              >
+                <option value="dev">Dev (Hızlı Test)</option>
+                <option value="prod">Prod (Normal)</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-600">
+                {appMode === 'dev' ? '🔧 Sesleri atlayabilir, hızlı geçiş' : '📚 Normal akış'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
         {/* Recording Duration */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getApiBase, getApiEnv, setApiEnv, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
+import { getApiBase, getApiEnv, setApiEnv, getAppMode, setAppMode, isProductionDomain, type ApiEnv, type AppMode } from '../lib/api';
 import TypographySettings from './SidebarSettingsTypography';
 import { supabase } from '../lib/supabase';
 import TestAudioManager from './TestAudioManager';
@@ -305,31 +305,36 @@ export default function SidebarSettings({ open, onClose }: Props) {
               <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
             </div>
 
-            <div className="mt-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">API Ortamı</label>
-              <select value={env} onChange={handleChange} className="w-full border border-gray-300 rounded-lg p-2">
-                <option value="test">Test (root/webhook-test)</option>
-                <option value="product">Product (root/webhook)</option>
-              </select>
-              <div className="mt-3 text-xs text-gray-600 break-words">
-                Aktif temel adres: <span className="font-semibold text-[#512DA8] break-all">{getApiBase()}</span>
-              </div>
-            </div>
+            {/* API ve Çalışma Modu ayarları sadece local ortamda gösterilir */}
+            {!isProductionDomain() && (
+              <>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">API Ortamı</label>
+                  <select value={env} onChange={handleChange} className="w-full border border-gray-300 rounded-lg p-2">
+                    <option value="test">Test (root/webhook-test)</option>
+                    <option value="product">Product (root/webhook)</option>
+                  </select>
+                  <div className="mt-3 text-xs text-gray-600 break-words">
+                    Aktif temel adres: <span className="font-semibold text-[#512DA8] break-all">{getApiBase()}</span>
+                  </div>
+                </div>
 
-            <hr className="my-4" />
+                <hr className="my-4" />
 
-            <div className="mt-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Çalışma Modu</label>
-              <select value={appMode} onChange={handleAppModeChange} className="w-full border border-gray-300 rounded-lg p-2">
-                <option value="dev">Dev (Hızlı Test Modu)</option>
-                <option value="prod">Prod (Normal Çalışma)</option>
-              </select>
-              <div className="mt-2 text-xs text-gray-600">
-                {appMode === 'dev' ? '🔧 Dev: Sesleri atlayabilir, adımları hızlı geçebilirsiniz' : '📚 Prod: Normal ders akışı, tüm sesler oynatılır'}
-              </div>
-            </div>
+                <div className="mt-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Çalışma Modu</label>
+                  <select value={appMode} onChange={handleAppModeChange} className="w-full border border-gray-300 rounded-lg p-2">
+                    <option value="dev">Dev (Hızlı Test Modu)</option>
+                    <option value="prod">Prod (Normal Çalışma)</option>
+                  </select>
+                  <div className="mt-2 text-xs text-gray-600">
+                    {appMode === 'dev' ? '🔧 Dev: Sesleri atlayabilir, adımları hızlı geçebilirsiniz' : '📚 Prod: Normal ders akışı, tüm sesler oynatılır'}
+                  </div>
+                </div>
 
-            <hr className="my-4" />
+                <hr className="my-4" />
+              </>
+            )}
 
             <div className="mt-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Ses Kaydı Süresi (saniye)</label>

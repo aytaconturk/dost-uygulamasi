@@ -16,9 +16,27 @@ const setCookie = (name: string, value: string, days = 365) => {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; expires=${expires}`;
 };
 
+/**
+ * Checks if the app is running on a production domain
+ */
+export const isProductionDomain = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const hostname = window.location.hostname;
+  // localhost, 127.0.0.1, 0.0.0.0 are development environments
+  return hostname !== 'localhost' && 
+         hostname !== '127.0.0.1' && 
+         hostname !== '0.0.0.0' && 
+         !hostname.includes('localhost');
+};
+
 export const getApiEnv = (): ApiEnv => {
   const fromCookie = (getCookie(COOKIE_NAME) as ApiEnv | null);
-  return fromCookie === 'product' ? 'product' : 'test';
+  // If explicitly set via cookie, use that
+  if (fromCookie === 'product' || fromCookie === 'test') {
+    return fromCookie;
+  }
+  // Default: production domain = product API, otherwise test API
+  return isProductionDomain() ? 'product' : 'test';
 };
 
 export const setApiEnv = (env: ApiEnv) => setCookie(COOKIE_NAME, env);
@@ -29,19 +47,6 @@ export const getApiBase = () => {
   const root = getRoot().replace(/\/$/, '');
   const env = getApiEnv();
   return env === 'product' ? `${root}/webhook` : `${root}/webhook-test`;
-};
-
-/**
- * Checks if the app is running on a production domain
- */
-const isProductionDomain = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const hostname = window.location.hostname;
-  // localhost, 127.0.0.1, 0.0.0.0 are development environments
-  return hostname !== 'localhost' && 
-         hostname !== '127.0.0.1' && 
-         hostname !== '0.0.0.0' && 
-         !hostname.includes('localhost');
 };
 
 export const getAppMode = (): AppMode => {
