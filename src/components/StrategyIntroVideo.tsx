@@ -14,9 +14,25 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
   const [isLoading, setIsLoading] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Check for skip intro flag
+  const hasSkipFlag = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('skipIntro') === '1' || localStorage.getItem('dost_skip_intro') === 'true';
+  };
+
+  // If skip flag is set, complete immediately
+  useEffect(() => {
+    if (hasSkipFlag()) {
+      console.log('⏭️ skipIntro flag detected, skipping video...');
+      localStorage.setItem('dost_skip_intro', 'true');
+      onComplete();
+    }
+  }, [onComplete]);
+
   // Check if this is one of the first 3 sessions (mandatory)
   // 4. hikayeden sonra "Tanıtımı Geç" butonuyla kapatılabilir
-  const isMandatory = storyId <= 3;
+  // Skip flag overrides mandatory
+  const isMandatory = storyId <= 3 && !hasSkipFlag();
   const canSkip = !isMandatory;
 
   useEffect(() => {
@@ -89,7 +105,7 @@ export default function StrategyIntroVideo({ storyId, onComplete, onSkip }: Prop
         setIsLoading(false);
         completeOnce();
       }
-    }, 10000);
+    }, 5000);
 
     return () => {
       clearTimeout(loadTimeout);
