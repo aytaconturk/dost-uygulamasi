@@ -106,8 +106,18 @@ export default function LevelIntro() {
       const appMode = getAppMode();
       const hasSeenStrategyVideo = localStorage.getItem('dost_strategy_video_seen') === 'true';
       
-      // Don't show video in dev mode
-      if (appMode === 'dev') {
+      // Check for skip intro flag (URL param or localStorage)
+      const urlParams = new URLSearchParams(window.location.search);
+      const skipIntroParam = urlParams.get('skipIntro') === '1';
+      const skipIntroStorage = localStorage.getItem('dost_skip_intro') === 'true';
+      
+      // If skipIntro=1 in URL, save to localStorage for future visits
+      if (skipIntroParam) {
+        localStorage.setItem('dost_skip_intro', 'true');
+      }
+      
+      // Don't show video in dev mode or if skip flag is set
+      if (appMode === 'dev' || skipIntroParam || skipIntroStorage) {
         setShowStrategyVideo(false);
         return;
       }
