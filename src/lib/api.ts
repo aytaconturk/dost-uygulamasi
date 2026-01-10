@@ -35,8 +35,9 @@ export const getApiEnv = (): ApiEnv => {
   if (fromCookie === 'product' || fromCookie === 'test') {
     return fromCookie;
   }
-  // Default: production domain = product API, otherwise test API
-  return isProductionDomain() ? 'product' : 'test';
+  // Default: always use product API (safer for production)
+  // Switch to test manually via sidebar or admin panel if needed
+  return 'product';
 };
 
 export const setApiEnv = (env: ApiEnv) => setCookie(COOKIE_NAME, env);
