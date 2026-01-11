@@ -737,7 +737,7 @@ export async function getReadingGoal(
     .eq('story_id', storyId)
     .order('timestamp', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 }
 
 // ===== SESSION MANAGEMENT =====
@@ -1010,7 +1010,7 @@ export async function getLatestReadingGoal(
     .eq('level', level)
     .order('timestamp', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error || !data) return null;
   return data.selected_wpm;
