@@ -180,8 +180,8 @@ export default function L3Step1() {
       }
 
       const audioPath = `/audios/story/${storyId}/story-${storyId}-paragraf-${paragraphNum}.mp3`;
-      // Fallback to src/assets if not found in public
-      el.src = audioPath;
+      // Use getAssetUrl to handle GitHub Pages base path
+      el.src = getAssetUrl(audioPath);
       (el as any).playsInline = true;
       el.muted = false;
       // Apply playback rate
