@@ -1,19 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { setSelectedGoal, setIsLoading } from '../../store/level2Slice';
 import { insertReadingGoal } from '../../lib/supabase';
-import { submitReadingGoalSelection } from '../../lib/level2-api';
 import type { RootState, AppDispatch } from '../../store/store';
-import { getPlaybackRate } from '../../components/SidebarSettings';
-import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { useStepContext } from '../../contexts/StepContext';
 
 export default function Level2Step3() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { sessionId, onStepCompleted, storyId } = useStepContext();
+  const { onStepCompleted, storyId } = useStepContext();
 
   const analysisResult = useSelector((state: RootState) => state.level2.analysisResult);
   const student = useSelector((state: RootState) => state.user.student);
@@ -23,30 +19,6 @@ export default function Level2Step3() {
   const [selectedPercentage, setSelectedPercentage] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-
-  // Apply playback rate to audio element
-  useAudioPlaybackRate(audioRef);
-
-  useEffect(() => {
-    const stopAll = () => {
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-        } catch {}
-      }
-    };
-    window.addEventListener('STOP_ALL_AUDIO' as any, stopAll);
-    return () => {
-      window.removeEventListener('STOP_ALL_AUDIO' as any, stopAll);
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        } catch {}
-      }
-    };
-  }, []);
 
   if (!analysisResult) {
     return (
@@ -72,55 +44,14 @@ export default function Level2Step3() {
     { percentage: 10, wpm: Math.ceil(baseWpm * 1.10), label: '%10 Artış' },
   ];
 
-  const playAudioFromBase64 = async (base64: string): Promise<void> => {
-    if (!audioRef.current || !base64) throw new Error('no audio');
-
-    const tryMime = async (mime: string) => {
-      const src = base64.trim().startsWith('data:') ? base64.trim() : `data:${mime};base64,${base64.trim()}`;
-      audioRef.current!.src = src;
-      // Apply playback rate
-      audioRef.current!.playbackRate = getPlaybackRate();
-
-      await audioRef.current?.play();
-      await new Promise<void>((resolve) => {
-        audioRef.current?.addEventListener('ended', () => resolve(), { once: true });
-      });
-    };
-
-    try {
-      await tryMime('audio/mpeg');
-    } catch {
-      try {
-        await tryMime('audio/webm;codecs=opus');
-      } catch {
-        await tryMime('audio/wav');
-      }
-    }
-  };
-
   const handleGoalSelect = async (percentage: number, wpm: number) => {
     if (!student) return;
 
     setSelectedPercentage(percentage);
     dispatch(setIsLoading(true));
-    setIsPlayingAudio(true);
 
     try {
-      // Call API to get audio feedback
-      // ⚠️ n8n workflow "studentId" alanını bekliyor
-      // Değer olarak sessionId gönderiliyor (her session için unique)
-      // Bu sayede aynı kullanıcının farklı hikayeleri karışmaz
-      const apiResponse = await submitReadingGoalSelection({
-        studentId: sessionId || `anon-${Date.now()}`,
-        storyId: storyId,
-        level: 2,
-        step: 3,
-        targetWpm: wpm,
-        percentage: percentage,
-        baseWpm: baseWpm,
-      });
-
-      // Save to Supabase
+      // Save to Supabase (NO API CALL - just local storage)
       const result = await insertReadingGoal(
         student.id,
         storyId,
@@ -138,19 +69,10 @@ export default function Level2Step3() {
       // Save to Redux
       dispatch(setSelectedGoal({ goal: wpm, percentage }));
 
-      // Show feedback
-      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefime ulaşamadığına yönelik geri bildirim vereceğim.`;
+      // Show feedback (static text - no API audio)
+      const feedback = `Harika! Şimdi seninle çalıştıktan sonra 1 dakikada ${wpm} sözcük okumaya çalışacaksın. Sana güveniyorum. Yapabilirsin! 💪\n\nOkuma hedefi olarak bir sonraki okumanda bir dakikada ${wpm} sözcük okumayı seçtin. Bir sonraki okumandan sonra hedefine ulaşıp ulaşamadığına yönelik geri bildirim vereceğim.`;
       setFeedbackText(feedback);
       setShowFeedback(true);
-
-      // Play audio if available
-      if (apiResponse.audioBase64) {
-        try {
-          await playAudioFromBase64(apiResponse.audioBase64);
-        } catch (err) {
-          console.error('Error playing audio:', err);
-        }
-      }
 
       // Mark step as completed
       if (onStepCompleted) {
@@ -162,17 +84,14 @@ export default function Level2Step3() {
         });
       }
     } catch (err) {
-      console.error('Error in handleGoalSelect:', err);
-      setShowFeedback(true);
+      console.error('Error saving goal:', err);
     } finally {
       dispatch(setIsLoading(false));
-      setIsPlayingAudio(false);
     }
   };
 
   return (
     <div className="w-full mx-auto px-4">
-      <audio ref={audioRef} preload="auto" />
       <div className="flex flex-col gap-8">
         <h2 className="text-3xl font-bold text-purple-800 text-center">3. Adım: Okuma hedefi belirleme</h2>
 

@@ -1,7 +1,7 @@
 // React 19: no default import required
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import StepLayout from './components/StepLayout';
 import Step1 from './level1/Step1';
 import Step2 from './level1/Step2';
@@ -33,10 +33,12 @@ import {
   logStudentAction,
   completeStory,
   endSession,
-  getStoryById
+  getStoryById,
+  getReadingGoal
 } from '../lib/supabase';
-import type { RootState } from '../store/store';
+import type { RootState, AppDispatch } from '../store/store';
 import { StepProvider } from '../contexts/StepContext';
+import { setSelectedGoal, setAnalysisResult } from '../store/level2Slice';
 
 const LEVEL_STEPS_COUNT: Record<number, number> = {
   1: 5,
@@ -81,7 +83,9 @@ export default function LevelRouter() {
   const navigate = useNavigate();
   const params = useParams();
   const [searchParams] = useSearchParams();
+  const dispatch = useDispatch<AppDispatch>();
   const student = useSelector((state: RootState) => state.user.student);
+  const selectedGoal = useSelector((state: RootState) => state.level2.selectedGoal);
 
   const levelStr = params.level || '1';
   const stepStr = params.step || '1';
@@ -200,6 +204,46 @@ export default function LevelRouter() {
       isMounted = false;
     };
   }, [student?.id, storyId, level, step]); // sessionId'i dependency'den çıkardık
+
+  // Load reading goal from Supabase when entering level 3+
+  // This ensures the goal persists across sessions/devices
+  useEffect(() => {
+    if (!student || !storyId) return;
+    
+    // Only load if we're at level 3+ and don't already have a goal in Redux
+    if (level >= 3 && !selectedGoal) {
+      const loadReadingGoal = async () => {
+        try {
+          const { data, error } = await getReadingGoal(student.id, storyId);
+          
+          if (!error && data) {
+            console.log('📊 Loaded reading goal from Supabase:', data);
+            dispatch(setSelectedGoal({
+              goal: data.selected_wpm,
+              percentage: data.increase_percentage
+            }));
+            
+            // Also restore base WPM as part of analysis result if not present
+            if (data.base_wpm) {
+              dispatch(setAnalysisResult({
+                readingSpeed: {
+                  wordsPerMinute: data.base_wpm,
+                  accuracy: 0,
+                  fluency: 0,
+                },
+                comprehension: { score: 0, feedback: '' },
+                feedback: '',
+              }));
+            }
+          }
+        } catch (err) {
+          console.error('Error loading reading goal:', err);
+        }
+      };
+      
+      loadReadingGoal();
+    }
+  }, [student?.id, storyId, level, selectedGoal, dispatch]);
 
   const goToStep = (s: number) => {
     stopAllMedia();

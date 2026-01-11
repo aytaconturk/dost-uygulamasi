@@ -722,6 +722,24 @@ export async function insertReadingGoal(
   });
 }
 
+/**
+ * Get the latest reading goal for a student and story
+ * This is used to persist the reading goal across sessions
+ */
+export async function getReadingGoal(
+  studentId: string,
+  storyId: number
+) {
+  return supabase
+    .from('reading_goals')
+    .select('*')
+    .eq('student_id', studentId)
+    .eq('story_id', storyId)
+    .order('timestamp', { ascending: false })
+    .limit(1)
+    .single();
+}
+
 // ===== SESSION MANAGEMENT =====
 
 export async function createSession(

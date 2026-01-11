@@ -1,16 +1,18 @@
 // Sound effects utility
-// Placeholder audio files - these should be added to public/audios/sfx/
+// Audio files are in public/audios/sfx/
+
+import { getAssetUrl } from './image-utils';
 
 export const playSoundEffect = async (effect: 'whoosh' | 'pop' | 'success' | 'error' | 'transition') => {
   const audio = new Audio();
   
-  // Map effect names to file paths
+  // Map effect names to file paths (use getAssetUrl for GitHub Pages compatibility)
   const soundMap: Record<string, string> = {
-    whoosh: '/audios/sfx/whoosh.mp3',
-    pop: '/audios/sfx/pop.mp3',
-    success: '/audios/sfx/success.mp3',
-    error: '/audios/sfx/error.mp3',
-    transition: '/audios/sfx/transition.mp3',
+    whoosh: getAssetUrl('audios/sfx/whoosh.mp3'),
+    pop: getAssetUrl('audios/sfx/pop.mp3'),
+    success: getAssetUrl('audios/sfx/success.mp3'),
+    error: getAssetUrl('audios/sfx/error.mp3'),
+    transition: getAssetUrl('audios/sfx/transition.mp3'),
   };
 
   const soundPath = soundMap[effect];
