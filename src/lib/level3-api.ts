@@ -84,8 +84,13 @@ export async function getResumeResponse(
   request: Level3Step1Request
 ): Promise<Level3Step1Response> {
   // resumeUrl is a full URL like: https://arge.aquateknoloji.com/webhook-waiting/46487
-  // Use FormData to avoid CORS preflight (no OPTIONS request needed)
-  const finalUrl = resumeUrl;
+  // Ensure HTTPS to avoid SSL protocol errors on GitHub Pages (HTTPS site)
+  let finalUrl = resumeUrl;
+  // If URL starts with http://, convert to https://
+  if (finalUrl.startsWith('http://')) {
+    finalUrl = finalUrl.replace('http://', 'https://');
+    console.log('⚠️ Converting HTTP resumeUrl to HTTPS:', resumeUrl, '→', finalUrl);
+  }
   
   const payload = {
     // ⚠️ n8n "studentId" alanını bekliyor - değer olarak sessionId gönderiliyor
