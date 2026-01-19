@@ -1387,6 +1387,7 @@ function SettingsTab() {
   // API Environment and App Mode state
   const [apiEnv, setApiEnvState] = useState<ApiEnv>(getApiEnv());
   const [appMode, setAppModeState] = useState<AppMode>(getAppMode());
+  const [skipIntro, setSkipIntroState] = useState<boolean>(localStorage.getItem('dost_skip_intro') === 'true');
 
   useEffect(() => {
     fetchSettings();
@@ -1404,6 +1405,17 @@ function SettingsTab() {
     setAppModeState(newMode);
     setAppMode(newMode);
     setMessage({ type: 'success', text: `Çalışma modu "${newMode}" olarak değiştirildi.` });
+  };
+  
+  const handleSkipIntroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.checked;
+    setSkipIntroState(newValue);
+    if (newValue) {
+      localStorage.setItem('dost_skip_intro', 'true');
+    } else {
+      localStorage.removeItem('dost_skip_intro');
+    }
+    setMessage({ type: 'success', text: `Intro video geçme ${newValue ? 'aktif' : 'pasif'} edildi.` });
   };
 
   const fetchSettings = async () => {
@@ -1584,6 +1596,23 @@ function SettingsTab() {
                 {appMode === 'dev' ? '🔧 Sesleri atlayabilir, hızlı geçiş' : '📚 Normal akış'}
               </p>
             </div>
+          </div>
+          
+          <div className="mt-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={skipIntro}
+                onChange={handleSkipIntroChange}
+                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Intro Video'yu Geç
+              </span>
+            </label>
+            <p className="mt-2 text-xs text-gray-600 ml-6">
+              {skipIntro ? '✅ Intro video otomatik olarak geçilecek' : '❌ Intro video gösterilecek'}
+            </p>
           </div>
         </div>
 
