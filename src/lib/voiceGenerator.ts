@@ -20,7 +20,7 @@ export async function generateVoice(
 ): Promise<VoiceGeneratorResponse> {
   try {
     // Use the same API endpoint as playTts.ts
-    const apiUrl = "https://arge.aquateknoloji.com/webhook/dost/voice-generator";
+    const apiUrl = "https://arge.muhbirai.com/webhook/dost/voice-generator";
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {

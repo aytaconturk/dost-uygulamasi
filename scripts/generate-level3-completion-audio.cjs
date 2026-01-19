@@ -2,7 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const API_BASE = 'https://arge.aquateknoloji.com/webhook';
+const API_BASE = 'https://arge.muhbirai.com/webhook';
 
 // Level 3 completion metni
 const text = 'Tebrikler! 3. seviyeyi başarıyla tamamladın. Model okuma yaparak güzel okuma kurallarını öğrendin, üçüncü okumanda okuma hızını ölçtün ve hedefine ulaşıp ulaşamadığını kontrol ettin. Harika bir iş çıkardın!';

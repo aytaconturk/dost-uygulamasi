@@ -139,7 +139,7 @@ export default function L4Step2() {
           }
           
           // Create new TTS audio
-          const res = await fetch("https://arge.aquateknoloji.com/webhook/dost/voice-generator", {
+          const res = await fetch("https://arge.muhbirai.com/webhook/dost/voice-generator", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: promptText }),

@@ -63,7 +63,7 @@ export async function getResumeResponse(
   resumeUrl: string,
   request: Level4Step1Request
 ): Promise<Level4Step1Response> {
-  // resumeUrl is a full URL like: https://arge.aquateknoloji.com/webhook-waiting/46487
+  // resumeUrl is a full URL like: https://arge.muhbirai.com/webhook-waiting/46487
   // Use FormData to avoid CORS preflight (no OPTIONS request needed)
   const finalUrl = resumeUrl;
   

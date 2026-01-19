@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Voice generator API endpoint
-const VOICE_API_URL = 'https://arge.aquateknoloji.com/webhook/dost/voice-generator';
+const VOICE_API_URL = 'https://arge.muhbirai.com/webhook/dost/voice-generator';
 
 // Base64 string'i buffer'a çevir
 function base64ToBuffer(base64String) {

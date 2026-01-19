@@ -83,7 +83,7 @@ export async function getResumeResponse(
   resumeUrl: string,
   request: Level3Step1Request
 ): Promise<Level3Step1Response> {
-  // resumeUrl is a full URL like: https://arge.aquateknoloji.com/webhook-waiting/46487
+  // resumeUrl is a full URL like: https://arge.muhbirai.com/webhook-waiting/46487
   // Ensure HTTPS to avoid SSL protocol errors on GitHub Pages (HTTPS site)
   let finalUrl = resumeUrl;
   // If URL starts with http://, convert to https://

@@ -42,7 +42,7 @@ export const getApiEnv = (): ApiEnv => {
 
 export const setApiEnv = (env: ApiEnv) => setCookie(COOKIE_NAME, env);
 
-export const getRoot = () => (import.meta as any).env?.VITE_API_ROOT || 'https://arge.aquateknoloji.com';
+export const getRoot = () => (import.meta as any).env?.VITE_API_ROOT || 'https://arge.muhbirai.com';
 
 export const getApiBase = () => {
   const root = getRoot().replace(/\/$/, '');

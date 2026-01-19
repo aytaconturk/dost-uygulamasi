@@ -5,5 +5,5 @@
 
 export const API_ENDPOINTS = {
   // Level 5 - Sesden görsel oluştur
-  createImage: 'https://arge.aquateknoloji.com/webhook/level5-create-image',
+  createImage: 'https://arge.muhbirai.com/webhook/level5-create-image',
 };

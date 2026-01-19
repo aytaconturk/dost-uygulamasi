@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { StepContext } from '../contexts/StepContext';
 
-const VOICE_API_URL = 'https://arge.aquateknoloji.com/webhook/dost/voice-generator';
+const VOICE_API_URL = 'https://arge.muhbirai.com/webhook/dost/voice-generator';
 
 // IndexedDB Constants
 const DB_NAME = 'DostTestAudioDB';
