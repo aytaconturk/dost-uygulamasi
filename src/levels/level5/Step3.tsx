@@ -115,10 +115,11 @@ export default function L5Step3() {
       }
     }
 
-    // Step completion
+    // Step completion – storyCompleted: true ile bir sonraki hikayenin kilidi açılır
     if (onStepCompleted) {
       await onStepCompleted({
         sessionCompleted: true,
+        storyCompleted: true,
         strategiesUsed: ALL_STRATEGIES.length
       });
     }

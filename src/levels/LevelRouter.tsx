@@ -479,13 +479,14 @@ export default function LevelRouter() {
       totalSteps={totalSteps}
       onPrev={onPrev}
       onNext={onNext}
-        hideNext={step === totalSteps} // Hide Next button on last step (Tamamla button will be shown instead)
-        hideFooter={level === 2 && step === 3 ? true : false} // Hide footer for Level 2 Step 3 (auto-navigation), show for Step 4
-        disableNext={!canProceed}
-        stepCompleted={stepCompleted}
-        onStepCompleted={handleStepCompleted}
-        storyTitle={storyTitle}
-        level={level}
+      hidePrev
+      hideNext={step === totalSteps} // Hide Next button on last step (Tamamla button will be shown instead)
+      hideFooter={level === 2 && step === 3 ? true : false} // Hide footer for Level 2 Step 3 (auto-navigation), show for Step 4
+      disableNext={!canProceed}
+      stepCompleted={stepCompleted}
+      onStepCompleted={handleStepCompleted}
+      storyTitle={storyTitle}
+      level={level}
     >
       {level === 1 ? (step === 5 ? null : renderLevelChecklist(LEVEL1_TITLES)) : null}
       {level === 2 ? renderLevelChecklist(LEVEL2_TITLES) : null}

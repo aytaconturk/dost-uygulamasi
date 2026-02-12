@@ -14,8 +14,7 @@ import { TestTube } from 'lucide-react';
 import { getTestAudioBlob } from '../../components/TestAudioManager';
 import { getStoryById } from '../../lib/supabase';
 import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
-
-const TOTAL_SECONDS = 300; // 5 dakika - paragrafın tamamını okuma için
+import { getLevel2Step1ReadingSeconds } from '../../components/SidebarSettings';
 
 // Turkish translations for quality metrics
 const QUALITY_METRIC_LABELS: Record<string, string> = {
@@ -64,7 +63,8 @@ export default function Level2Step1() {
   const [analysis, setAnalysis] = useState<Level2Step1ReadingAnalysisResponse | null>(null);
   const [countdownStartTime, setCountdownStartTime] = useState(0);
   const [recordingStartTime, setRecordingStartTime] = useState('');
-  const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
+  const [totalSeconds, setTotalSeconds] = useState(360);
+  const [timeLeft, setTimeLeft] = useState(360);
   const [selectedWordIndex, setSelectedWordIndex] = useState<number | null>(null);
   
   // Keep ref in sync with state
@@ -76,6 +76,14 @@ export default function Level2Step1() {
   const [introAudioPlaying, setIntroAudioPlaying] = useState(true);
   const [testAudioActive, setTestAudioActive] = useState(false);
   const appMode = getAppMode();
+
+  // Load reading duration from settings (default 360 s = 6 min)
+  useEffect(() => {
+    getLevel2Step1ReadingSeconds().then((sec) => {
+      setTotalSeconds(sec);
+      setTimeLeft(sec);
+    });
+  }, []);
 
   // Load story data from Supabase
   useEffect(() => {
@@ -241,7 +249,7 @@ export default function Level2Step1() {
     // Reset all states for clean restart
     setTimeUp(false);
     setBeeped60(false);
-    setTimeLeft(TOTAL_SECONDS);
+    setTimeLeft(totalSeconds);
     setSelectedWordIndex(null);
     audioChunksRef.current = [];
     finishOnceRef.current = false;
@@ -384,7 +392,7 @@ export default function Level2Step1() {
 
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
-      const remaining = Math.max(0, TOTAL_SECONDS - elapsed);
+      const remaining = Math.max(0, totalSeconds - elapsed);
       setTimeLeft(remaining);
 
       if (remaining === 60 && !beeped60) {
@@ -399,7 +407,7 @@ export default function Level2Step1() {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [reading, countdownStartTime, beeped60]);
+  }, [reading, countdownStartTime, beeped60, totalSeconds]);
 
   const handleFinish = async () => {
     // Prevent double execution (timeout + user click race)
@@ -452,7 +460,7 @@ export default function Level2Step1() {
       // Fix elapsed=0 bug: use safeElapsed to prevent division by zero
       const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
       const safeElapsed = Math.max(1, elapsed);
-      const wordsRead = Math.ceil((storyText.split(/\s+/).length * elapsed) / TOTAL_SECONDS);
+      const wordsRead = Math.ceil((storyText.split(/\s+/).length * elapsed) / totalSeconds);
       const wpm = Math.ceil((wordsRead / safeElapsed) * 60);
 
       // Use current ref value to avoid stale state
@@ -581,7 +589,7 @@ export default function Level2Step1() {
             <div className="fixed inset-0 bg-white/70 flex items-center justify-center z-50 rounded-xl">
               <div className="bg-white p-8 rounded-lg shadow-lg text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-                <p className="text-xl font-semibold text-gray-700">Okuma süresi ölçülüyor...</p>
+                <p className="text-xl font-semibold text-gray-700">Okuma performansı değerlendiriliyor...</p>
               </div>
             </div>
           )}
@@ -655,7 +663,7 @@ export default function Level2Step1() {
           {/* Right fixed countdown */}
           {!isProcessing && (
             <div className="hidden lg:flex fixed right-8 top-20 flex-col items-center justify-start p-4 bg-white rounded-lg shadow z-40">
-              <CountdownBadge secondsLeft={timeLeft} total={TOTAL_SECONDS} />
+              <CountdownBadge secondsLeft={timeLeft} total={totalSeconds} />
               <div className="text-center text-gray-600 text-sm mt-2">Kalan Süre</div>
             </div>
           )}
@@ -669,7 +677,7 @@ export default function Level2Step1() {
             {isProcessing && (
               <div>
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-                <p className="text-lg font-semibold text-gray-700">Okuma süresi ölçülüyor...</p>
+                <p className="text-lg font-semibold text-gray-700">Okuma performansı değerlendiriliyor...</p>
               </div>
             )}
 

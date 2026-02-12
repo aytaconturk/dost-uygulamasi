@@ -9,11 +9,15 @@ const RECORDING_DURATION_KEY = 'voice_recording_duration_ms';
 const PLAYBACK_RATE_KEY = 'audio_playback_rate';
 const VOICE_RESPONSE_TIMEOUT_KEY = 'voice_response_timeout_ms';
 const PARAGRAPH_RESPONSE_TIMEOUT_KEY = 'paragraph_response_timeout_ms';
+const LEVEL2_STEP1_READING_SECONDS_KEY = 'level2_step1_reading_seconds';
+const LEVEL3_STEP2_READING_SECONDS_KEY = 'level3_step2_reading_seconds';
 
 // Cache for settings to avoid repeated Supabase calls
 let recordingDurationCache: number | null = null;
 let voiceResponseTimeoutCache: number | null = null;
 let paragraphResponseTimeoutCache: number | null = null;
+let level2Step1ReadingSecondsCache: number | null = null;
+let level3Step2ReadingSecondsCache: number | null = null;
 let cacheTimestamp: number = 0;
 const CACHE_DURATION = 60000; // 1 minute cache
 
@@ -178,6 +182,60 @@ export function getParagraphResponseTimeoutSync(): number {
   } catch {
     return 60000;
   }
+}
+
+/** Seviye 2 Adım 1: Metni okuma süresi (saniye). Varsayılan 360 (6 dk). */
+export async function getLevel2Step1ReadingSeconds(): Promise<number> {
+  const now = Date.now();
+  if (level2Step1ReadingSecondsCache !== null && (now - cacheTimestamp) < CACHE_DURATION) {
+    return level2Step1ReadingSecondsCache;
+  }
+  try {
+    const value = await fetchSettingFromSupabase(LEVEL2_STEP1_READING_SECONDS_KEY, 360);
+    level2Step1ReadingSecondsCache = value;
+    cacheTimestamp = now;
+    localStorage.setItem(LEVEL2_STEP1_READING_SECONDS_KEY, String(value));
+    return value;
+  } catch {
+    const stored = localStorage.getItem(LEVEL2_STEP1_READING_SECONDS_KEY);
+    const value = stored ? parseInt(stored, 10) : 360;
+    level2Step1ReadingSecondsCache = value;
+    cacheTimestamp = now;
+    return value;
+  }
+}
+
+export function getLevel2Step1ReadingSecondsSync(): number {
+  if (level2Step1ReadingSecondsCache !== null) return level2Step1ReadingSecondsCache;
+  const stored = localStorage.getItem(LEVEL2_STEP1_READING_SECONDS_KEY);
+  return stored ? parseInt(stored, 10) : 360;
+}
+
+/** Seviye 3 Adım 2: Metni okuma süresi (saniye). Varsayılan 360 (6 dk). */
+export async function getLevel3Step2ReadingSeconds(): Promise<number> {
+  const now = Date.now();
+  if (level3Step2ReadingSecondsCache !== null && (now - cacheTimestamp) < CACHE_DURATION) {
+    return level3Step2ReadingSecondsCache;
+  }
+  try {
+    const value = await fetchSettingFromSupabase(LEVEL3_STEP2_READING_SECONDS_KEY, 360);
+    level3Step2ReadingSecondsCache = value;
+    cacheTimestamp = now;
+    localStorage.setItem(LEVEL3_STEP2_READING_SECONDS_KEY, String(value));
+    return value;
+  } catch {
+    const stored = localStorage.getItem(LEVEL3_STEP2_READING_SECONDS_KEY);
+    const value = stored ? parseInt(stored, 10) : 360;
+    level3Step2ReadingSecondsCache = value;
+    cacheTimestamp = now;
+    return value;
+  }
+}
+
+export function getLevel3Step2ReadingSecondsSync(): number {
+  if (level3Step2ReadingSecondsCache !== null) return level3Step2ReadingSecondsCache;
+  const stored = localStorage.getItem(LEVEL3_STEP2_READING_SECONDS_KEY);
+  return stored ? parseInt(stored, 10) : 360;
 }
 
 export function getPlaybackRate(): number {

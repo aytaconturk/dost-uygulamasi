@@ -3,6 +3,9 @@ import { useDispatch } from 'react-redux';
 import { 
   supabase, 
   getStories, 
+  getTeacherStudents,
+  getStudentProgress,
+  getStudentProgressStats,
   createStory, 
   updateStory, 
   deleteStory,
@@ -20,7 +23,7 @@ import type { AppDispatch } from '../store/store';
 import { getStoryImageUrl } from '../lib/image-utils';
 import { getApiEnv, setApiEnv, getApiBase, getAppMode, setAppMode, type ApiEnv, type AppMode } from '../lib/api';
 
-type TabType = 'teachers' | 'students' | 'logs' | 'stories' | 'settings';
+type TabType = 'teachers' | 'students' | 'logs' | 'stories' | 'settings' | 'view-student';
 
 export default function AdminPanel() {
   const dispatch = useDispatch<AppDispatch>();
@@ -31,7 +34,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (activeTab === 'teachers') {
+    if (activeTab === 'teachers' || activeTab === 'view-student') {
       fetchTeachers();
     } else if (activeTab === 'students') {
       fetchStudents();
@@ -142,7 +145,7 @@ export default function AdminPanel() {
       {/* Tab Navigation */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 flex gap-8">
-          {(['teachers', 'students', 'logs', 'stories', 'settings'] as TabType[]).map((tab) => (
+          {(['teachers', 'students', 'view-student', 'logs', 'stories', 'settings'] as TabType[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -154,6 +157,7 @@ export default function AdminPanel() {
             >
               {tab === 'teachers' && 'Öğretmenler'}
               {tab === 'students' && 'Öğrenciler'}
+              {tab === 'view-student' && 'Öğrenci Görünümü'}
               {tab === 'logs' && 'Aktivite Günlükleri'}
               {tab === 'stories' && 'Hikayeler'}
               {tab === 'settings' && 'Ayarlar'}
@@ -172,6 +176,8 @@ export default function AdminPanel() {
           <TeachersTab teachers={teachers} />
         ) : activeTab === 'students' ? (
           <StudentsTab students={students} />
+        ) : activeTab === 'view-student' ? (
+          <ViewStudentTab teachers={teachers} loading={loading} />
         ) : activeTab === 'logs' ? (
           <LogsTab logs={logs} />
         ) : activeTab === 'settings' ? (
@@ -625,6 +631,383 @@ function StudentsTab({ students }: { students: any[] }) {
         {students.length === 0 && (
           <div className="text-center py-8 text-gray-600">Öğrenci bulunamadı</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Öğretmen listesi → öğrenci listesi → öğrenci read-only detay (hikayeler, seviye/adım, puan, süre, cevaplar, hatalar vb.) */
+function ViewStudentTab({ teachers, loading }: { teachers: any[]; loading: boolean }) {
+  const [expandedTeacherId, setExpandedTeacherId] = useState<string | null>(null);
+  const [teacherStudents, setTeacherStudents] = useState<Record<string, any[]>>({});
+  const [loadingStudents, setLoadingStudents] = useState<string | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
+
+  const handleToggleTeacher = async (teacherId: string) => {
+    if (expandedTeacherId === teacherId) {
+      setExpandedTeacherId(null);
+      return;
+    }
+    setExpandedTeacherId(teacherId);
+    if (!teacherStudents[teacherId]) {
+      setLoadingStudents(teacherId);
+      try {
+        const { data, error } = await getTeacherStudents(teacherId);
+        if (!error) setTeacherStudents(prev => ({ ...prev, [teacherId]: data || [] }));
+      } catch (err) {
+        console.error('Error fetching teacher students:', err);
+      } finally {
+        setLoadingStudents(null);
+      }
+    }
+  };
+
+  const handleSelectStudent = (student: any, teacher: any) => {
+    setSelectedStudent(student);
+    setSelectedTeacher(teacher);
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-8 text-center text-gray-600">
+        Yükleniyor...
+      </div>
+    );
+  }
+
+  if (selectedStudent) {
+    return (
+      <StudentReadOnlyDetail
+        student={selectedStudent}
+        teacher={selectedTeacher}
+        onBack={() => { setSelectedStudent(null); setSelectedTeacher(null); }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
+        <strong>Salt okunur görünüm.</strong> Öğretmeni seçip öğrencisine tıklayarak o öğrencinin tüm ilerleme verilerini (hikayeler, seviye/adım, puan, süre, aktiviteler) görüntüleyebilirsiniz. Hiçbir veri düzenlenemez.
+      </div>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800">Öğretmenler</h2>
+          <p className="text-sm text-gray-600 mt-1">Bir öğretmene tıklayın, öğrencilerini görün. Öğrenciye tıklayınca detay sayfası açılır.</p>
+        </div>
+        <ul className="divide-y divide-gray-200">
+          {teachers.length === 0 ? (
+            <li className="px-6 py-8 text-center text-gray-500">Öğretmen bulunamadı.</li>
+          ) : (
+            teachers.map((teacher) => (
+              <li key={teacher.id}>
+                <button
+                  type="button"
+                  onClick={() => handleToggleTeacher(teacher.id)}
+                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                >
+                  <span className="font-medium text-gray-900">
+                    {teacher.first_name} {teacher.last_name}
+                    {teacher.school_name && (
+                      <span className="text-gray-500 font-normal ml-2">({teacher.school_name})</span>
+                    )}
+                  </span>
+                  <span className="text-gray-400">
+                    {expandedTeacherId === teacher.id ? '▼' : '▶'}
+                  </span>
+                </button>
+                {expandedTeacherId === teacher.id && (
+                  <div className="bg-gray-50 px-6 pb-4">
+                    {loadingStudents === teacher.id ? (
+                      <p className="py-3 text-gray-500 text-sm">Öğrenciler yükleniyor...</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {(teacherStudents[teacher.id] || []).map((student: any) => (
+                          <li key={student.id}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectStudent(student, teacher)}
+                              className="w-full text-left px-4 py-3 rounded-lg bg-white border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-gray-800 font-medium"
+                            >
+                              {student.first_name} {student.last_name}
+                            </button>
+                          </li>
+                        ))}
+                        {(teacherStudents[teacher.id] || []).length === 0 && !loadingStudents && (
+                          <p className="py-2 text-gray-500 text-sm">Bu öğretmene kayıtlı öğrenci yok.</p>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Öğrenci detayı: hikayeler (kilit/açık), seviye-adım, puan, süre, aktiviteler, okuma hedefleri. Salt okunur. */
+function StudentReadOnlyDetail({
+  student,
+  teacher,
+  onBack,
+}: {
+  student: any;
+  teacher: any;
+  onBack: () => void;
+}) {
+  const [stories, setStories] = useState<any[]>([]);
+  const [progressList, setProgressList] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [readingLogs, setReadingLogs] = useState<any[]>([]);
+  const [readingGoals, setReadingGoals] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [storiesRes, progressRes, logsRes, readLogsRes, goalsRes, sessionsRes] = await Promise.all([
+          getStories(),
+          getStudentProgress(student.id),
+          supabase.from('activity_logs').select('*').eq('student_id', student.id).order('timestamp', { ascending: false }).limit(80),
+          supabase.from('reading_logs').select('*').eq('student_id', student.id).order('timestamp', { ascending: false }).limit(50),
+          supabase.from('reading_goals').select('*').eq('student_id', student.id).order('timestamp', { ascending: false }).limit(30),
+          supabase.from('sessions').select('*').eq('student_id', student.id).order('started_at', { ascending: false }).limit(30),
+        ]);
+        if (!storiesRes.error) setStories(storiesRes.data || []);
+        if (!progressRes.error) setProgressList(progressRes.data || []);
+        if (!logsRes.error) setActivityLogs(logsRes.data || []);
+        if (!readLogsRes.error) setReadingLogs(readLogsRes.data || []);
+        if (!goalsRes.error) setReadingGoals(goalsRes.data || []);
+        if (!sessionsRes.error) setSessions(sessionsRes.data || []);
+      } catch (err) {
+        console.error('Error loading student detail:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [student.id]);
+
+  const stats = progressList.length
+    ? {
+        total: progressList.length,
+        completed: progressList.filter((p: any) => p.is_completed).length,
+        totalPoints: progressList.reduce((acc: number, p: any) => acc + (p.points || 0), 0),
+      }
+    : null;
+
+  const isStoryUnlocked = (storyId: number) => {
+    if (storyId === 1) return true;
+    const prev = progressList.find((p: any) => p.story_id === storyId - 1);
+    return prev?.is_completed === true;
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-8 text-center text-gray-600">
+        Öğrenci verileri yükleniyor...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium"
+        >
+          ← Geri
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {student.first_name} {student.last_name}
+          </h1>
+          <p className="text-gray-600">
+            Öğretmen: {teacher?.first_name} {teacher?.last_name}
+            {teacher?.school_name && ` (${teacher.school_name})`}
+          </p>
+        </div>
+      </div>
+
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Hikaye ilerlemesi</p>
+            <p className="text-xl font-semibold text-gray-900">{stats.completed} / {stats.total} tamamlandı</p>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Toplam puan</p>
+            <p className="text-xl font-semibold text-gray-900">{stats.totalPoints}</p>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <p className="text-sm text-gray-500">Oturum sayısı (son 30)</p>
+            <p className="text-xl font-semibold text-gray-900">{sessions.length}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800">Hikayeler – Kilid / Seviye / Adım / Puan</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Hikaye</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Kilit</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Seviye</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Adım</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Puan</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Tamamlanan seviyeler</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase">Durum</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {stories.map((story) => {
+                const progress = progressList.find((p: any) => p.story_id === story.id);
+                const unlocked = isStoryUnlocked(story.id);
+                return (
+                  <tr key={story.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{story.title}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {unlocked ? <span className="text-green-600 font-medium">Açık</span> : <span className="text-gray-500">Kilitli</span>}
+                    </td>
+                    <td className="px-4 py-3 text-sm">{progress ? progress.current_level : '–'}</td>
+                    <td className="px-4 py-3 text-sm">{progress ? progress.current_step : '–'}</td>
+                    <td className="px-4 py-3 text-sm">{progress ? (progress.points || 0) : '–'}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {progress?.completed_levels?.length ? progress.completed_levels.join(', ') : '–'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {progress?.is_completed ? <span className="text-green-600 font-medium">Tamamlandı</span> : (progress ? 'Devam ediyor' : '–')}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">Son aktiviteler (en yeni 80)</h2>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {activityLogs.length === 0 ? (
+              <p className="p-4 text-gray-500 text-sm">Aktivite kaydı yok.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {activityLogs.slice(0, 30).map((log: any) => (
+                  <li key={log.id} className="px-6 py-2 text-sm text-gray-700">
+                    <span className="font-medium text-gray-900">{log.activity_type}</span>
+                    {log.story_id != null && ` · Hikaye ${log.story_id}`}
+                    {log.level_id != null && ` · Seviye ${log.level_id}`}
+                    {log.step_number != null && ` · Adım ${log.step_number}`}
+                    <span className="text-gray-500 ml-2">{new Date(log.timestamp).toLocaleString('tr-TR')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">Okuma hedefleri (son 30)</h2>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {readingGoals.length === 0 ? (
+              <p className="p-4 text-gray-500 text-sm">Okuma hedefi kaydı yok.</p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {readingGoals.slice(0, 20).map((g: any) => (
+                  <li key={g.id} className="px-6 py-2 text-sm text-gray-700">
+                    Hikaye {g.story_id} · Seviye {g.level} · Hedef: {g.selected_wpm} sözcük/dk
+                    <span className="text-gray-500 ml-2">{new Date(g.timestamp).toLocaleString('tr-TR')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800">Okuma logları (WPM / doğru sözcük – son 50)</h2>
+        </div>
+        <div className="max-h-64 overflow-y-auto overflow-x-auto">
+          {readingLogs.length === 0 ? (
+            <p className="p-4 text-gray-500 text-sm">Okuma logu yok.</p>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Hikaye</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Seviye</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">WPM</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Doğru</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Tarih</th>
+                </tr>
+              </thead>
+              <tbody>
+                {readingLogs.slice(0, 25).map((r: any) => (
+                  <tr key={r.id} className="border-b border-gray-100">
+                    <td className="px-4 py-2 text-sm">{r.story_id}</td>
+                    <td className="px-4 py-2 text-sm">{r.level}</td>
+                    <td className="px-4 py-2 text-sm">{r.wpm}</td>
+                    <td className="px-4 py-2 text-sm">{r.correct_words}</td>
+                    <td className="px-4 py-2 text-sm text-gray-500">{new Date(r.timestamp).toLocaleString('tr-TR')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800">Oturumlar (son 30)</h2>
+        </div>
+        <div className="max-h-48 overflow-y-auto overflow-x-auto">
+          {sessions.length === 0 ? (
+            <p className="p-4 text-gray-500 text-sm">Oturum kaydı yok.</p>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Hikaye</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Başlangıç</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Bitiş</th>
+                  <th className="px-4 py-2 text-left text-xs text-gray-600">Aktif</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.slice(0, 15).map((s: any) => (
+                  <tr key={s.id} className="border-b border-gray-100">
+                    <td className="px-4 py-2 text-sm">{s.story_id}</td>
+                    <td className="px-4 py-2 text-sm text-gray-700">{s.started_at ? new Date(s.started_at).toLocaleString('tr-TR') : '–'}</td>
+                    <td className="px-4 py-2 text-sm text-gray-500">{s.ended_at ? new Date(s.ended_at).toLocaleString('tr-TR') : '–'}</td>
+                    <td className="px-4 py-2 text-sm">{s.is_active ? 'Evet' : 'Hayır'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1379,6 +1762,8 @@ function SettingsTab() {
     recording_duration_ms: 10000,
     voice_response_timeout_ms: 60000,
     paragraph_response_timeout_ms: 60000,
+    level2_step1_reading_seconds: 360,
+    level3_step2_reading_seconds: 360,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1471,6 +1856,29 @@ function SettingsTab() {
           paragraph_response_timeout_ms: parseInt(paragraphTimeoutData.value) || 60000,
         }));
       }
+
+      const { data: l2Data, error: l2Error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'level2_step1_reading_seconds')
+        .single();
+      if (!l2Error && l2Data) {
+        setSettings(prev => ({
+          ...prev,
+          level2_step1_reading_seconds: parseInt(l2Data.value) || 360,
+        }));
+      }
+      const { data: l3Data, error: l3Error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'level3_step2_reading_seconds')
+        .single();
+      if (!l3Error && l3Data) {
+        setSettings(prev => ({
+          ...prev,
+          level3_step2_reading_seconds: parseInt(l3Data.value) || 360,
+        }));
+      }
     } catch (err) {
       console.error('Error fetching settings:', err);
       // Fallback to defaults
@@ -1520,10 +1928,30 @@ function SettingsTab() {
 
       if (paragraphTimeoutError) throw paragraphTimeoutError;
 
+      const { error: l2SaveError } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'level2_step1_reading_seconds',
+          value: String(settings.level2_step1_reading_seconds),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'key' });
+      if (l2SaveError) throw l2SaveError;
+
+      const { error: l3SaveError } = await supabase
+        .from('app_settings')
+        .upsert({
+          key: 'level3_step2_reading_seconds',
+          value: String(settings.level3_step2_reading_seconds),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'key' });
+      if (l3SaveError) throw l3SaveError;
+
       // Also update localStorage for backward compatibility
       localStorage.setItem('voice_recording_duration_ms', String(settings.recording_duration_ms));
       localStorage.setItem('voice_response_timeout_ms', String(settings.voice_response_timeout_ms));
       localStorage.setItem('paragraph_response_timeout_ms', String(settings.paragraph_response_timeout_ms));
+      localStorage.setItem('level2_step1_reading_seconds', String(settings.level2_step1_reading_seconds));
+      localStorage.setItem('level3_step2_reading_seconds', String(settings.level3_step2_reading_seconds));
 
       setMessage({ type: 'success', text: 'Ayarlar başarıyla kaydedildi!' });
       
@@ -1684,6 +2112,50 @@ function SettingsTab() {
           <p className="mt-2 text-xs text-gray-600">
             Level 3 paragraf okuma kısmında API'ye gönderilen ses kayıtları için {settings.paragraph_response_timeout_ms / 1000} saniye timeout süresi kullanılacak.
             (Min: 10 saniye, Max: 300 saniye)
+          </p>
+        </div>
+
+        {/* Level 2 Step 1 - Metni okuma süresi */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Seviye 2 Adım 1 – Metni okuma süresi (saniye)
+          </label>
+          <input
+            type="number"
+            min="120"
+            max="600"
+            step="30"
+            value={settings.level2_step1_reading_seconds}
+            onChange={(e) => setSettings(prev => ({
+              ...prev,
+              level2_step1_reading_seconds: parseInt(e.target.value) || 360,
+            }))}
+            className="w-full border border-gray-300 rounded-lg p-2"
+          />
+          <p className="mt-2 text-xs text-gray-600">
+            Metni okuma aşamasında verilen süre: {settings.level2_step1_reading_seconds} saniye ({Math.floor(settings.level2_step1_reading_seconds / 60)} dk). Varsayılan: 360 (6 dk).
+          </p>
+        </div>
+
+        {/* Level 3 Step 2 - Metni okuma süresi */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Seviye 3 Adım 2 – Metni okuma süresi (saniye)
+          </label>
+          <input
+            type="number"
+            min="120"
+            max="600"
+            step="30"
+            value={settings.level3_step2_reading_seconds}
+            onChange={(e) => setSettings(prev => ({
+              ...prev,
+              level3_step2_reading_seconds: parseInt(e.target.value) || 360,
+            }))}
+            className="w-full border border-gray-300 rounded-lg p-2"
+          />
+          <p className="mt-2 text-xs text-gray-600">
+            Üçüncü okuma aşamasında verilen süre: {settings.level3_step2_reading_seconds} saniye ({Math.floor(settings.level3_step2_reading_seconds / 60)} dk). Varsayılan: 360 (6 dk).
           </p>
         </div>
 

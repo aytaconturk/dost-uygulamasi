@@ -731,7 +731,7 @@ export default function Level1Steps() {
                                                     </p>
                                                     <VoiceRecorder onSave={handleVoiceSubmit} onPlayStart={() => {
                                                         try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
-                                                    }} />
+                                                    }} disabled={isProcessingVoice} />
                                                     {isProcessingVoice && (
                                                         <p className="mt-4 text-blue-600 font-medium">
                                                             DOST senin sözlerini değerlendiriyor...
@@ -787,7 +787,7 @@ export default function Level1Steps() {
                                                 <p className="mb-4 text-xl font-bold text-green-700 animate-pulse">Hadi sıra sende! Mikrofona konuş</p>
                                                 <VoiceRecorder onSave={handleVoiceSubmit} onPlayStart={() => {
                                                     try { window.dispatchEvent(new Event('STOP_ALL_AUDIO' as any)); } catch {}
-                                                }} />
+                                                }} disabled={isProcessingVoice} />
                                                 {isProcessingVoice && (
                                                     <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
                                                 )}
@@ -852,7 +852,7 @@ export default function Level1Steps() {
                                             <p className="text-orange-800 font-medium">Görev:</p>
                                             <p className="text-orange-700">Diğer paragrafların ilk cümlelerini sen oku ve hikayenin nasıl devam edebileceğini tahmin et.</p>
                                             <div className="mt-4 text-center">
-                                                <VoiceRecorder onSave={handleVoiceSubmit} />
+                                                <VoiceRecorder onSave={handleVoiceSubmit} disabled={isProcessingVoice} />
                                                 {isProcessingVoice && (
                                                     <p className="mt-2 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>
                                                 )}

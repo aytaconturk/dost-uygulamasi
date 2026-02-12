@@ -9,6 +9,7 @@ interface Props {
   onNext: () => void;
   children: React.ReactNode;
   hideNext?: boolean;
+  hidePrev?: boolean; // Geri/prev butonunu gizle (tüm seviyelerde)
   hideFooter?: boolean;
   disableNext?: boolean; // Next butonunu devre dışı bırak (adım tamamlanmadıysa)
   stepCompleted?: boolean; // Adım tamamlandı mı?
@@ -24,6 +25,7 @@ export default function StepLayout({
   onNext, 
   children, 
   hideNext = false, 
+  hidePrev = false,
   hideFooter = false,
   disableNext = false,
   stepCompleted = false,
@@ -80,19 +82,21 @@ export default function StepLayout({
 
       {/* Main Content with Nav */}
       <div className="relative flex-1">
-        {/* Prev Button - Fixed to left edge */}
-        <button
-          onClick={handlePrev}
-          disabled={currentStep <= 1}
-          className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-r-full rounded-l-none p-6 text-3xl shadow-2xl z-50 hover:bg-green-600 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-          style={{ 
-            clipPath: 'polygon(0 0, 100% 10%, 100% 90%, 0 100%)',
-            paddingLeft: '1.5rem',
-            paddingRight: '2rem',
-          }}
-        >
-          ←
-        </button>
+        {/* Prev Button - Fixed to left edge (hidden when hidePrev) */}
+        {!hidePrev && (
+          <button
+            onClick={handlePrev}
+            disabled={currentStep <= 1}
+            className="fixed left-0 top-1/2 transform -translate-y-1/2 bg-green-500 text-white rounded-r-full rounded-l-none p-6 text-3xl shadow-2xl z-50 hover:bg-green-600 transition-all hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+            style={{ 
+              clipPath: 'polygon(0 0, 100% 10%, 100% 90%, 0 100%)',
+              paddingLeft: '1.5rem',
+              paddingRight: '2rem',
+            }}
+          >
+            ←
+          </button>
+        )}
 
         <div className="w-full max-w-6xl mx-auto px-8 md:px-16 lg:px-24 py-4">
           {children}

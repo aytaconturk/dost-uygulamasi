@@ -549,6 +549,7 @@ export default function L4Step2() {
                       storyId={storyId}
                       level={4}
                       step={2}
+                      disabled={isProcessingResponse}
                     />
                   </div>
                 </>

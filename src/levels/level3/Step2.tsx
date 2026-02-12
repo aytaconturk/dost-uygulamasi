@@ -7,7 +7,7 @@ import type { RootState } from '../../store/store';
 import { getAppMode } from '../../lib/api';
 import { useStepContext } from '../../contexts/StepContext';
 import { getStoryImageUrl, getAssetUrl } from '../../lib/image-utils';
-import { getPlaybackRate } from '../../components/SidebarSettings';
+import { getPlaybackRate, getLevel3Step2ReadingSeconds } from '../../components/SidebarSettings';
 import { useAudioPlaybackRate } from '../../hooks/useAudioPlaybackRate';
 import { submitReadingSpeedAnalysis } from '../../lib/level3-api';
 import { setStep2Analysis } from '../../store/level3Slice';
@@ -35,6 +35,8 @@ export default function L3Step2() {
   const totalWords = useMemo(() => countWords(fullText), [fullText]);
 
   const [targetWPM, setTargetWPM] = useState<number>(80);
+  const [goalLoaded, setGoalLoaded] = useState(false);
+  const [readingDurationSeconds, setReadingDurationSeconds] = useState<number>(360); // 6 dk default, ayarlardan düzenlenebilir
   const [phase, setPhase] = useState<'intro'|'countdown'|'reading'|'analyzing'|'done'>('intro');
   const [count, setCount] = useState(3);
   const startTimeRef = useRef<number | null>(null);
@@ -48,7 +50,7 @@ export default function L3Step2() {
   const streamRef = useRef<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 dakika - paragrafın tamamını okuma için
+  const [timeLeft, setTimeLeft] = useState<number>(360);
   const [countdownStartTime, setCountdownStartTime] = useState<number | null>(null);
 
   // Analysis result state
@@ -96,21 +98,34 @@ export default function L3Step2() {
 
   // Load target WPM from Supabase (from Level 2 reading goal)
   useEffect(() => {
-    if (!student) return;
+    if (!student) {
+      setGoalLoaded(true);
+      return;
+    }
     
     const loadTargetWPM = async () => {
       try {
         const goal = await getLatestReadingGoal(student.id, storyId, 2);
-        if (goal) {
+        if (goal != null) {
           setTargetWPM(goal);
         }
       } catch (err) {
         console.error('Error loading reading goal:', err);
+      } finally {
+        setGoalLoaded(true);
       }
     };
 
     loadTargetWPM();
   }, [student?.id, storyId]);
+
+  // Load reading duration from settings (default 360 s = 6 min)
+  useEffect(() => {
+    getLevel3Step2ReadingSeconds().then((sec) => {
+      setReadingDurationSeconds(sec);
+      setTimeLeft(sec);
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -253,7 +268,7 @@ export default function L3Step2() {
           
           const testResult: Level3Step2AnalysisResult = {
             speedSummary: apiResponse.speedSummary || '',
-            hedefOkuma: apiResponse.hedefOkuma || targetWPM,
+            hedefOkuma: targetWPM,
             reachedTarget: apiResponse.reachedTarget || false,
             analysisText: apiResponse.analysisText || '',
             metrics: {
@@ -334,7 +349,7 @@ export default function L3Step2() {
     startTimeRef.current = Date.now();
     setCountdownStartTime(Date.now());
     setRecordingStartTime(Date.now());
-    setTimeLeft(180); // Reset timer
+    setTimeLeft(readingDurationSeconds);
 
     // Start audio recording with MIME type fallback
     try {
@@ -378,7 +393,7 @@ export default function L3Step2() {
 
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - countdownStartTime) / 1000);
-      const remaining = Math.max(0, 180 - elapsed); // 3 minutes
+      const remaining = Math.max(0, readingDurationSeconds - elapsed);
       setTimeLeft(remaining);
 
       if (remaining === 0) {
@@ -482,7 +497,7 @@ export default function L3Step2() {
       
       const result: Level3Step2AnalysisResult = {
         speedSummary: apiResponse.speedSummary || '',
-        hedefOkuma: apiResponse.hedefOkuma || targetWPM,
+        hedefOkuma: targetWPM,
         reachedTarget: apiResponse.reachedTarget || false,
         analysisText: apiResponse.analysisText || '',
         metrics: {
@@ -561,13 +576,16 @@ export default function L3Step2() {
               </div>
             )}
             
-            {(appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
+            {goalLoaded && (appMode === 'dev' || introAudioEnded || !isAudioPlaying) && (
               <button 
                 onClick={startCountdown} 
                 className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold"
               >
                 Başla
               </button>
+            )}
+            {!goalLoaded && (
+              <p className="text-gray-500 text-sm">Okuma hedefi yükleniyor...</p>
             )}
           </div>
         </div>

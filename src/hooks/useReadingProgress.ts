@@ -57,8 +57,11 @@ export function useReadingProgress() {
   };
 
   const isStoryCompleted = (storyId: number): boolean => {
-    const prog = getStoryProgress(storyId);
-    return prog ? prog.completed_levels.includes(5) : false;
+    const prog = getStoryProgress(storyId) as (ReadingProgress & { is_completed?: boolean }) | undefined;
+    if (!prog) return false;
+    // Veritabanındaki is_completed veya 5. seviyenin tamamlanmış olması
+    if (prog.is_completed === true) return true;
+    return Array.isArray(prog.completed_levels) && prog.completed_levels.includes(5);
   };
 
   return {

@@ -83,9 +83,6 @@ export default function Step4() {
         <h3 className="text-3xl font-extrabold text-purple-800 mb-2">Tebrikler!</h3>
         <p className="text-lg text-gray-700 mb-1">4. Seviye başarıyla tamamlandı.</p>
         <p className="text-base text-gray-600 max-w-2xl">{completionText}</p>
-        <div className="mt-6 flex gap-3">
-          <button onClick={() => navigate('/')} className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-bold">Ana Sayfaya Dön</button>
-        </div>
       </div>
     </div>
   );

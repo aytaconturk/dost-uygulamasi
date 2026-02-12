@@ -8,6 +8,8 @@ interface Props {
   recordingDurationMs?: number;
   autoSubmit?: boolean;
   compact?: boolean;
+  /** Değerlendirme aşamasında butonu pasif yap (çift tıklama engeli) */
+  disabled?: boolean;
   // Test audio için eklenen props
   storyId?: number;
   level?: number;
@@ -20,12 +22,14 @@ export default function VoiceRecorder({
   recordingDurationMs = 10000, 
   autoSubmit = true, 
   compact = false,
+  disabled = false,
   storyId = 1,
   level = 2,
   step = 1
 }: Props) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const hasSubmittedRef = useRef(false);
   const [recordingTimeLeft, setRecordingTimeLeft] = useState<number | null>(null);
   const [testAudioActive, setTestAudioActive] = useState(false);
   const [reading, setReading] = useState(false);
@@ -118,6 +122,7 @@ export default function VoiceRecorder({
   };
 
   const startRecording = async () => {
+    if (disabled || hasSubmittedRef.current) return;
     // Test audio aktifse, mikrofon yerine hazır sesi kullan
     if (testAudioActive) {
       useTestAudio();
@@ -248,12 +253,14 @@ export default function VoiceRecorder({
           setIsProcessing(false);
         } else {
           console.log('[Recorder] Valid recording, submitting...');
+          hasSubmittedRef.current = true;
           setIsProcessing(true);
           try {
             onSave(audioBlob);
           } catch (error) {
             console.error('[Recorder] Submit error:', error);
             alert('Ses gönderilirken hata oluştu.');
+            hasSubmittedRef.current = false;
           } finally {
             setIsProcessing(false);
           }
@@ -363,7 +370,7 @@ export default function VoiceRecorder({
         <button
           className={`record-button ${isRecording ? 'recording' : ''} ${testAudioActive ? 'test-mode' : ''}`}
           onClick={isRecording ? stopRecording : startRecording}
-          disabled={isProcessing}
+          disabled={isProcessing || disabled || hasSubmittedRef.current}
         >
           {isRecording ? (
             <>

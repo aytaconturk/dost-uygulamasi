@@ -439,6 +439,7 @@ export default function Step1() {
                               storyId={storyId}
                               level={1}
                               step={1}
+                              disabled={isProcessingVoice}
                             />
                             {isProcessingVoice && (
                               <p className="mt-4 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>

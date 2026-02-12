@@ -740,6 +740,7 @@ export default function L3Step1() {
                       storyId={storyId || 1}
                       level={3}
                       step={1}
+                      disabled={isProcessingResponse}
                     />
                   </div>
                 </>

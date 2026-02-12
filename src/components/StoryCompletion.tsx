@@ -200,7 +200,7 @@ export default function StoryCompletion() {
             <div className="text-center mb-8">
               <div className="text-6xl mb-4">🎉</div>
               <h1 className="text-4xl md:text-5xl font-extrabold text-purple-800 mb-2">
-                Hikaye Tamamlandı!
+                Metin Tamamlandı!
               </h1>
               <h2 className="text-2xl md:text-3xl font-bold text-gray-700 mb-4">
                 {storyTitle}

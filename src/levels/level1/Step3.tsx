@@ -74,7 +74,7 @@ export default function Step3() {
   const [stepCompleted, setStepCompleted] = useState(false);
 
   const stepAudio = getAssetUrl('audios/level1/seviye-1-adim-3-fable.mp3');
-  const introText = 'Şimdi bu seviyenin üçüncü basamağında metnin ilk cümlelerine bakarak metnin konusunu tahmin edeceğiz. DOST önce ilk üç paragrafın ilk cümlelerini inceleyecek, sonra sıra sana gelecek.';
+  const introText = 'Şimdi bu seviyenin üçüncü basamağında metnin ilk cümlelerine bakarak metnin konusunu tahmin edeceğiz. DOST önce ilk üç paragrafın ilk cümlelerini inceleyecek, sonra sıra sana gelecek. Sarı renkle vurgulamış cümleleri dikkatle incele.';
 
   const paragraphs = useMemo(() => story ? getParagraphs(story.id) : [], [story?.id]);
 
@@ -501,6 +501,17 @@ export default function Step3() {
               {paragraphs.map((p, idx) => renderParagraph(p, idx))}
             </div>
 
+            {/* Cevap değerlendiriliyor uyarı ekranı */}
+            {isProcessingVoice && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm mx-4 text-center">
+                  <div className="animate-spin rounded-full h-14 w-14 border-4 border-purple-500 border-t-transparent mx-auto mb-4" />
+                  <p className="text-xl font-semibold text-gray-800">Cevabın değerlendiriliyor</p>
+                  <p className="text-gray-600 mt-2">Lütfen bekle, DOST seni dinliyor.</p>
+                </div>
+              </div>
+            )}
+
             {/* Student's turn - only show when mascot is listening */}
             {phase === 'student' && !childrenVoiceResponse && mascotState === 'listening' && (
               <div className="mt-6 text-center">
@@ -517,6 +528,7 @@ export default function Step3() {
                   storyId={storyId}
                   level={1}
                   step={3}
+                  disabled={isProcessingVoice}
                 />
                 {isProcessingVoice && (
                   <p className="mt-2 text-blue-600 font-medium">DOST senin sözlerini değerlendiriyor...</p>

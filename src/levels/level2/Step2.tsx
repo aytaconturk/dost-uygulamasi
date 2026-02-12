@@ -52,8 +52,8 @@ export default function Level2Step2() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Overall Score */}
           <div className="md:col-span-2 lg:col-span-1 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-            <h4 className="font-bold text-blue-900 mb-2">Genel Puan</h4>
-            <p className="text-3xl font-bold text-blue-600">{Math.round(analysisResult?.overallScore || 0)}</p>
+            <h4 className="font-bold text-blue-900 mb-2">Okuma hızı (bir dakikada okunan doğru sözcük sayısı)</h4>
+            <p className="text-3xl font-bold text-blue-600">{Math.round(analysisResult?.readingSpeed?.correctWordsPerMinute ?? analysisResult?.overallScore ?? 0)}</p>
           </div>
 
           {/* Reading Speed */}
